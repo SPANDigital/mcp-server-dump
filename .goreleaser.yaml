@@ -21,7 +21,7 @@ builds:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
 
 kos:
-  - repository: ghcr.io/spandigital/mcp-server-dump
+  - image: ghcr.io/spandigital/mcp-server-dump
     tags:
       - '{{.Tag}}'
       - latest
@@ -33,8 +33,7 @@ kos:
       - linux/arm64
 
 archives:
-  - format: tar.gz
-    name_template: >-
+  - name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
       {{- if eq .Arch "amd64" }}x86_64
@@ -44,12 +43,16 @@ archives:
     format_overrides:
     - goos: windows
       format: zip
+    - goos: linux
+      format: tar.gz
+    - goos: darwin
+      format: tar.gz
 
 checksum:
   name_template: 'checksums.txt'
 
 snapshot:
-  name_template: "{{ incpatch .Version }}-next"
+  version_template: "{{ incpatch .Version }}-next"
 
 changelog:
   sort: asc
