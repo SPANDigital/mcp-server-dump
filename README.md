@@ -72,8 +72,8 @@ go build -o mcp-server-dump
 # Connect to a UVX package (Python equivalent of npx)
 ./mcp-server-dump uvx mcp-server-sqlite --db-path /path/to/database.db
 
-# Run directly with go (latest version)
-go run github.com/SPANDigital/mcp-server-dump@latest node server.js
+# Run a Go MCP server directly
+./mcp-server-dump go run github.com/example/mcp-server@latest --example-argument=something
 
 # Connect to a streamable HTTP transport server
 ./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
