@@ -5,9 +5,9 @@ A command-line tool to dump MCP (Model Context Protocol) server capabilities and
 ## Features
 
 - **Multiple Transport Support**: Connect to MCP servers via various transports:
-  - STDIO/Command transport (subprocess execution)
-  - Server-Sent Events (SSE) over HTTP
+  - STDIO/Command transport (subprocess execution)  
   - Streamable HTTP transport
+  - Server-Sent Events (SSE) over HTTP *(deprecated)*
 - Extract server information, capabilities, tools, resources, and prompts
 - Output documentation in Markdown, JSON, HTML, or PDF format *(PDF format is WIP)*
 - **Enhanced Markdown output with clickable Table of Contents**
@@ -68,6 +68,18 @@ go build -o mcp-server-dump
 
 # Connect to an NPX package
 ./mcp-server-dump npx @modelcontextprotocol/server-filesystem /path/to/directory
+
+# Connect to a UVX package (Python equivalent of npx)
+./mcp-server-dump uvx mcp-server-sqlite --db-path /path/to/database.db
+
+# Run directly with go (latest version)
+go run github.com/SPANDigital/mcp-server-dump@latest node server.js
+
+# Connect to a streamable HTTP transport server
+./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
+
+# Connect to a streamable HTTP transport server (alternative endpoint)
+./mcp-server-dump --transport=streamable --endpoint="http://localhost:8080/mcp"
 ```
 
 ### Transport Options
@@ -77,17 +89,14 @@ go build -o mcp-server-dump
 ./mcp-server-dump --transport=command node server.js
 ./mcp-server-dump --transport=command --server-command="python server.py --arg value"
 
-# SSE transport - connects to HTTP Server-Sent Events endpoint
-./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse"
-
 # Streamable transport - connects to HTTP streamable endpoint
 ./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
 
 # Configure HTTP timeout for web transports
-./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" --timeout=60s
+./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" --timeout=60s
 
 # Add custom HTTP headers for authentication or other purposes
-./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" \
+./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" \
   -H "Authorization:Bearer your-token-here" \
   -H "X-API-Key:your-api-key"
 
@@ -333,6 +342,29 @@ You can customize these templates to adjust the output format to your needs. The
 
 - `anchor` - Converts strings to URL-safe anchor names
 - `json` - Formats objects as indented JSON
+
+## Deprecated Features
+
+The following features are deprecated and included only for backward compatibility:
+
+### SSE Transport (Server-Sent Events)
+
+⚠️ **Deprecated for new implementations**: While SSE transport continues to work and is supported for backward compatibility, new MCP servers should not be created using SSE. The streamable transport is preferred for new implementations.
+
+```bash
+# SSE transport - connects to HTTP Server-Sent Events endpoint
+./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse"
+
+# Configure HTTP timeout for SSE transport
+./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" --timeout=60s
+
+# Add custom HTTP headers for SSE transport
+./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" \
+  -H "Authorization:Bearer your-token-here" \
+  -H "X-API-Key:your-api-key"
+```
+
+**Note**: SSE transport remains fully functional for existing servers. Streamable transport is recommended for new server implementations, but is not a drop-in replacement and may require server-side changes.
 
 ## Contributing
 
