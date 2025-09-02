@@ -7,6 +7,8 @@ A command-line tool to dump MCP (Model Context Protocol) server capabilities and
 - Connect to MCP servers via STDIO (command execution)
 - Extract server information, capabilities, tools, resources, and prompts
 - Output documentation in Markdown or JSON format
+- **Enhanced Markdown output with clickable Table of Contents**
+- **External Go templates for customizable documentation**
 - Built with the official [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 - Clean CLI interface powered by [Kong](https://github.com/alecthomas/kong)
 
@@ -94,21 +96,30 @@ Flags:
 
 ## Example Output
 
-### Markdown Format
+### Markdown Format (Enhanced with Table of Contents)
 ```markdown
 # example-server
 
 **Version:** 1.0.0
 
-## Capabilities
+## Table of Contents
 
-- Tools: true
-- Resources: true
-- Prompts: false
+- [Capabilities](#capabilities)
+- [Tools](#tools)
+  - [read_file](#tool-read-file)
+  - [write_file](#tool-write-file)
+- [Resources](#resources)
+  - [example.txt](#resource-example-txt)
 
-## Tools
+## Capabilities {#capabilities}
 
-### read_file
+- **Tools:** ✅ Supported
+- **Resources:** ✅ Supported
+- **Prompts:** ❌ Not supported
+
+## Tools {#tools}
+
+### read_file {#tool-read-file}
 
 Read contents of a file from the filesystem
 
@@ -125,9 +136,9 @@ Read contents of a file from the filesystem
 }
 ```
 
-## Resources
+## Resources {#resources}
 
-### file://example.txt
+### example.txt {#resource-example-txt}
 
 **URI:** `file://example.txt`
 
@@ -185,6 +196,21 @@ Example text file resource
 
 - [github.com/modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk) - Official MCP Go SDK
 - [github.com/alecthomas/kong](https://github.com/alecthomas/kong) - Command line parser
+
+## Template Customization
+
+The markdown output is generated using Go templates located in the `templates/` directory:
+
+- `base.md.tmpl` - Main document structure with Table of Contents
+- `capabilities.md.tmpl` - Server capabilities section
+- `tools.md.tmpl` - Tools listing with anchored headings
+- `resources.md.tmpl` - Resources section
+- `prompts.md.tmpl` - Prompts section
+
+You can customize these templates to adjust the output format to your needs. The templates use Go's `text/template` package with custom functions:
+
+- `anchor` - Converts strings to URL-safe anchor names
+- `json` - Formats objects as indented JSON
 
 ## Contributing
 

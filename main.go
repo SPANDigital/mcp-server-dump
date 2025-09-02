@@ -1,13 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
+	"text/template"
 
 	"github.com/alecthomas/kong"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -18,6 +22,9 @@ var (
 	commit  = "none"    //nolint:unused // set by goreleaser
 	date    = "unknown" //nolint:unused // set by goreleaser
 )
+
+//go:embed templates/*.tmpl
+var templateFS embed.FS
 
 type CLI struct {
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
@@ -176,7 +183,11 @@ func run(cli CLI) error {
 		}
 		output = string(data)
 	case "markdown":
-		output = formatMarkdown(&info)
+		formatted, err := formatMarkdown(&info)
+		if err != nil {
+			return fmt.Errorf("failed to format markdown: %w", err)
+		}
+		output = formatted
 	default:
 		return fmt.Errorf("unknown format: %s", cli.Format)
 	}
@@ -194,62 +205,51 @@ func run(cli CLI) error {
 	return nil
 }
 
-func formatMarkdown(info *ServerInfo) string {
-	var sb strings.Builder
+// anchorName converts a string to a URL-safe anchor name
+func anchorName(s string) string {
+	// Convert to lowercase
+	s = strings.ToLower(s)
+	// Replace spaces and underscores with hyphens
+	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "_", "-")
+	// Remove non-alphanumeric characters except hyphens
+	reg := regexp.MustCompile(`[^a-z0-9-]+`)
+	s = reg.ReplaceAllString(s, "")
+	// Remove multiple consecutive hyphens
+	reg = regexp.MustCompile(`-+`)
+	s = reg.ReplaceAllString(s, "-")
+	// Trim hyphens from start and end
+	s = strings.Trim(s, "-")
+	return s
+}
 
-	sb.WriteString(fmt.Sprintf("# %s\n\n", info.Name))
-	sb.WriteString(fmt.Sprintf("**Version:** %s\n\n", info.Version))
+// jsonIndent formats an interface{} as indented JSON
+func jsonIndent(v interface{}) (string, error) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
 
-	sb.WriteString("## Capabilities\n\n")
-	sb.WriteString(fmt.Sprintf("- Tools: %v\n", info.Capabilities.Tools))
-	sb.WriteString(fmt.Sprintf("- Resources: %v\n", info.Capabilities.Resources))
-	sb.WriteString(fmt.Sprintf("- Prompts: %v\n\n", info.Capabilities.Prompts))
-
-	if len(info.Tools) > 0 {
-		sb.WriteString("## Tools\n\n")
-		for _, tool := range info.Tools {
-			sb.WriteString(fmt.Sprintf("### %s\n\n", tool.Name))
-			if tool.Description != "" {
-				sb.WriteString(fmt.Sprintf("%s\n\n", tool.Description))
-			}
-			if tool.InputSchema != nil {
-				schemaJSON, _ := json.MarshalIndent(tool.InputSchema, "", "  ")
-				sb.WriteString("**Input Schema:**\n```json\n")
-				sb.WriteString(string(schemaJSON))
-				sb.WriteString("\n```\n\n")
-			}
-		}
+func formatMarkdown(info *ServerInfo) (string, error) {
+	// Define template functions
+	funcMap := template.FuncMap{
+		"anchor": anchorName,
+		"json":   jsonIndent,
 	}
 
-	if len(info.Resources) > 0 {
-		sb.WriteString("## Resources\n\n")
-		for _, resource := range info.Resources {
-			sb.WriteString(fmt.Sprintf("### %s\n\n", resource.Name))
-			sb.WriteString(fmt.Sprintf("**URI:** `%s`\n\n", resource.URI))
-			if resource.Description != "" {
-				sb.WriteString(fmt.Sprintf("%s\n\n", resource.Description))
-			}
-			if resource.MimeType != "" {
-				sb.WriteString(fmt.Sprintf("**MIME Type:** %s\n\n", resource.MimeType))
-			}
-		}
+	// Parse all templates
+	tmpl, err := template.New("base.md.tmpl").Funcs(funcMap).ParseFS(templateFS, "templates/*.tmpl")
+	if err != nil {
+		return "", fmt.Errorf("failed to parse templates: %w", err)
 	}
 
-	if len(info.Prompts) > 0 {
-		sb.WriteString("## Prompts\n\n")
-		for _, prompt := range info.Prompts {
-			sb.WriteString(fmt.Sprintf("### %s\n\n", prompt.Name))
-			if prompt.Description != "" {
-				sb.WriteString(fmt.Sprintf("%s\n\n", prompt.Description))
-			}
-			if prompt.Arguments != nil {
-				argsJSON, _ := json.MarshalIndent(prompt.Arguments, "", "  ")
-				sb.WriteString("**Arguments:**\n```json\n")
-				sb.WriteString(string(argsJSON))
-				sb.WriteString("\n```\n\n")
-			}
-		}
+	// Execute the base template
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, info); err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	return sb.String()
+	return buf.String(), nil
 }

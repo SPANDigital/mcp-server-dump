@@ -1,0 +1,40 @@
+{{- /* Base template for MCP server documentation with Table of Contents */ -}}
+# {{.Name}}
+
+**Version:** {{.Version}}
+
+## Table of Contents
+
+- [Capabilities](#capabilities)
+{{- if .Tools}}
+- [Tools](#tools)
+  {{- range .Tools}}
+  - [{{.Name}}](#tool-{{.Name | anchor}})
+  {{- end}}
+{{- end}}
+{{- if .Resources}}
+- [Resources](#resources)
+  {{- range .Resources}}
+  - [{{.Name}}](#resource-{{.Name | anchor}})
+  {{- end}}
+{{- end}}
+{{- if .Prompts}}
+- [Prompts](#prompts)
+  {{- range .Prompts}}
+  - [{{.Name}}](#prompt-{{.Name | anchor}})
+  {{- end}}
+{{- end}}
+
+{{template "capabilities" .}}
+
+{{- if .Tools}}
+{{template "tools" .}}
+{{- end}}
+
+{{- if .Resources}}
+{{template "resources" .}}
+{{- end}}
+
+{{- if .Prompts}}
+{{template "prompts" .}}
+{{- end}}

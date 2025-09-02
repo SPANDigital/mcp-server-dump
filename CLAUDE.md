@@ -45,6 +45,12 @@ golangci-lint run
 - `go.mod` - Go module dependencies
 - `README.md` - Project documentation
 - `.gitignore` - Git ignore patterns for Go projects
+- `templates/` - Go template files for markdown output formatting
+  - `base.md.tmpl` - Main document structure with Table of Contents
+  - `capabilities.md.tmpl` - Server capabilities section
+  - `tools.md.tmpl` - Tools listing template
+  - `resources.md.tmpl` - Resources section template
+  - `prompts.md.tmpl` - Prompts section template
 
 ## Dependencies
 
@@ -86,6 +92,9 @@ The tool uses the following architecture:
 3. **STDIO Communication** - JSON-RPC over stdin/stdout with the MCP server
 4. **Data Extraction** - Lists tools, resources, prompts via MCP protocol methods
 5. **Output Formatting** - Converts server data to Markdown or JSON format
+   - Markdown uses Go text/template with embedded template files
+   - Templates support Table of Contents with anchor links
+   - Custom template functions for formatting (anchor generation, JSON indentation)
 
 ## Code Structure
 
@@ -98,7 +107,16 @@ main.go
 │   ├── MCP client connection
 │   ├── Server capability introspection
 │   └── Output formatting
-└── formatMarkdown() - Markdown output formatter
+├── formatMarkdown() - Template-based markdown formatter
+├── anchorName() - Convert strings to URL-safe anchors
+└── jsonIndent() - Format JSON with indentation
+
+templates/
+├── base.md.tmpl - Main template with TOC structure
+├── capabilities.md.tmpl - Capabilities section with emoji indicators
+├── tools.md.tmpl - Tools listing with anchored headings
+├── resources.md.tmpl - Resources section
+└── prompts.md.tmpl - Prompts section
 ```
 
 ## Troubleshooting

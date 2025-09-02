@@ -1,0 +1,19 @@
+{{- /* Template for prompts section */ -}}
+{{define "prompts"}}
+## Prompts {#prompts}
+
+{{range .Prompts}}
+### {{.Name}} {#prompt-{{.Name | anchor}}}
+
+{{if .Description -}}
+{{.Description}}
+
+{{end -}}
+{{- if .Arguments}}
+**Arguments:**
+```json
+{{.Arguments | json}}
+```
+{{end}}
+{{end}}
+{{end}}
