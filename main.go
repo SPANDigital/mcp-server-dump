@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/alecthomas/kong"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -27,11 +29,20 @@ var (
 var templateFS embed.FS
 
 type CLI struct {
+	// Output options
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
 	Format string `kong:"short='f',default='markdown',enum='markdown,json',help='Output format'"`
 
-	Command string   `kong:"arg,required,help='Command to execute the MCP server'"`
-	Args    []string `kong:"arg,optional,help='Arguments to pass to the MCP server command'"`
+	// Transport selection
+	Transport string `kong:"short='t',default='command',enum='command,sse,streamable',help='Transport type'"`
+
+	// Transport-specific options
+	Endpoint      string        `kong:"help='HTTP endpoint for SSE/Streamable transports'"`
+	Timeout       time.Duration `kong:"default='30s',help='HTTP timeout for SSE/Streamable transports'"`
+	ServerCommand string        `kong:"help='Server command for explicit command transport'"`
+
+	// Legacy command format (backward compatibility)
+	Args []string `kong:"arg,optional,help='Command and arguments (legacy format for backward compatibility)'"`
 }
 
 type ServerInfo struct {
@@ -68,6 +79,65 @@ type Prompt struct {
 	Arguments   interface{} `json:"arguments,omitempty"`
 }
 
+// createTransport creates an appropriate MCP transport based on CLI options
+func createTransport(cli *CLI) (mcp.Transport, error) {
+	// Handle backward compatibility: if Args provided but no explicit transport, use command
+	if len(cli.Args) > 0 && cli.Transport == "command" {
+		if len(cli.Args) == 0 {
+			return nil, fmt.Errorf("no command specified")
+		}
+		// #nosec G204 - Command and args are provided by user intentionally
+		cmd := exec.Command(cli.Args[0], cli.Args[1:]...)
+		return &mcp.CommandTransport{Command: cmd}, nil
+	}
+
+	switch cli.Transport {
+	case "command":
+		if cli.ServerCommand == "" && len(cli.Args) == 0 {
+			return nil, fmt.Errorf("command transport requires either --server-command or legacy args")
+		}
+
+		var cmd *exec.Cmd
+		if cli.ServerCommand != "" {
+			// Parse the command string - simple space splitting for now
+			parts := strings.Fields(cli.ServerCommand)
+			if len(parts) == 0 {
+				return nil, fmt.Errorf("empty server command")
+			}
+			// #nosec G204 - Command is provided by user intentionally
+			cmd = exec.Command(parts[0], parts[1:]...)
+		} else {
+			// Use legacy args format
+			// #nosec G204 - Command and args are provided by user intentionally
+			cmd = exec.Command(cli.Args[0], cli.Args[1:]...)
+		}
+		return &mcp.CommandTransport{Command: cmd}, nil
+
+	case "sse":
+		if cli.Endpoint == "" {
+			return nil, fmt.Errorf("SSE transport requires --endpoint")
+		}
+		httpClient := &http.Client{Timeout: cli.Timeout}
+		return &mcp.SSEClientTransport{
+			Endpoint:   cli.Endpoint,
+			HTTPClient: httpClient,
+		}, nil
+
+	case "streamable":
+		if cli.Endpoint == "" {
+			return nil, fmt.Errorf("streamable transport requires --endpoint")
+		}
+		httpClient := &http.Client{Timeout: cli.Timeout}
+		return &mcp.StreamableClientTransport{
+			Endpoint:   cli.Endpoint,
+			HTTPClient: httpClient,
+		}, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported transport type: %s", cli.Transport)
+	}
+}
+
 func main() {
 	var cli CLI
 	ctx := kong.Parse(&cli,
@@ -76,18 +146,17 @@ func main() {
 		kong.UsageOnError(),
 	)
 
-	if err := run(cli); err != nil {
+	if err := run(&cli); err != nil {
 		ctx.FatalIfErrorf(err)
 	}
 }
 
-func run(cli CLI) error {
-	// Create the command
-	// #nosec G204 - Command and args are provided by user intentionally
-	cmd := exec.Command(cli.Command, cli.Args...)
-
-	// Create command transport
-	transport := &mcp.CommandTransport{Command: cmd}
+func run(cli *CLI) error {
+	// Create transport based on CLI options
+	transport, err := createTransport(cli)
+	if err != nil {
+		return fmt.Errorf("failed to create transport: %w", err)
+	}
 
 	// Create MCP client
 	mcpClient := mcp.NewClient(

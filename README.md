@@ -4,11 +4,15 @@ A command-line tool to dump MCP (Model Context Protocol) server capabilities and
 
 ## Features
 
-- Connect to MCP servers via STDIO (command execution)
+- **Multiple Transport Support**: Connect to MCP servers via various transports:
+  - STDIO/Command transport (subprocess execution)
+  - Server-Sent Events (SSE) over HTTP
+  - Streamable HTTP transport
 - Extract server information, capabilities, tools, resources, and prompts
 - Output documentation in Markdown or JSON format
 - **Enhanced Markdown output with clickable Table of Contents**
 - **External Go templates for customizable documentation**
+- **Backward compatible** with existing command-line usage
 - Built with the official [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 - Clean CLI interface powered by [Kong](https://github.com/alecthomas/kong)
 
@@ -56,7 +60,7 @@ go build -o mcp-server-dump
 ### Basic Usage
 
 ```bash
-# Connect to a Node.js MCP server
+# Connect to a Node.js MCP server (default command transport)
 ./mcp-server-dump node server.js
 
 # Connect to a Python MCP server with arguments
@@ -64,6 +68,23 @@ go build -o mcp-server-dump
 
 # Connect to an NPX package
 ./mcp-server-dump npx @modelcontextprotocol/server-filesystem /path/to/directory
+```
+
+### Transport Options
+
+```bash
+# Command transport (default) - runs server as subprocess
+./mcp-server-dump --transport=command node server.js
+./mcp-server-dump --transport=command --server-command="python server.py --arg value"
+
+# SSE transport - connects to HTTP Server-Sent Events endpoint
+./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse"
+
+# Streamable transport - connects to HTTP streamable endpoint
+./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
+
+# Configure HTTP timeout for web transports
+./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" --timeout=60s
 ```
 
 ### Output Options
@@ -82,16 +103,19 @@ go build -o mcp-server-dump
 ### Command Line Options
 
 ```
-Usage: mcp-server-dump <command> [<args> ...] [flags]
+Usage: mcp-server-dump [<args> ...] [flags]
 
 Arguments:
-  <command>       Command to execute the MCP server
-  [<args> ...]    Arguments to pass to the MCP server command
+  [<args> ...]               Command and arguments (legacy format for backward compatibility)
 
 Flags:
   -h, --help                 Show context-sensitive help
   -o, --output=STRING        Output file for documentation (defaults to stdout)
   -f, --format="markdown"    Output format (markdown, json)
+  -t, --transport="command"  Transport type (command, sse, streamable)
+      --endpoint=STRING      HTTP endpoint for SSE/Streamable transports
+      --timeout=30s          HTTP timeout for SSE/Streamable transports
+      --server-command=STRING Server command for explicit command transport
 ```
 
 ## Example Output
