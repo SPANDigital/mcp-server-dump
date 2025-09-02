@@ -1,4 +1,4 @@
-module github.com/spandigtial/mcp-server-dump
+module github.com/spandigital/mcp-server-dump
 
 go 1.25.0
 
