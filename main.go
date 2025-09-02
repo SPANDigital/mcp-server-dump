@@ -17,6 +17,10 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/renderer/html"
 )
 
 var (
@@ -31,7 +35,7 @@ var templateFS embed.FS
 type CLI struct {
 	// Output options
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
-	Format string `kong:"short='f',default='markdown',enum='markdown,json',help='Output format'"`
+	Format string `kong:"short='f',default='markdown',enum='markdown,json,html',help='Output format'"`
 	NoTOC  bool   `kong:"help='Disable table of contents in markdown output'"`
 
 	// Transport selection
@@ -322,6 +326,12 @@ func run(cli *CLI) error {
 			return fmt.Errorf("failed to format markdown: %w", err)
 		}
 		output = formatted
+	case "html":
+		formatted, err := formatHTML(&info, !cli.NoTOC)
+		if err != nil {
+			return fmt.Errorf("failed to format HTML: %w", err)
+		}
+		output = formatted
 	default:
 		return fmt.Errorf("unknown format: %s", cli.Format)
 	}
@@ -364,6 +374,39 @@ func jsonIndent(v interface{}) (string, error) {
 		return "", err
 	}
 	return string(b), nil
+}
+
+func formatHTML(info *ServerInfo, includeTOC bool) (string, error) {
+	// First generate markdown
+	markdown, err := formatMarkdown(info, includeTOC)
+	if err != nil {
+		return "", fmt.Errorf("failed to format markdown: %w", err)
+	}
+
+	// Configure goldmark with GitHub Flavored Markdown extensions
+	md := goldmark.New(
+		goldmark.WithExtensions(
+			extension.GFM,         // GitHub Flavored Markdown
+			extension.Footnote,    // Footnotes
+			extension.Typographer, // Typographic substitutions
+		),
+		goldmark.WithParserOptions(
+			parser.WithAutoHeadingID(), // Generate heading IDs
+			parser.WithAttribute(),     // Support heading attributes
+		),
+		goldmark.WithRendererOptions(
+			html.WithHardWraps(), // Convert line breaks to <br>
+			html.WithUnsafe(),    // Allow raw HTML (needed for our templates)
+		),
+	)
+
+	// Convert markdown to HTML
+	var buf bytes.Buffer
+	if err := md.Convert([]byte(markdown), &buf); err != nil {
+		return "", fmt.Errorf("failed to convert markdown to HTML: %w", err)
+	}
+
+	return buf.String(), nil
 }
 
 func formatMarkdown(info *ServerInfo, includeTOC bool) (string, error) {

@@ -4,7 +4,7 @@ This file contains configuration and commands for Claude Code to assist with thi
 
 ## Project Overview
 
-mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown or JSON format.
+mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown, JSON, or HTML format.
 
 ## Development Commands
 
@@ -57,6 +57,7 @@ golangci-lint run
 ### Production Dependencies
 - `github.com/modelcontextprotocol/go-sdk` - Official MCP Go SDK for client/server communication
 - `github.com/alecthomas/kong` - Command line argument parsing library
+- `github.com/yuin/goldmark` - Markdown to HTML converter with GitHub Flavored Markdown support
 
 ### Development Tools
 - Go 1.25.0+ - Required Go version
@@ -81,6 +82,9 @@ golangci-lint run
 # Disable table of contents in markdown output
 ./mcp-server-dump --no-toc node server.js
 
+# Generate HTML output
+./mcp-server-dump -f html node server.js
+
 # Output to JSON file
 ./mcp-server-dump -f json -o output.json python mcp_server.py
 ```
@@ -104,8 +108,9 @@ The tool uses the following architecture:
 3. **HTTP Headers Support** - Custom headers for SSE/streamable transports via HeaderRoundTripper
 4. **MCP Communication** - JSON-RPC over the selected transport
 5. **Data Extraction** - Lists tools, resources, prompts via MCP protocol methods
-6. **Output Formatting** - Converts server data to Markdown or JSON format
+6. **Output Formatting** - Converts server data to Markdown, JSON, or HTML format
    - Markdown uses Go text/template with embedded template files
+   - HTML generated from Markdown using Goldmark with GitHub Flavored Markdown extensions
    - Templates support Table of Contents with anchor links
    - Custom template functions for formatting (anchor generation, JSON indentation)
 
@@ -124,6 +129,7 @@ main.go
 │   ├── Server capability introspection
 │   └── Output formatting
 ├── formatMarkdown() - Template-based markdown formatter
+├── formatHTML() - Goldmark-based HTML formatter (converts markdown to HTML)
 ├── anchorName() - Convert strings to URL-safe anchors
 └── jsonIndent() - Format JSON with indentation
 
