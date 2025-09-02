@@ -30,6 +30,15 @@ go mod tidy
 go mod download
 ```
 
+### Linting
+```bash
+# Install golangci-lint v2.4.0 (required for Go 1.25 support)
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0
+
+# Run linter (may need to use $GOPATH/bin/golangci-lint if not in PATH)
+golangci-lint run
+```
+
 ## Key Files
 
 - `main.go` - Main application logic and MCP client implementation
@@ -117,3 +126,7 @@ When making changes:
 2. Run `go fmt` and `go vet` before committing
 3. Test with multiple MCP server implementations
 4. Update this CLAUDE.md file for significant architectural changes
+- This project should not have a Dockerfile, I will use ko via goreleaser to build container images
+- Wherever possible use Context7, go doc, and github to source the latest documentation
+- GHCR container repository owner is spandigital, not richardwooding
+- Commands installed via "go install" are located in $GOPATH/bin if not in PATH
