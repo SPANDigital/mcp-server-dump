@@ -1,9 +1,9 @@
 {{- /* Template for tools section */ -}}
 {{define "tools"}}
-## Tools {#tools}
+## Tools
 
 {{range .Tools}}
-### {{.Name}} {#tool-{{.Name | anchor}}}
+### {{.Name}}
 
 {{if .Description -}}
 {{.Description}}

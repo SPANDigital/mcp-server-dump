@@ -9,19 +9,19 @@
 {{- if .Tools}}
 - [Tools](#tools)
   {{- range .Tools}}
-  - [{{.Name}}](#tool-{{.Name | anchor}})
+  - [{{.Name}}](#{{.Name | anchor}})
   {{- end}}
 {{- end}}
 {{- if .Resources}}
 - [Resources](#resources)
   {{- range .Resources}}
-  - [{{.Name}}](#resource-{{.Name | anchor}})
+  - [{{.Name}}](#{{.Name | anchor}})
   {{- end}}
 {{- end}}
 {{- if .Prompts}}
 - [Prompts](#prompts)
   {{- range .Prompts}}
-  - [{{.Name}}](#prompt-{{.Name | anchor}})
+  - [{{.Name}}](#{{.Name | anchor}})
   {{- end}}
 {{- end}}
 
