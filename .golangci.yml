@@ -65,4 +65,5 @@ formatters:
     gofmt:
       simplify: true
     goimports:
-      local-prefixes: github.com/spandigital/mcp-server-dump
+      local-prefixes: 
+        - github.com/spandigital/mcp-server-dump
