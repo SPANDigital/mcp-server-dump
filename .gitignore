@@ -8,6 +8,9 @@
 *.so
 *.dylib
 
+# Project binary
+mcp-server-dump
+
 # Test binary, built with `go test -c`
 *.test
 
