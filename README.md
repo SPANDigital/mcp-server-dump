@@ -21,9 +21,8 @@ gh auth login
 and have this is in your .zshrc or .bashrc
 
 ```bash
-export GITHUB_TOKEN=$(gh auth token)
 go env -w GOPRIVATE="github.com/spandigital/*"
-echo "machine github.com login richardwooding password ${GITHUB_TOKEN}" > ~/.netrc
+echo "machine github.com login richardwooding password $(gh auth token)" > ~/.netrc
 export PATH=$PATH:$(go env GOPATH)/bin
 ```
 
