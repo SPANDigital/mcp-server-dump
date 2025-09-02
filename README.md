@@ -90,6 +90,9 @@ go build -o mcp-server-dump
 ./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" \
   -H "Authorization:Bearer your-token-here" \
   -H "X-API-Key:your-api-key"
+
+# Disable table of contents in markdown output
+./mcp-server-dump --no-toc node server.js
 ```
 
 ### Output Options
@@ -117,6 +120,7 @@ Flags:
   -h, --help                 Show context-sensitive help
   -o, --output=STRING        Output file for documentation (defaults to stdout)
   -f, --format="markdown"    Output format (markdown, json)
+      --no-toc               Disable table of contents in markdown output
   -t, --transport="command"  Transport type (command, sse, streamable)
       --endpoint=STRING      HTTP endpoint for SSE/Streamable transports
       --timeout=30s          HTTP timeout for SSE/Streamable transports

@@ -1,7 +1,9 @@
-{{- /* Base template for MCP server documentation with Table of Contents */ -}}
+{{- /* Base template for MCP server documentation with optional Table of Contents */ -}}
 # {{.Name}}
 
 **Version:** {{.Version}}
+
+{{- if .IncludeTOC}}
 
 ## Table of Contents
 
@@ -23,6 +25,7 @@
   {{- range .Prompts}}
   - [{{.Name}}](#{{.Name | anchor}})
   {{- end}}
+{{- end}}
 {{- end}}
 
 {{template "capabilities" .}}

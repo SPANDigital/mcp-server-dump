@@ -78,6 +78,9 @@ golangci-lint run
 # Connect via streamable transport
 ./mcp-server-dump -t streamable --endpoint "http://localhost:3001/stream"
 
+# Disable table of contents in markdown output
+./mcp-server-dump --no-toc node server.js
+
 # Output to JSON file
 ./mcp-server-dump -f json -o output.json python mcp_server.py
 ```

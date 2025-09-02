@@ -32,6 +32,7 @@ type CLI struct {
 	// Output options
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
 	Format string `kong:"short='f',default='markdown',enum='markdown,json',help='Output format'"`
+	NoTOC  bool   `kong:"help='Disable table of contents in markdown output'"`
 
 	// Transport selection
 	Transport string `kong:"short='t',default='command',enum='command,sse,streamable',help='Transport type'"`
@@ -316,7 +317,7 @@ func run(cli *CLI) error {
 		}
 		output = string(data)
 	case "markdown":
-		formatted, err := formatMarkdown(&info)
+		formatted, err := formatMarkdown(&info, !cli.NoTOC)
 		if err != nil {
 			return fmt.Errorf("failed to format markdown: %w", err)
 		}
@@ -365,7 +366,16 @@ func jsonIndent(v interface{}) (string, error) {
 	return string(b), nil
 }
 
-func formatMarkdown(info *ServerInfo) (string, error) {
+func formatMarkdown(info *ServerInfo, includeTOC bool) (string, error) {
+	// Create template data with TOC flag
+	templateData := struct {
+		*ServerInfo
+		IncludeTOC bool
+	}{
+		ServerInfo: info,
+		IncludeTOC: includeTOC,
+	}
+
 	// Define template functions
 	funcMap := template.FuncMap{
 		"anchor": anchorName,
@@ -380,7 +390,7 @@ func formatMarkdown(info *ServerInfo) (string, error) {
 
 	// Execute the base template
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, info); err != nil {
+	if err := tmpl.Execute(&buf, templateData); err != nil {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
