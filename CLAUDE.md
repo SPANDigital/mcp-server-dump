@@ -1,0 +1,119 @@
+# Claude Code Configuration
+
+This file contains configuration and commands for Claude Code to assist with this project.
+
+## Project Overview
+
+mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via STDIO and dumps their capabilities, tools, resources, and prompts to Markdown or JSON format.
+
+## Development Commands
+
+### Build Commands
+```bash
+go build -o mcp-server-dump
+```
+
+### Test Commands
+```bash
+go test ./...
+```
+
+### Lint Commands
+```bash
+go fmt ./...
+go vet ./...
+```
+
+### Dependencies
+```bash
+go mod tidy
+go mod download
+```
+
+## Key Files
+
+- `main.go` - Main application logic and MCP client implementation
+- `go.mod` - Go module dependencies
+- `README.md` - Project documentation
+- `.gitignore` - Git ignore patterns for Go projects
+
+## Dependencies
+
+### Production Dependencies
+- `github.com/modelcontextprotocol/go-sdk` - Official MCP Go SDK for client/server communication
+- `github.com/alecthomas/kong` - Command line argument parsing library
+
+### Development Tools
+- Go 1.25.0+ - Required Go version
+- Standard Go toolchain (go fmt, go vet, go test)
+
+## Usage Examples
+
+### Basic Usage
+```bash
+# Connect to filesystem server
+./mcp-server-dump npx @modelcontextprotocol/server-filesystem /Users/username/Documents
+
+# Connect to custom Node.js server
+./mcp-server-dump node server.js --port 3000
+
+# Output to JSON file
+./mcp-server-dump -f json -o output.json python mcp_server.py
+```
+
+### Development Testing
+```bash
+# Build and test with example server
+go build -o mcp-server-dump
+./mcp-server-dump echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+```
+
+## Architecture
+
+The tool uses the following architecture:
+
+1. **CLI Parsing** - Kong library handles command line argument parsing
+2. **MCP Connection** - CommandTransport executes the target MCP server as subprocess
+3. **STDIO Communication** - JSON-RPC over stdin/stdout with the MCP server
+4. **Data Extraction** - Lists tools, resources, prompts via MCP protocol methods
+5. **Output Formatting** - Converts server data to Markdown or JSON format
+
+## Code Structure
+
+```
+main.go
+├── CLI struct - Kong configuration for command line interface
+├── ServerInfo struct - Internal representation of MCP server data
+├── run() - Main application logic
+│   ├── CommandTransport creation
+│   ├── MCP client connection
+│   ├── Server capability introspection
+│   └── Output formatting
+└── formatMarkdown() - Markdown output formatter
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Build Errors**: Run `go mod tidy` to fix dependency issues
+2. **Connection Failures**: Ensure target MCP server is executable and supports STDIO
+3. **Permission Errors**: Check file permissions for output directory
+
+### Debug Commands
+```bash
+# Check if binary works
+./mcp-server-dump -h
+
+# Test with verbose output
+./mcp-server-dump -v node server.js 2>&1 | tee debug.log
+```
+
+## Contributing
+
+When making changes:
+
+1. Update README.md with new features or usage changes
+2. Run `go fmt` and `go vet` before committing
+3. Test with multiple MCP server implementations
+4. Update this CLAUDE.md file for significant architectural changes
