@@ -1,3 +1,5 @@
+version: "2"
+
 run:
   timeout: 5m
   modules-download-mode: readonly
@@ -15,14 +17,7 @@ linters:
     - forcetypeassert
     - goconst
     - gocritic
-    - gofmt
-    - gofumpt
-    - goheader
-    - goimports
-    - gomodguard
-    - goprintffuncname
     - gosec
-    - gosimple
     - govet
     - ineffassign
     - makezero
@@ -34,37 +29,40 @@ linters:
     - predeclared
     - revive
     - staticcheck
-    - stylecheck
     - thelper
-    - typecheck
     - unconvert
     - unparam
     - unused
     - whitespace
-
-linters-settings:
-  govet:
-    enable:
-      - shadow
-  gofmt:
-    simplify: true
-  goimports:
-    local-prefixes: github.com/richardwooding/mcp-server-dump
-  gocritic:
-    enabled-tags:
-      - diagnostic
-      - experimental
-      - opinionated
-      - performance
-      - style
-  revive:
+  settings:
+    govet:
+      enable:
+        - shadow
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+    revive:
+      rules:
+        - name: exported
+          arguments: [checkPrivateReceivers]
+  exclusions:
     rules:
-      - name: exported
-        arguments: [checkPrivateReceivers]
+      - path: _test\.go
+        linters:
+          - dupl
+          - gosec
 
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - dupl
-        - gosec
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+    goimports:
+      local-prefixes: github.com/spandigital/mcp-server-dump

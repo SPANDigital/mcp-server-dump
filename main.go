@@ -97,7 +97,11 @@ func run(cli CLI) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect to MCP server: %w", err)
 	}
-	defer session.Close()
+	defer func() {
+		if err := session.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to close session: %v\n", err)
+		}
+	}()
 
 	// Get server info from the initialization result
 	initResult := session.InitializeResult()
