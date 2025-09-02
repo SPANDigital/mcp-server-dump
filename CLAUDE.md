@@ -4,7 +4,7 @@ This file contains configuration and commands for Claude Code to assist with thi
 
 ## Project Overview
 
-mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via STDIO and dumps their capabilities, tools, resources, and prompts to Markdown or JSON format.
+mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown or JSON format.
 
 ## Development Commands
 
@@ -66,11 +66,17 @@ golangci-lint run
 
 ### Basic Usage
 ```bash
-# Connect to filesystem server
+# Connect to filesystem server (command transport)
 ./mcp-server-dump npx @modelcontextprotocol/server-filesystem /Users/username/Documents
 
 # Connect to custom Node.js server
 ./mcp-server-dump node server.js --port 3000
+
+# Connect via SSE transport with headers
+./mcp-server-dump -t sse --endpoint "http://localhost:3001/sse" -H "Authorization:Bearer token"
+
+# Connect via streamable transport
+./mcp-server-dump -t streamable --endpoint "http://localhost:3001/stream"
 
 # Output to JSON file
 ./mcp-server-dump -f json -o output.json python mcp_server.py
@@ -88,10 +94,14 @@ go build -o mcp-server-dump
 The tool uses the following architecture:
 
 1. **CLI Parsing** - Kong library handles command line argument parsing
-2. **MCP Connection** - CommandTransport executes the target MCP server as subprocess
-3. **STDIO Communication** - JSON-RPC over stdin/stdout with the MCP server
-4. **Data Extraction** - Lists tools, resources, prompts via MCP protocol methods
-5. **Output Formatting** - Converts server data to Markdown or JSON format
+2. **Transport Selection** - Supports multiple transport types:
+   - Command transport: executes MCP server as subprocess with STDIO communication
+   - SSE transport: connects to HTTP Server-Sent Events endpoints
+   - Streamable transport: connects to HTTP streamable endpoints
+3. **HTTP Headers Support** - Custom headers for SSE/streamable transports via HeaderRoundTripper
+4. **MCP Communication** - JSON-RPC over the selected transport
+5. **Data Extraction** - Lists tools, resources, prompts via MCP protocol methods
+6. **Output Formatting** - Converts server data to Markdown or JSON format
    - Markdown uses Go text/template with embedded template files
    - Templates support Table of Contents with anchor links
    - Custom template functions for formatting (anchor generation, JSON indentation)
@@ -100,10 +110,13 @@ The tool uses the following architecture:
 
 ```
 main.go
-├── CLI struct - Kong configuration for command line interface
+├── CLI struct - Kong configuration for command line interface (includes Headers field)
 ├── ServerInfo struct - Internal representation of MCP server data
+├── HeaderRoundTripper - HTTP RoundTripper for adding custom headers
+├── parseHeaders() - Parses header strings in Key:Value format
+├── createTransport() - Creates appropriate transport (command/SSE/streamable) with headers
 ├── run() - Main application logic
-│   ├── CommandTransport creation
+│   ├── Transport creation with header support
 │   ├── MCP client connection
 │   ├── Server capability introspection
 │   └── Output formatting
@@ -124,8 +137,11 @@ templates/
 ### Common Issues
 
 1. **Build Errors**: Run `go mod tidy` to fix dependency issues
-2. **Connection Failures**: Ensure target MCP server is executable and supports STDIO
+2. **Connection Failures**: 
+   - For command transport: Ensure target MCP server is executable and supports STDIO
+   - For HTTP transports: Verify endpoint URL is correct and server is running
 3. **Permission Errors**: Check file permissions for output directory
+4. **HTTP Header Issues**: Ensure headers are in correct Key:Value format
 
 ### Debug Commands
 ```bash

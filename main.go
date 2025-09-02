@@ -39,6 +39,7 @@ type CLI struct {
 	// Transport-specific options
 	Endpoint      string        `kong:"help='HTTP endpoint for SSE/Streamable transports'"`
 	Timeout       time.Duration `kong:"default='30s',help='HTTP timeout for SSE/Streamable transports'"`
+	Headers       []string      `kong:"short='H',help='HTTP headers for SSE/Streamable transports (format: Key:Value)'"`
 	ServerCommand string        `kong:"help='Server command for explicit command transport'"`
 
 	// Legacy command format (backward compatibility)
@@ -77,6 +78,43 @@ type Prompt struct {
 	Name        string      `json:"name"`
 	Description string      `json:"description"`
 	Arguments   interface{} `json:"arguments,omitempty"`
+}
+
+// HeaderRoundTripper wraps an http.RoundTripper to add custom headers
+type HeaderRoundTripper struct {
+	transport http.RoundTripper
+	headers   map[string]string
+}
+
+// RoundTrip implements http.RoundTripper
+func (h *HeaderRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Clone the request to avoid modifying the original
+	newReq := req.Clone(req.Context())
+
+	// Add custom headers
+	for key, value := range h.headers {
+		newReq.Header.Set(key, value)
+	}
+
+	return h.transport.RoundTrip(newReq)
+}
+
+// parseHeaders converts header strings in "Key:Value" format to a map
+func parseHeaders(headerStrings []string) (map[string]string, error) {
+	headers := make(map[string]string)
+	for _, header := range headerStrings {
+		parts := strings.SplitN(header, ":", 2)
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("invalid header format: %s (expected Key:Value)", header)
+		}
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+		if key == "" {
+			return nil, fmt.Errorf("empty header key in: %s", header)
+		}
+		headers[key] = value
+	}
+	return headers, nil
 }
 
 // createTransport creates an appropriate MCP transport based on CLI options
@@ -118,6 +156,19 @@ func createTransport(cli *CLI) (mcp.Transport, error) {
 			return nil, fmt.Errorf("SSE transport requires --endpoint")
 		}
 		httpClient := &http.Client{Timeout: cli.Timeout}
+
+		// Add custom headers if specified
+		if len(cli.Headers) > 0 {
+			headers, err := parseHeaders(cli.Headers)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse headers: %w", err)
+			}
+			httpClient.Transport = &HeaderRoundTripper{
+				transport: http.DefaultTransport,
+				headers:   headers,
+			}
+		}
+
 		return &mcp.SSEClientTransport{
 			Endpoint:   cli.Endpoint,
 			HTTPClient: httpClient,
@@ -128,6 +179,19 @@ func createTransport(cli *CLI) (mcp.Transport, error) {
 			return nil, fmt.Errorf("streamable transport requires --endpoint")
 		}
 		httpClient := &http.Client{Timeout: cli.Timeout}
+
+		// Add custom headers if specified
+		if len(cli.Headers) > 0 {
+			headers, err := parseHeaders(cli.Headers)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse headers: %w", err)
+			}
+			httpClient.Transport = &HeaderRoundTripper{
+				transport: http.DefaultTransport,
+				headers:   headers,
+			}
+		}
+
 		return &mcp.StreamableClientTransport{
 			Endpoint:   cli.Endpoint,
 			HTTPClient: httpClient,

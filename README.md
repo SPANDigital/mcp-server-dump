@@ -85,6 +85,11 @@ go build -o mcp-server-dump
 
 # Configure HTTP timeout for web transports
 ./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" --timeout=60s
+
+# Add custom HTTP headers for authentication or other purposes
+./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" \
+  -H "Authorization:Bearer your-token-here" \
+  -H "X-API-Key:your-api-key"
 ```
 
 ### Output Options
@@ -115,6 +120,7 @@ Flags:
   -t, --transport="command"  Transport type (command, sse, streamable)
       --endpoint=STRING      HTTP endpoint for SSE/Streamable transports
       --timeout=30s          HTTP timeout for SSE/Streamable transports
+  -H, --headers=HEADERS,...  HTTP headers for SSE/Streamable transports (format: Key:Value)
       --server-command=STRING Server command for explicit command transport
 ```
 
