@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
+	"github.com/go-pdf/fpdf"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
@@ -35,7 +36,7 @@ var templateFS embed.FS
 type CLI struct {
 	// Output options
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
-	Format string `kong:"short='f',default='markdown',enum='markdown,json,html',help='Output format'"`
+	Format string `kong:"short='f',default='markdown',enum='markdown,json,html,pdf',help='Output format'"`
 	NoTOC  bool   `kong:"help='Disable table of contents in markdown output'"`
 
 	// Transport selection
@@ -313,6 +314,7 @@ func run(cli *CLI) error {
 
 	// Format output
 	var output string
+	var outputBytes []byte
 	switch cli.Format {
 	case "json":
 		data, err := json.MarshalIndent(info, "", "  ")
@@ -332,17 +334,32 @@ func run(cli *CLI) error {
 			return fmt.Errorf("failed to format HTML: %w", err)
 		}
 		output = formatted
+	case "pdf":
+		pdfBytes, err := formatPDF(&info, !cli.NoTOC)
+		if err != nil {
+			return fmt.Errorf("failed to format PDF: %w", err)
+		}
+		outputBytes = pdfBytes
 	default:
 		return fmt.Errorf("unknown format: %s", cli.Format)
 	}
 
 	// Write output
 	if cli.Output != "" {
-		if err := os.WriteFile(cli.Output, []byte(output), 0o600); err != nil {
+		var dataToWrite []byte
+		if outputBytes != nil {
+			dataToWrite = outputBytes
+		} else {
+			dataToWrite = []byte(output)
+		}
+		if err := os.WriteFile(cli.Output, dataToWrite, 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("Documentation written to %s\n", cli.Output)
 	} else {
+		if outputBytes != nil {
+			return fmt.Errorf("PDF output requires an output file (-o flag)")
+		}
 		fmt.Print(output)
 	}
 
@@ -438,4 +455,309 @@ func formatMarkdown(info *ServerInfo, includeTOC bool) (string, error) {
 	}
 
 	return buf.String(), nil
+}
+
+func formatPDF(info *ServerInfo, includeTOC bool) ([]byte, error) {
+	pdf := fpdf.New("P", "mm", "A4", "")
+	pdf.SetAutoPageBreak(true, 15)
+	
+	// Add first page
+	pdf.AddPage()
+	
+	// Title
+	pdf.SetFont("Arial", "B", 20)
+	pdf.CellFormat(0, 20, info.Name, "", 1, "C", false, 0, "")
+	
+	// Version
+	if info.Version != "" {
+		pdf.SetFont("Arial", "", 12)
+		pdf.CellFormat(0, 10, fmt.Sprintf("Version: %s", info.Version), "", 1, "C", false, 0, "")
+	}
+	pdf.Ln(10)
+
+	var tocAliases []string
+	var tocLabels []string
+	
+	// Table of Contents (if enabled)
+	if includeTOC {
+		pdf.SetFont("Arial", "B", 16)
+		pdf.CellFormat(0, 12, "Table of Contents", "", 1, "L", false, 0, "")
+		pdf.Ln(5)
+		
+		pdf.SetFont("Arial", "", 11)
+		
+		// Capabilities
+		tocAliases = append(tocAliases, "{cap_page}")
+		tocLabels = append(tocLabels, "Capabilities")
+		pdf.CellFormat(20, 6, "* Capabilities", "", 0, "L", false, 0, "")
+		pdf.CellFormat(0, 6, "{cap_page}", "", 1, "R", false, 0, "")
+		
+		// Tools
+		if len(info.Tools) > 0 {
+			tocAliases = append(tocAliases, "{tools_page}")
+			tocLabels = append(tocLabels, "Tools")
+			pdf.CellFormat(20, 6, "* Tools", "", 0, "L", false, 0, "")
+			pdf.CellFormat(0, 6, "{tools_page}", "", 1, "R", false, 0, "")
+		}
+		
+		// Resources
+		if len(info.Resources) > 0 {
+			tocAliases = append(tocAliases, "{resources_page}")
+			tocLabels = append(tocLabels, "Resources")
+			pdf.CellFormat(20, 6, "* Resources", "", 0, "L", false, 0, "")
+			pdf.CellFormat(0, 6, "{resources_page}", "", 1, "R", false, 0, "")
+		}
+		
+		// Prompts
+		if len(info.Prompts) > 0 {
+			tocAliases = append(tocAliases, "{prompts_page}")
+			tocLabels = append(tocLabels, "Prompts")
+			pdf.CellFormat(20, 6, "* Prompts", "", 0, "L", false, 0, "")
+			pdf.CellFormat(0, 6, "{prompts_page}", "", 1, "R", false, 0, "")
+		}
+		
+		pdf.Ln(15)
+	}
+	
+	// Capabilities section
+	if pdf.GetY() > 250 {
+		pdf.AddPage()
+	}
+	
+	// Register the page for TOC and add bookmark
+	if includeTOC {
+		pdf.RegisterAlias("{cap_page}", fmt.Sprintf("%d", pdf.PageNo()))
+	}
+	pdf.Bookmark("Capabilities", 0, 0)
+	
+	pdf.SetFont("Arial", "B", 16)
+	pdf.CellFormat(0, 12, "Capabilities", "", 1, "L", false, 0, "")
+	pdf.Ln(3)
+	
+	pdf.SetFont("Arial", "", 11)
+	capabilities := []string{
+		fmt.Sprintf("* Tools: %s", formatBool(info.Capabilities.Tools)),
+		fmt.Sprintf("* Resources: %s", formatBool(info.Capabilities.Resources)),
+		fmt.Sprintf("* Prompts: %s", formatBool(info.Capabilities.Prompts)),
+	}
+	
+	for _, cap := range capabilities {
+		pdf.CellFormat(0, 6, cap, "", 1, "L", false, 0, "")
+	}
+	pdf.Ln(10)
+	
+	// Tools section
+	if len(info.Tools) > 0 {
+		if pdf.GetY() > 240 {
+			pdf.AddPage()
+		}
+		
+		// Register the page for TOC and add bookmark
+		if includeTOC {
+			pdf.RegisterAlias("{tools_page}", fmt.Sprintf("%d", pdf.PageNo()))
+		}
+		pdf.Bookmark("Tools", 0, 0)
+		
+		pdf.SetFont("Arial", "B", 16)
+		pdf.CellFormat(0, 12, "Tools", "", 1, "L", false, 0, "")
+		pdf.Ln(5)
+		
+		for i, tool := range info.Tools {
+			// Check if we need a new page
+			if pdf.GetY() > 240 {
+				pdf.AddPage()
+			}
+			
+			// Tool name with bookmark
+			pdf.Bookmark(tool.Name, 1, 0)
+			pdf.SetFont("Arial", "B", 14)
+			pdf.CellFormat(0, 10, tool.Name, "", 1, "L", false, 0, "")
+			pdf.Ln(2)
+			
+			// Tool description
+			if tool.Description != "" {
+				pdf.SetFont("Arial", "", 10)
+				pdf.MultiCell(0, 5, tool.Description, "", "L", false)
+				pdf.Ln(3)
+			}
+			
+			// Input schema
+			if tool.InputSchema != nil {
+				if pdf.GetY() > 220 {
+					pdf.AddPage()
+				}
+				
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(0, 6, "Input Schema:", "", 1, "L", false, 0, "")
+				pdf.Ln(1)
+				
+				schemaJSON, err := json.MarshalIndent(tool.InputSchema, "", "  ")
+				if err == nil {
+					pdf.SetFont("Courier", "", 8)
+					// Split into lines and handle page breaks
+					schemaLines := strings.Split(string(schemaJSON), "\n")
+					for _, line := range schemaLines {
+						if pdf.GetY() > 275 {
+							pdf.AddPage()
+						}
+						if strings.TrimSpace(line) != "" {
+							pdf.CellFormat(0, 4, line, "", 1, "L", false, 0, "")
+						}
+					}
+				}
+			}
+			
+			// Add spacing between tools
+			if i < len(info.Tools)-1 {
+				pdf.Ln(8)
+			}
+		}
+		pdf.Ln(10)
+	}
+	
+	// Resources section
+	if len(info.Resources) > 0 {
+		if pdf.GetY() > 240 {
+			pdf.AddPage()
+		}
+		
+		// Register the page for TOC and add bookmark
+		if includeTOC {
+			pdf.RegisterAlias("{resources_page}", fmt.Sprintf("%d", pdf.PageNo()))
+		}
+		pdf.Bookmark("Resources", 0, 0)
+		
+		pdf.SetFont("Arial", "B", 16)
+		pdf.CellFormat(0, 12, "Resources", "", 1, "L", false, 0, "")
+		pdf.Ln(5)
+		
+		for i, resource := range info.Resources {
+			if pdf.GetY() > 240 {
+				pdf.AddPage()
+			}
+			
+			// Resource name with bookmark
+			pdf.Bookmark(resource.Name, 1, 0)
+			pdf.SetFont("Arial", "B", 14)
+			pdf.CellFormat(0, 10, resource.Name, "", 1, "L", false, 0, "")
+			pdf.Ln(2)
+			
+			// URI
+			if resource.URI != "" {
+				pdf.SetFont("Arial", "B", 9)
+				pdf.CellFormat(0, 5, "URI:", "", 1, "L", false, 0, "")
+				pdf.SetFont("Courier", "", 9)
+				pdf.MultiCell(0, 4, resource.URI, "", "L", false)
+				pdf.Ln(2)
+			}
+			
+			// Description
+			if resource.Description != "" {
+				pdf.SetFont("Arial", "", 10)
+				pdf.MultiCell(0, 5, resource.Description, "", "L", false)
+				pdf.Ln(2)
+			}
+			
+			// MIME Type
+			if resource.MimeType != "" {
+				pdf.SetFont("Arial", "", 9)
+				pdf.CellFormat(0, 5, fmt.Sprintf("MIME Type: %s", resource.MimeType), "", 1, "L", false, 0, "")
+			}
+			
+			// Add spacing between resources
+			if i < len(info.Resources)-1 {
+				pdf.Ln(8)
+			}
+		}
+		pdf.Ln(10)
+	}
+	
+	// Prompts section
+	if len(info.Prompts) > 0 {
+		if pdf.GetY() > 240 {
+			pdf.AddPage()
+		}
+		
+		// Register the page for TOC and add bookmark
+		if includeTOC {
+			pdf.RegisterAlias("{prompts_page}", fmt.Sprintf("%d", pdf.PageNo()))
+		}
+		pdf.Bookmark("Prompts", 0, 0)
+		
+		pdf.SetFont("Arial", "B", 16)
+		pdf.CellFormat(0, 12, "Prompts", "", 1, "L", false, 0, "")
+		pdf.Ln(5)
+		
+		for i, prompt := range info.Prompts {
+			if pdf.GetY() > 240 {
+				pdf.AddPage()
+			}
+			
+			// Prompt name with bookmark
+			pdf.Bookmark(prompt.Name, 1, 0)
+			pdf.SetFont("Arial", "B", 14)
+			pdf.CellFormat(0, 10, prompt.Name, "", 1, "L", false, 0, "")
+			pdf.Ln(2)
+			
+			// Description
+			if prompt.Description != "" {
+				pdf.SetFont("Arial", "", 10)
+				pdf.MultiCell(0, 5, prompt.Description, "", "L", false)
+				pdf.Ln(3)
+			}
+			
+			// Arguments
+			if prompt.Arguments != nil {
+				if pdf.GetY() > 220 {
+					pdf.AddPage()
+				}
+				
+				pdf.SetFont("Arial", "B", 10)
+				pdf.CellFormat(0, 6, "Arguments:", "", 1, "L", false, 0, "")
+				pdf.Ln(1)
+				
+				argsJSON, err := json.MarshalIndent(prompt.Arguments, "", "  ")
+				if err == nil {
+					pdf.SetFont("Courier", "", 8)
+					// Split into lines and handle page breaks
+					argsLines := strings.Split(string(argsJSON), "\n")
+					for _, line := range argsLines {
+						if pdf.GetY() > 275 {
+							pdf.AddPage()
+						}
+						if strings.TrimSpace(line) != "" {
+							pdf.CellFormat(0, 4, line, "", 1, "L", false, 0, "")
+						}
+					}
+				}
+			}
+			
+			// Add spacing between prompts
+			if i < len(info.Prompts)-1 {
+				pdf.Ln(8)
+			}
+		}
+	}
+	
+	// Check for PDF generation errors
+	if pdf.Error() != nil {
+		return nil, fmt.Errorf("PDF generation error: %v", pdf.Error())
+	}
+	
+	var buf bytes.Buffer
+	err := pdf.Output(&buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to output PDF: %w", err)
+	}
+	
+	return buf.Bytes(), nil
+}
+
+
+// formatBool returns ✅ for true and ❌ for false
+func formatBool(b bool) string {
+	if b {
+		return "✅ Supported"
+	}
+	return "❌ Not supported"
 }
