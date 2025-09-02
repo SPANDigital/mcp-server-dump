@@ -13,10 +13,16 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
+var (
+	version = "dev"     //nolint:unused // set by goreleaser
+	commit  = "none"    //nolint:unused // set by goreleaser
+	date    = "unknown" //nolint:unused // set by goreleaser
+)
+
 type CLI struct {
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
 	Format string `kong:"short='f',default='markdown',enum='markdown,json',help='Output format'"`
-	
+
 	Command string   `kong:"arg,required,help='Command to execute the MCP server'"`
 	Args    []string `kong:"arg,optional,help='Arguments to pass to the MCP server command'"`
 }
@@ -70,10 +76,11 @@ func main() {
 
 func run(cli CLI) error {
 	// Create the command
+	// #nosec G204 - Command and args are provided by user intentionally
 	cmd := exec.Command(cli.Command, cli.Args...)
-	
+
 	// Create command transport
-	transport := mcp.NewCommandTransport(cmd)
+	transport := &mcp.CommandTransport{Command: cmd}
 
 	// Create MCP client
 	mcpClient := mcp.NewClient(
@@ -94,7 +101,7 @@ func run(cli CLI) error {
 
 	// Get server info from the initialization result
 	initResult := session.InitializeResult()
-	
+
 	// Gather server information
 	info := ServerInfo{
 		Name:    initResult.ServerInfo.Name,
@@ -165,14 +172,14 @@ func run(cli CLI) error {
 		}
 		output = string(data)
 	case "markdown":
-		output = formatMarkdown(info)
+		output = formatMarkdown(&info)
 	default:
 		return fmt.Errorf("unknown format: %s", cli.Format)
 	}
 
 	// Write output
 	if cli.Output != "" {
-		if err := os.WriteFile(cli.Output, []byte(output), 0644); err != nil {
+		if err := os.WriteFile(cli.Output, []byte(output), 0o600); err != nil {
 			return fmt.Errorf("failed to write output file: %w", err)
 		}
 		fmt.Printf("Documentation written to %s\n", cli.Output)
@@ -183,7 +190,7 @@ func run(cli CLI) error {
 	return nil
 }
 
-func formatMarkdown(info ServerInfo) string {
+func formatMarkdown(info *ServerInfo) string {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf("# %s\n\n", info.Name))
