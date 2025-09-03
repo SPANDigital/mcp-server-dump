@@ -1,0 +1,19 @@
+{{- /* Template for tools section */ -}}
+{{define "tools"}}
+## Tools
+
+{{range .Tools}}
+### {{.Name}}
+
+{{if .Description -}}
+{{.Description}}
+
+{{end -}}
+{{- if .InputSchema}}
+**Input Schema:**
+```json
+{{.InputSchema | json}}
+```
+{{end}}
+{{end}}
+{{end}}

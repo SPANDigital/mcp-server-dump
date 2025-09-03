@@ -16,9 +16,9 @@ builds:
       - amd64
       - arm64
     binary: mcp-server-dump
-    main: .
+    main: ./cmd/mcp-server-dump
     ldflags:
-      - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
+      - -s -w -X github.com/spandigital/mcp-server-dump/internal/app.version={{.Version}} -X github.com/spandigital/mcp-server-dump/internal/app.commit={{.Commit}} -X github.com/spandigital/mcp-server-dump/internal/app.date={{.Date}}
 
 kos:
   - repositories:
