@@ -246,7 +246,7 @@ func createTransport(cli *CLI) (mcp.Transport, error) {
 		httpClient := &http.Client{Timeout: cli.Timeout}
 
 		// Build transport chain: base -> headers -> content type fix
-		var transport http.RoundTripper = http.DefaultTransport
+		transport := http.DefaultTransport
 
 		// Add custom headers if specified
 		if len(cli.Headers) > 0 {
