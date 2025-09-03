@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
 	"github.com/yuin/goldmark/renderer/html"
+	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -38,6 +40,11 @@ type CLI struct {
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
 	Format string `kong:"short='f',default='markdown',enum='markdown,json,html,pdf',help='Output format'"`
 	NoTOC  bool   `kong:"help='Disable table of contents in markdown output'"`
+
+	// Frontmatter options
+	Frontmatter       bool     `kong:"short='F',help='Include frontmatter in markdown output'"`
+	FrontmatterField  []string `kong:"short='M',help='Add custom frontmatter field (format: key:value), can be used multiple times'"`
+	FrontmatterFormat string   `kong:"default='yaml',enum='yaml,toml,json',help='Frontmatter format'"`
 
 	// Transport selection
 	Transport string `kong:"short='t',default='command',enum='command,sse,streamable',help='Transport type'"`
@@ -323,7 +330,12 @@ func run(cli *CLI) error {
 		}
 		output = string(data)
 	case "markdown":
-		formatted, err := formatMarkdown(&info, !cli.NoTOC)
+		// Parse custom fields if frontmatter is enabled
+		var customFields map[string]any
+		if cli.Frontmatter {
+			customFields = parseCustomFields(cli.FrontmatterField)
+		}
+		formatted, err := formatMarkdown(&info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields)
 		if err != nil {
 			return fmt.Errorf("failed to format markdown: %w", err)
 		}
@@ -393,9 +405,116 @@ func jsonIndent(v any) (string, error) {
 	return string(b), nil
 }
 
+// parseCustomFields parses key:value pairs from CLI arguments into a map
+func parseCustomFields(fields []string) map[string]any {
+	custom := make(map[string]any)
+	for _, field := range fields {
+		parts := strings.SplitN(field, ":", 2)
+		if len(parts) == 2 {
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+
+			// Check if value contains comma-separated items (for arrays)
+			if strings.Contains(value, ",") {
+				items := strings.Split(value, ",")
+				trimmedItems := make([]string, len(items))
+				for i, item := range items {
+					trimmedItems[i] = strings.TrimSpace(item)
+				}
+				custom[key] = trimmedItems
+			} else {
+				// Auto-detect types for single values
+				if v, err := strconv.ParseBool(value); err == nil {
+					custom[key] = v
+				} else if v, err := strconv.Atoi(value); err == nil {
+					custom[key] = v
+				} else if v, err := strconv.ParseFloat(value, 64); err == nil {
+					custom[key] = v
+				} else {
+					custom[key] = value // Keep as string
+				}
+			}
+		}
+	}
+	return custom
+}
+
+// generateFrontmatter generates frontmatter in the specified format
+func generateFrontmatter(info *ServerInfo, format string, customFields map[string]any) (string, error) {
+	// Build frontmatter data
+	data := map[string]any{
+		"title":        fmt.Sprintf("%s Documentation", info.Name),
+		"generated_at": time.Now().Format(time.RFC3339),
+		"generator":    "mcp-server-dump",
+		"capabilities": map[string]bool{
+			"tools":     info.Capabilities.Tools,
+			"resources": info.Capabilities.Resources,
+			"prompts":   info.Capabilities.Prompts,
+		},
+		"tools_count":     len(info.Tools),
+		"resources_count": len(info.Resources),
+		"prompts_count":   len(info.Prompts),
+	}
+
+	// Add version if present
+	if info.Version != "" {
+		data["version"] = info.Version
+	}
+
+	// Merge custom fields
+	for k, v := range customFields {
+		data[k] = v
+	}
+
+	switch format {
+	case "yaml":
+		yamlData, err := yaml.Marshal(data)
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal yaml frontmatter: %w", err)
+		}
+		return fmt.Sprintf("---\n%s---\n\n", string(yamlData)), nil
+
+	case "toml":
+		// Simple TOML generation for common types
+		var buf bytes.Buffer
+		buf.WriteString("+++\n")
+
+		// Write simple fields first
+		for k, v := range data {
+			switch val := v.(type) {
+			case string:
+				fmt.Fprintf(&buf, "%s = %q\n", k, val)
+			case int, int64, float64:
+				fmt.Fprintf(&buf, "%s = %v\n", k, val)
+			case bool:
+				fmt.Fprintf(&buf, "%s = %v\n", k, val)
+			case map[string]bool:
+				if k == "capabilities" {
+					buf.WriteString("\n[capabilities]\n")
+					for ck, cv := range val {
+						fmt.Fprintf(&buf, "%s = %v\n", ck, cv)
+					}
+				}
+			}
+		}
+		buf.WriteString("+++\n\n")
+		return buf.String(), nil
+
+	case "json":
+		jsonData, err := json.MarshalIndent(data, "", "  ")
+		if err != nil {
+			return "", fmt.Errorf("failed to marshal json frontmatter: %w", err)
+		}
+		return fmt.Sprintf("%s\n\n", string(jsonData)), nil
+
+	default:
+		return "", fmt.Errorf("unsupported frontmatter format: %s", format)
+	}
+}
+
 func formatHTML(info *ServerInfo, includeTOC bool) (string, error) {
-	// First generate markdown
-	markdown, err := formatMarkdown(info, includeTOC)
+	// First generate markdown (no frontmatter for HTML output)
+	markdown, err := formatMarkdown(info, includeTOC, false, "", nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to format markdown: %w", err)
 	}
@@ -426,7 +545,7 @@ func formatHTML(info *ServerInfo, includeTOC bool) (string, error) {
 	return buf.String(), nil
 }
 
-func formatMarkdown(info *ServerInfo, includeTOC bool) (string, error) {
+func formatMarkdown(info *ServerInfo, includeTOC, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any) (string, error) {
 	// Create template data with TOC flag
 	templateData := struct {
 		*ServerInfo
@@ -454,7 +573,18 @@ func formatMarkdown(info *ServerInfo, includeTOC bool) (string, error) {
 		return "", fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	return buf.String(), nil
+	markdownContent := buf.String()
+
+	// Prepend frontmatter if requested
+	if includeFrontmatter {
+		frontmatter, err := generateFrontmatter(info, frontmatterFormat, customFields)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate frontmatter: %w", err)
+		}
+		markdownContent = frontmatter + markdownContent
+	}
+
+	return markdownContent, nil
 }
 
 // renderJSONSchema renders a JSON schema in the PDF with proper formatting and page breaks
