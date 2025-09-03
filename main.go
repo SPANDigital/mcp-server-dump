@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"text/template"
@@ -27,15 +28,42 @@ import (
 )
 
 var (
-	version = "dev"     //nolint:unused // set by goreleaser
+	version = "dev"     // set by goreleaser
 	commit  = "none"    //nolint:unused // set by goreleaser
 	date    = "unknown" //nolint:unused // set by goreleaser
 )
+
+// getVersion returns the version string, attempting to get it from VCS info if available
+func getVersion() string {
+	// If version was set by goreleaser, use it
+	if version != "dev" {
+		return version
+	}
+
+	// Try to get version from build info
+	if info, ok := debug.ReadBuildInfo(); ok {
+		for _, setting := range info.Settings {
+			if setting.Key == "vcs.revision" {
+				// Use short commit hash (first 8 characters)
+				if len(setting.Value) >= 8 {
+					return "dev-" + setting.Value[:8]
+				}
+				return "dev-" + setting.Value
+			}
+		}
+	}
+
+	// Fallback to original behavior
+	return version
+}
 
 //go:embed templates/*.tmpl
 var templateFS embed.FS
 
 type CLI struct {
+	// Version flag
+	Version kong.VersionFlag `kong:"short='v',help='Show version information'"`
+
 	// Output options
 	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
 	Format string `kong:"short='f',default='markdown',enum='markdown,json,html,pdf',help='Output format'"`
@@ -221,6 +249,9 @@ func main() {
 		kong.Name("mcp-server-dump"),
 		kong.Description("Dump MCP server capabilities and documentation"),
 		kong.UsageOnError(),
+		kong.Vars{
+			"version": getVersion(),
+		},
 	)
 
 	if err := run(&cli); err != nil {

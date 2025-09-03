@@ -179,3 +179,4 @@ When making changes:
 - GHCR container repository owner is spandigital, not richardwooding
 - Commands installed via "go install" are located in $GOPATH/bin if not in PATH
 - Alway use any instead of interface{}. In modern go, any is an alias for interface{}
+- The correct way to install goreleaser is "go install github.com/goreleaser/goreleaser/v2@latest"
