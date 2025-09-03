@@ -4,7 +4,7 @@ This file contains configuration and commands for Claude Code to assist with thi
 
 ## Project Overview
 
-mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown, JSON, HTML, or PDF format.
+mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown, JSON, HTML, or PDF format. The tool includes frontmatter support for static site generator integration.
 
 ## Development Commands
 
@@ -58,7 +58,8 @@ golangci-lint run
 - `github.com/modelcontextprotocol/go-sdk` - Official MCP Go SDK for client/server communication
 - `github.com/alecthomas/kong` - Command line argument parsing library
 - `github.com/yuin/goldmark` - Markdown to HTML converter with GitHub Flavored Markdown support
-- `github.com/johnfercher/maroto/v2` - Pure Go PDF generation library
+- `github.com/go-pdf/fpdf` - Pure Go PDF generation library with bookmark support
+- `gopkg.in/yaml.v2` - YAML parsing and generation for frontmatter support
 
 ### Development Tools
 - Go 1.25.0+ - Required Go version

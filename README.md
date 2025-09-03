@@ -11,6 +11,7 @@ A command-line tool to dump MCP (Model Context Protocol) server capabilities and
 - Extract server information, capabilities, tools, resources, and prompts
 - Output documentation in Markdown, JSON, HTML, or PDF format *(PDF format is WIP)*
 - **Enhanced Markdown output with clickable Table of Contents**
+- **Frontmatter support** for static site generator integration (Hugo, Jekyll, etc.)
 - **External Go templates for customizable documentation**
 - **Backward compatible** with existing command-line usage
 - Built with the official [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
@@ -137,6 +138,48 @@ go build -o mcp-server-dump
 ./mcp-server-dump -f pdf -o server-docs.pdf python server.py
 ```
 
+### Frontmatter Support
+
+Generate YAML, TOML, or JSON frontmatter in markdown output for integration with static site generators:
+
+```bash
+# Basic frontmatter (YAML by default)
+./mcp-server-dump --frontmatter node server.js
+
+# With custom metadata fields
+./mcp-server-dump --frontmatter \
+  -M "author:joe.bloggs@company.com" \
+  -M "status:draft" \
+  -M "team:engineering" \
+  -M "tags:mcp,documentation,tools" \
+  node server.js
+
+# TOML format frontmatter
+./mcp-server-dump --frontmatter --frontmatter-format=toml \
+  -M "author:jane.doe@example.org" \
+  -M "reviewed:false" \
+  python server.py
+
+# JSON format frontmatter
+./mcp-server-dump --frontmatter --frontmatter-format=json \
+  -M "build_number:42" \
+  -M "environment:production" \
+  npx @modelcontextprotocol/server-filesystem /path
+```
+
+**Auto-generated fields:**
+- `title`: Server name + " Documentation"
+- `version`: Server version (if available)
+- `generated_at`: ISO 8601 timestamp
+- `generator`: "mcp-server-dump"
+- `capabilities`: Object with tools/resources/prompts booleans
+- `tools_count`, `resources_count`, `prompts_count`: Counts of each type
+
+**Custom fields features:**
+- Automatic type detection (boolean, integer, float, string)
+- Comma-separated values become arrays: `tags:one,two,three`
+- Custom fields override auto-generated ones if same key is used
+
 ### Command Line Options
 
 ```
@@ -150,6 +193,11 @@ Flags:
   -o, --output=STRING        Output file for documentation (defaults to stdout)
   -f, --format="markdown"    Output format (markdown, json, html, pdf)
       --no-toc               Disable table of contents in markdown output
+  -F, --frontmatter          Include frontmatter in markdown output
+  -M, --frontmatter-field=FIELD,...
+                             Add custom frontmatter field (format: key:value), can be used multiple times
+      --frontmatter-format="yaml"
+                             Frontmatter format (yaml, toml, json)
   -t, --transport="command"  Transport type (command, sse, streamable)
       --endpoint=STRING      HTTP endpoint for SSE/Streamable transports
       --timeout=30s          HTTP timeout for SSE/Streamable transports
