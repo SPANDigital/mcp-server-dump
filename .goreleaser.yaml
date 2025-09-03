@@ -21,7 +21,8 @@ builds:
       - -s -w -X main.version={{.Version}} -X main.commit={{.Commit}} -X main.date={{.Date}}
 
 kos:
-  - image: ghcr.io/spandigital/mcp-server-dump
+  - repositories:
+      - ghcr.io/spandigital/mcp-server-dump
     tags:
       - '{{.Tag}}'
       - latest
@@ -42,11 +43,11 @@ archives:
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     format_overrides:
     - goos: windows
-      format: zip
+      formats: [ 'zip' ]
     - goos: linux
-      format: tar.gz
+      formats: [ 'tar.gz' ]
     - goos: darwin
-      format: tar.gz
+      formats: [ 'tar.gz' ]
 
 checksum:
   name_template: 'checksums.txt'
