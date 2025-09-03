@@ -8,8 +8,8 @@
 *.so
 *.dylib
 
-# Project binary
-mcp-server-dump
+# Project binary (only in root directory)
+/mcp-server-dump
 
 # Generated PDF test files
 *.pdf
