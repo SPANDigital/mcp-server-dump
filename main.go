@@ -140,6 +140,30 @@ func (h *HeaderRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	return h.transport.RoundTrip(newReq)
 }
 
+// ContentTypeFixingTransport normalizes content types for MCP compatibility
+type ContentTypeFixingTransport struct {
+	transport http.RoundTripper
+}
+
+// RoundTrip implements http.RoundTripper
+func (c *ContentTypeFixingTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := c.transport.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+
+	// Fix content type by removing charset parameter from JSON responses
+	// This works around a bug in the MCP Go SDK that doesn't properly parse
+	// content types with charset parameters
+	if contentType := resp.Header.Get("Content-Type"); contentType != "" {
+		if strings.HasPrefix(contentType, "application/json;") {
+			resp.Header.Set("Content-Type", "application/json")
+		}
+	}
+
+	return resp, err
+}
+
 // parseHeaders converts header strings in "Key:Value" format to a map
 func parseHeaders(headerStrings []string) (map[string]string, error) {
 	headers := make(map[string]string)
@@ -221,17 +245,28 @@ func createTransport(cli *CLI) (mcp.Transport, error) {
 		}
 		httpClient := &http.Client{Timeout: cli.Timeout}
 
+		// Build transport chain: base -> headers -> content type fix
+		var transport http.RoundTripper = http.DefaultTransport
+
 		// Add custom headers if specified
 		if len(cli.Headers) > 0 {
 			headers, err := parseHeaders(cli.Headers)
 			if err != nil {
 				return nil, fmt.Errorf("failed to parse headers: %w", err)
 			}
-			httpClient.Transport = &HeaderRoundTripper{
-				transport: http.DefaultTransport,
+			transport = &HeaderRoundTripper{
+				transport: transport,
 				headers:   headers,
 			}
 		}
+
+		// Always add content type fixing for streamable transport to work around
+		// MCP Go SDK bug with charset parameters
+		transport = &ContentTypeFixingTransport{
+			transport: transport,
+		}
+
+		httpClient.Transport = transport
 
 		return &mcp.StreamableClientTransport{
 			Endpoint:   cli.Endpoint,
