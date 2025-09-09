@@ -38,7 +38,7 @@ export PATH=$PATH:$(go env GOPATH)/bin
 ### Using go install (Recommended)
 
 ```bash
-go install github.com/SPANDigital/mcp-server-dump/cmd/mcp-server-dump@latest
+go install github.com/spandigital/mcp-server-dump/cmd/mcp-server-dump@latest
 ```
 
 The binary will be installed to `$GOPATH/bin/mcp-server-dump` (or `$(go env GOPATH)/bin/mcp-server-dump`). Make sure your Go bin directory is in your PATH.
