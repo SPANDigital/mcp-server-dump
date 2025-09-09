@@ -99,6 +99,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	// Capabilities section
 	pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 	pdf.SetFont("DejaVuSans", "", 16)
+	pdf.Bookmark("Capabilities", 0, -1)
 	pdf.Cell(0, 12, "Capabilities")
 	pdf.Ln(15)
 	
@@ -153,12 +154,14 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	if info.Capabilities.Tools && len(info.Tools) > 0 {
 		pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 		pdf.SetFont("DejaVuSans", "", 14)
+		pdf.Bookmark("Tools", 0, -1)
 		pdf.Cell(0, 10, "Tools")
 		pdf.Ln(10)
 
 		for _, tool := range info.Tools {
 			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
 		pdf.SetFont("DejaVuSans", "", 12)
+			pdf.Bookmark(tool.Name, 1, -1)
 			pdf.Cell(0, 8, tool.Name)
 			pdf.Ln(8)
 
@@ -183,6 +186,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	if info.Capabilities.Resources && len(info.Resources) > 0 {
 		pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 		pdf.SetFont("DejaVuSans", "", 14)
+		pdf.Bookmark("Resources", 0, 0)
 		pdf.Cell(0, 10, "Resources")
 		pdf.Ln(10)
 
@@ -215,6 +219,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	if info.Capabilities.Prompts && len(info.Prompts) > 0 {
 		pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 		pdf.SetFont("DejaVuSans", "", 14)
+		pdf.Bookmark("Prompts", 0, 0)
 		pdf.Cell(0, 10, "Prompts")
 		pdf.Ln(10)
 
@@ -243,6 +248,11 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 		}
 	}
 
+	// Check for PDF generation errors before output
+	if pdf.Err() != nil {
+		return nil, fmt.Errorf("PDF generation error: %w", pdf.Err())
+	}
+
 	var buf bytes.Buffer
 	err := pdf.Output(&buf)
 	if err != nil {
@@ -254,7 +264,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 // renderJSONSchema renders a JSON schema in the PDF
 func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
-	pdf.SetFont("Courier", "", 9)
+	pdf.SetFont("DejaVuSans", "", 9)
 
 	// Convert to JSON string
 	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
