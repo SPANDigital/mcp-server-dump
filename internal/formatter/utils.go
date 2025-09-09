@@ -7,11 +7,14 @@ import (
 	"strings"
 )
 
-// anchorName converts a string to a URL-safe anchor name
+// anchorName converts a string to a URL-safe anchor name compatible with Goldmark's AutoHeadingID
 func anchorName(s string) string {
-	// Convert to lowercase and replace spaces with hyphens
+	// Convert to lowercase
 	s = strings.ToLower(s)
+	
+	// Replace spaces and underscores with hyphens (matching Goldmark behavior)
 	s = strings.ReplaceAll(s, " ", "-")
+	s = strings.ReplaceAll(s, "_", "-")
 
 	// Remove any characters that aren't letters, numbers, or hyphens
 	reg := regexp.MustCompile(`[^a-z0-9\-]`)
