@@ -2,6 +2,7 @@ package formatter
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -11,9 +12,16 @@ import (
 	"github.com/spandigital/mcp-server-dump/internal/model"
 )
 
+//go:embed DejaVuSans.ttf
+var dejaVuSansFont []byte
+
 const (
 	supportedStatus    = "Supported"
 	notSupportedStatus = "Not supported"
+	// Unicode bullet characters
+	bulletPoint = "•"  // bullet U+2022
+	checkMark   = "✓"  // checkmark U+2713
+	crossMark   = "✗"  // cross mark U+2717
 )
 
 // FormatPDF formats server info as PDF
@@ -21,8 +29,11 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.AddPage()
 
-	// Set font
-	pdf.SetFont("Arial", "B", 16)
+	// Load UTF-8 font for Unicode support
+	pdf.AddUTF8FontFromBytes("DejaVuSans", "", dejaVuSansFont)
+
+	// Set font (start with regular style to test font loading)
+	pdf.SetFont("DejaVuSans", "", 16)
 
 	// Title
 	title := info.Name
@@ -34,26 +45,26 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 	// Table of Contents
 	if includeTOC {
-		pdf.SetFont("Arial", "B", 14)
+		pdf.SetFont("DejaVuSans", "", 14)
 		pdf.Cell(0, 10, "Table of Contents")
 		pdf.Ln(10)
 
-		pdf.SetFont("Arial", "", 12)
-		pdf.Cell(0, 8, "• Capabilities")
+		pdf.SetFont("DejaVuSans", "", 12)
+		pdf.Cell(0, 8, bulletPoint+" Capabilities")
 		pdf.Ln(6)
 
 		if info.Capabilities.Tools && len(info.Tools) > 0 {
-			pdf.Cell(0, 8, "• Tools")
+			pdf.Cell(0, 8, bulletPoint+" Tools")
 			pdf.Ln(6)
 		}
 
 		if info.Capabilities.Resources && len(info.Resources) > 0 {
-			pdf.Cell(0, 8, "• Resources")
+			pdf.Cell(0, 8, bulletPoint+" Resources")
 			pdf.Ln(6)
 		}
 
 		if info.Capabilities.Prompts && len(info.Prompts) > 0 {
-			pdf.Cell(0, 8, "• Prompts")
+			pdf.Cell(0, 8, bulletPoint+" Prompts")
 			pdf.Ln(6)
 		}
 
@@ -61,44 +72,50 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	}
 
 	// Capabilities section
-	pdf.SetFont("Arial", "B", 14)
+	pdf.SetFont("DejaVuSans", "", 14)
 	pdf.Cell(0, 10, "Capabilities")
 	pdf.Ln(10)
 
-	pdf.SetFont("Arial", "", 12)
+	pdf.SetFont("DejaVuSans", "", 12)
+	toolsIcon := crossMark
 	toolsStatus := notSupportedStatus
 	if info.Capabilities.Tools {
+		toolsIcon = checkMark
 		toolsStatus = supportedStatus
 	}
-	pdf.Cell(0, 8, fmt.Sprintf("Tools: %s", toolsStatus))
+	pdf.Cell(0, 8, fmt.Sprintf("%s Tools: %s", toolsIcon, toolsStatus))
 	pdf.Ln(6)
 
+	resourcesIcon := crossMark
 	resourcesStatus := notSupportedStatus
 	if info.Capabilities.Resources {
+		resourcesIcon = checkMark
 		resourcesStatus = supportedStatus
 	}
-	pdf.Cell(0, 8, fmt.Sprintf("Resources: %s", resourcesStatus))
+	pdf.Cell(0, 8, fmt.Sprintf("%s Resources: %s", resourcesIcon, resourcesStatus))
 	pdf.Ln(6)
 
+	promptsIcon := crossMark
 	promptsStatus := notSupportedStatus
 	if info.Capabilities.Prompts {
+		promptsIcon = checkMark
 		promptsStatus = supportedStatus
 	}
-	pdf.Cell(0, 8, fmt.Sprintf("Prompts: %s", promptsStatus))
+	pdf.Cell(0, 8, fmt.Sprintf("%s Prompts: %s", promptsIcon, promptsStatus))
 	pdf.Ln(15)
 
 	// Tools section
 	if info.Capabilities.Tools && len(info.Tools) > 0 {
-		pdf.SetFont("Arial", "B", 14)
+		pdf.SetFont("DejaVuSans", "", 14)
 		pdf.Cell(0, 10, "Tools")
 		pdf.Ln(10)
 
 		for _, tool := range info.Tools {
-			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, tool.Name)
 			pdf.Ln(8)
 
-			pdf.SetFont("Arial", "", 10)
+			pdf.SetFont("DejaVuSans", "", 10)
 			if tool.Description != "" {
 				pdf.Cell(0, 6, tool.Description)
 				pdf.Ln(6)
@@ -116,16 +133,16 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 	// Resources section
 	if info.Capabilities.Resources && len(info.Resources) > 0 {
-		pdf.SetFont("Arial", "B", 14)
+		pdf.SetFont("DejaVuSans", "", 14)
 		pdf.Cell(0, 10, "Resources")
 		pdf.Ln(10)
 
 		for _, resource := range info.Resources {
-			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, resource.Name)
 			pdf.Ln(8)
 
-			pdf.SetFont("Arial", "", 10)
+			pdf.SetFont("DejaVuSans", "", 10)
 			pdf.Cell(0, 6, fmt.Sprintf("URI: %s", resource.URI))
 			pdf.Ln(6)
 
@@ -145,16 +162,16 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 	// Prompts section
 	if info.Capabilities.Prompts && len(info.Prompts) > 0 {
-		pdf.SetFont("Arial", "B", 14)
+		pdf.SetFont("DejaVuSans", "", 14)
 		pdf.Cell(0, 10, "Prompts")
 		pdf.Ln(10)
 
 		for _, prompt := range info.Prompts {
-			pdf.SetFont("Arial", "B", 12)
+			pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, prompt.Name)
 			pdf.Ln(8)
 
-			pdf.SetFont("Arial", "", 10)
+			pdf.SetFont("DejaVuSans", "", 10)
 			if prompt.Description != "" {
 				pdf.Cell(0, 6, prompt.Description)
 				pdf.Ln(6)
