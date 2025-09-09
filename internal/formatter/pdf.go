@@ -52,7 +52,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	}
 	pdf.Cell(0, 12, title)
 	pdf.Ln(20)
-	
+
 	// Add a subtle line under title
 	pdf.SetDrawColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 	pdf.SetLineWidth(0.8)
@@ -66,7 +66,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 		pdf.SetFont("DejaVuSans", "", 16)
 		pdf.Cell(0, 10, "Table of Contents")
 		pdf.Ln(12)
-		
+
 		// TOC background
 		pdf.SetFillColor(lightGray[0], lightGray[1], lightGray[2])
 		pdf.Rect(10, pdf.GetY(), 190, 40, "F")
@@ -102,7 +102,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	pdf.Bookmark("Capabilities", 0, -1)
 	pdf.Cell(0, 12, "Capabilities")
 	pdf.Ln(15)
-	
+
 	// Add section separator line
 	pdf.SetDrawColor(lightGray[0], lightGray[1], lightGray[2])
 	pdf.SetLineWidth(0.5)
@@ -110,7 +110,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	pdf.Ln(5)
 
 	pdf.SetFont("DejaVuSans", "", 12)
-	
+
 	// Tools capability
 	toolsIcon := crossMark
 	toolsStatus := notSupportedStatus
@@ -160,13 +160,13 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 		for _, tool := range info.Tools {
 			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
-		pdf.SetFont("DejaVuSans", "", 12)
+			pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Bookmark(tool.Name, 1, -1)
 			pdf.Cell(0, 8, tool.Name)
 			pdf.Ln(8)
 
 			pdf.SetTextColor(64, 64, 64)
-		pdf.SetFont("DejaVuSans", "", 10)
+			pdf.SetFont("DejaVuSans", "", 10)
 			if tool.Description != "" {
 				pdf.Cell(0, 6, tool.Description)
 				pdf.Ln(6)
@@ -192,12 +192,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 		for _, resource := range info.Resources {
 			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
-		pdf.SetFont("DejaVuSans", "", 12)
+			pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, resource.Name)
 			pdf.Ln(8)
 
 			pdf.SetTextColor(64, 64, 64)
-		pdf.SetFont("DejaVuSans", "", 10)
+			pdf.SetFont("DejaVuSans", "", 10)
 			pdf.Cell(0, 6, fmt.Sprintf("URI: %s", resource.URI))
 			pdf.Ln(6)
 
@@ -225,12 +225,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 		for _, prompt := range info.Prompts {
 			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
-		pdf.SetFont("DejaVuSans", "", 12)
+			pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, prompt.Name)
 			pdf.Ln(8)
 
 			pdf.SetTextColor(64, 64, 64)
-		pdf.SetFont("DejaVuSans", "", 10)
+			pdf.SetFont("DejaVuSans", "", 10)
 			if prompt.Description != "" {
 				pdf.Cell(0, 6, prompt.Description)
 				pdf.Ln(6)
@@ -249,8 +249,8 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	}
 
 	// Check for PDF generation errors before output
-	if pdf.Err() != nil {
-		return nil, fmt.Errorf("PDF generation error: %w", pdf.Err())
+	if !pdf.Ok() {
+		return nil, fmt.Errorf("PDF generation error: %w", pdf.Error())
 	}
 
 	var buf bytes.Buffer
