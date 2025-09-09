@@ -24,6 +24,15 @@ const (
 	crossMark   = "✗" // cross mark U+2717
 )
 
+// Color constants (RGB values)
+var (
+	primaryBlue  = [3]int{37, 99, 235}   // #2563eb
+	successGreen = [3]int{22, 163, 74}   // #16a34a
+	warningRed   = [3]int{220, 38, 38}   // #dc2626
+	textGray     = [3]int{100, 116, 139} // #64748b
+	lightGray    = [3]int{241, 245, 249} // #f1f5f9
+)
+
 // FormatPDF formats server info as PDF
 func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	pdf := fpdf.New("P", "mm", "A4", "")
@@ -32,39 +41,55 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	// Load UTF-8 font for Unicode support
 	pdf.AddUTF8FontFromBytes("DejaVuSans", "", dejaVuSansFont)
 
-	// Set font (start with regular style to test font loading)
-	pdf.SetFont("DejaVuSans", "", 16)
+	// Set title color and font
+	pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
+	pdf.SetFont("DejaVuSans", "", 20)
 
-	// Title
+	// Title with colored background
 	title := info.Name
 	if info.Version != "" {
 		title += fmt.Sprintf(" (v%s)", info.Version)
 	}
-	pdf.Cell(0, 10, title)
-	pdf.Ln(15)
+	pdf.Cell(0, 12, title)
+	pdf.Ln(20)
+	
+	// Add a subtle line under title
+	pdf.SetDrawColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
+	pdf.SetLineWidth(0.8)
+	pdf.Line(10, pdf.GetY()-5, 200, pdf.GetY()-5)
+	pdf.Ln(5)
 
 	// Table of Contents
 	if includeTOC {
-		pdf.SetFont("DejaVuSans", "", 14)
+		// TOC header
+		pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
+		pdf.SetFont("DejaVuSans", "", 16)
 		pdf.Cell(0, 10, "Table of Contents")
-		pdf.Ln(10)
+		pdf.Ln(12)
+		
+		// TOC background
+		pdf.SetFillColor(lightGray[0], lightGray[1], lightGray[2])
+		pdf.Rect(10, pdf.GetY(), 190, 40, "F")
+		pdf.Ln(5)
 
+		pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+		pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
 		pdf.SetFont("DejaVuSans", "", 12)
-		pdf.Cell(0, 8, bulletPoint+" Capabilities")
+		pdf.Cell(0, 8, "  "+bulletPoint+" Capabilities")
 		pdf.Ln(6)
 
 		if info.Capabilities.Tools && len(info.Tools) > 0 {
-			pdf.Cell(0, 8, bulletPoint+" Tools")
+			pdf.Cell(0, 8, "  "+bulletPoint+" Tools")
 			pdf.Ln(6)
 		}
 
 		if info.Capabilities.Resources && len(info.Resources) > 0 {
-			pdf.Cell(0, 8, bulletPoint+" Resources")
+			pdf.Cell(0, 8, "  "+bulletPoint+" Resources")
 			pdf.Ln(6)
 		}
 
 		if info.Capabilities.Prompts && len(info.Prompts) > 0 {
-			pdf.Cell(0, 8, bulletPoint+" Prompts")
+			pdf.Cell(0, 8, "  "+bulletPoint+" Prompts")
 			pdf.Ln(6)
 		}
 
@@ -72,50 +97,73 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	}
 
 	// Capabilities section
-	pdf.SetFont("DejaVuSans", "", 14)
-	pdf.Cell(0, 10, "Capabilities")
-	pdf.Ln(10)
+	pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
+	pdf.SetFont("DejaVuSans", "", 16)
+	pdf.Cell(0, 12, "Capabilities")
+	pdf.Ln(15)
+	
+	// Add section separator line
+	pdf.SetDrawColor(lightGray[0], lightGray[1], lightGray[2])
+	pdf.SetLineWidth(0.5)
+	pdf.Line(10, pdf.GetY()-5, 200, pdf.GetY()-5)
+	pdf.Ln(5)
 
 	pdf.SetFont("DejaVuSans", "", 12)
+	
+	// Tools capability
 	toolsIcon := crossMark
 	toolsStatus := notSupportedStatus
 	if info.Capabilities.Tools {
 		toolsIcon = checkMark
 		toolsStatus = supportedStatus
+		pdf.SetTextColor(successGreen[0], successGreen[1], successGreen[2])
+	} else {
+		pdf.SetTextColor(warningRed[0], warningRed[1], warningRed[2])
 	}
 	pdf.Cell(0, 8, fmt.Sprintf("%s Tools: %s", toolsIcon, toolsStatus))
-	pdf.Ln(6)
+	pdf.Ln(8)
 
+	// Resources capability
 	resourcesIcon := crossMark
 	resourcesStatus := notSupportedStatus
 	if info.Capabilities.Resources {
 		resourcesIcon = checkMark
 		resourcesStatus = supportedStatus
+		pdf.SetTextColor(successGreen[0], successGreen[1], successGreen[2])
+	} else {
+		pdf.SetTextColor(warningRed[0], warningRed[1], warningRed[2])
 	}
 	pdf.Cell(0, 8, fmt.Sprintf("%s Resources: %s", resourcesIcon, resourcesStatus))
-	pdf.Ln(6)
+	pdf.Ln(8)
 
+	// Prompts capability
 	promptsIcon := crossMark
 	promptsStatus := notSupportedStatus
 	if info.Capabilities.Prompts {
 		promptsIcon = checkMark
 		promptsStatus = supportedStatus
+		pdf.SetTextColor(successGreen[0], successGreen[1], successGreen[2])
+	} else {
+		pdf.SetTextColor(warningRed[0], warningRed[1], warningRed[2])
 	}
 	pdf.Cell(0, 8, fmt.Sprintf("%s Prompts: %s", promptsIcon, promptsStatus))
 	pdf.Ln(15)
 
 	// Tools section
 	if info.Capabilities.Tools && len(info.Tools) > 0 {
+		pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 		pdf.SetFont("DejaVuSans", "", 14)
 		pdf.Cell(0, 10, "Tools")
 		pdf.Ln(10)
 
 		for _, tool := range info.Tools {
-			pdf.SetFont("DejaVuSans", "", 12)
+			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+		pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, tool.Name)
 			pdf.Ln(8)
 
-			pdf.SetFont("DejaVuSans", "", 10)
+			pdf.SetTextColor(64, 64, 64)
+		pdf.SetFont("DejaVuSans", "", 10)
 			if tool.Description != "" {
 				pdf.Cell(0, 6, tool.Description)
 				pdf.Ln(6)
@@ -133,16 +181,19 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 	// Resources section
 	if info.Capabilities.Resources && len(info.Resources) > 0 {
+		pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 		pdf.SetFont("DejaVuSans", "", 14)
 		pdf.Cell(0, 10, "Resources")
 		pdf.Ln(10)
 
 		for _, resource := range info.Resources {
-			pdf.SetFont("DejaVuSans", "", 12)
+			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+		pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, resource.Name)
 			pdf.Ln(8)
 
-			pdf.SetFont("DejaVuSans", "", 10)
+			pdf.SetTextColor(64, 64, 64)
+		pdf.SetFont("DejaVuSans", "", 10)
 			pdf.Cell(0, 6, fmt.Sprintf("URI: %s", resource.URI))
 			pdf.Ln(6)
 
@@ -162,16 +213,19 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 
 	// Prompts section
 	if info.Capabilities.Prompts && len(info.Prompts) > 0 {
+		pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 		pdf.SetFont("DejaVuSans", "", 14)
 		pdf.Cell(0, 10, "Prompts")
 		pdf.Ln(10)
 
 		for _, prompt := range info.Prompts {
-			pdf.SetFont("DejaVuSans", "", 12)
+			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+		pdf.SetFont("DejaVuSans", "", 12)
 			pdf.Cell(0, 8, prompt.Name)
 			pdf.Ln(8)
 
-			pdf.SetFont("DejaVuSans", "", 10)
+			pdf.SetTextColor(64, 64, 64)
+		pdf.SetFont("DejaVuSans", "", 10)
 			if prompt.Description != "" {
 				pdf.Cell(0, 6, prompt.Description)
 				pdf.Ln(6)
