@@ -11,7 +11,7 @@ import (
 func anchorName(s string) string {
 	// Convert to lowercase
 	s = strings.ToLower(s)
-	
+
 	// Replace spaces and underscores with hyphens (matching Goldmark behavior)
 	s = strings.ReplaceAll(s, " ", "-")
 	s = strings.ReplaceAll(s, "_", "-")
