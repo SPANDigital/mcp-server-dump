@@ -19,9 +19,9 @@ const (
 	supportedStatus    = "Supported"
 	notSupportedStatus = "Not supported"
 	// Unicode bullet characters
-	bulletPoint = "•"  // bullet U+2022
-	checkMark   = "✓"  // checkmark U+2713
-	crossMark   = "✗"  // cross mark U+2717
+	bulletPoint = "•" // bullet U+2022
+	checkMark   = "✓" // checkmark U+2713
+	crossMark   = "✗" // cross mark U+2717
 )
 
 // FormatPDF formats server info as PDF
