@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>presidium-mcp-server - MCP Server Documentation</title>
+    <style>
+        :root {
+            --primary-blue: #2563eb;
+            --success-green: #16a34a;
+            --warning-red: #dc2626;
+            --text-gray: #64748b;
+            --light-gray: #f1f5f9;
+            --border-gray: #e2e8f0;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            line-height: 1.6;
+            color: #1e293b;
+            background-color: #ffffff;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        h1 {
+            color: var(--primary-blue);
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            border-bottom: 3px solid var(--primary-blue);
+            padding-bottom: 0.5rem;
+        }
+        
+        h2 {
+            color: var(--primary-blue);
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin: 2rem 0 1rem 0;
+            padding-left: 0.5rem;
+            border-left: 4px solid var(--primary-blue);
+        }
+        
+        h3 {
+            color: #334155;
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin: 1.5rem 0 0.75rem 0;
+        }
+        
+        p {
+            margin-bottom: 1rem;
+            color: #475569;
+        }
+        
+        ul {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+        
+        li {
+            margin-bottom: 0.5rem;
+            color: #475569;
+        }
+        
+        /* Status indicators with colors */
+        li:contains("✓") {
+            color: var(--success-green);
+            font-weight: 500;
+        }
+        
+        li:contains("✗") {
+            color: var(--warning-red);
+            font-weight: 500;
+        }
+        
+        /* Code blocks */
+        code {
+            background-color: var(--light-gray);
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            color: #e11d48;
+        }
+        
+        pre {
+            background-color: var(--light-gray);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            border: 1px solid var(--border-gray);
+        }
+        
+        pre code {
+            background: none;
+            color: #334155;
+            padding: 0;
+        }
+        
+        /* Table styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background-color: white;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-gray);
+        }
+        
+        th {
+            background-color: var(--primary-blue);
+            color: white;
+            font-weight: 600;
+        }
+        
+        tr:nth-child(even) {
+            background-color: var(--light-gray);
+        }
+        
+        /* Capability status styling */
+        .capability-supported {
+            color: var(--success-green);
+            font-weight: 600;
+        }
+        
+        .capability-unsupported {
+            color: var(--warning-red);
+            font-weight: 600;
+        }
+        
+        /* Section styling */
+        .section {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            background-color: #fafbfc;
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-gray);
+        }
+        
+        /* Table of contents */
+        .toc {
+            background-color: var(--light-gray);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin: 2rem 0;
+            border-left: 4px solid var(--primary-blue);
+        }
+        
+        .toc h2 {
+            margin-top: 0;
+            color: var(--primary-blue);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            h2 {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 id="presidium-mcp-server">presidium-mcp-server</h1>
+<p><strong>Version:</strong> v1.0.0</p>
+<h2 id="table-of-contents">Table of Contents</h2>
+<ul>
+<li><a href="#capabilities">Capabilities</a></li>
+<li><a href="#tools">Tools</a>
+<ul>
+<li><a href="#presidium-browse-collection">presidium_browse_collection</a></li>
+<li><a href="#presidium-browse-module">presidium_browse_module</a></li>
+<li><a href="#presidium-get-article">presidium_get_article</a></li>
+<li><a href="#presidium-list-modules">presidium_list_modules</a></li>
+<li><a href="#presidium-search">presidium_search</a></li>
+</ul>
+</li>
+</ul>
+<h2 id="capabilities">Capabilities</h2>
+<ul>
+<li><strong>Tools:</strong> ✅ Supported</li>
+<li><strong>Resources:</strong> ❌ Not supported</li>
+<li><strong>Prompts:</strong> ❌ Not supported</li>
+</ul>
+<h2 id="tools">Tools</h2>
+<h3 id="presidium-browse-collection">presidium_browse_collection</h3>
+<p>Navigate collections and modules within each collection</p>
+<p><strong>Input Schema:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;collection_key&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;collection key to browse&quot;
+    },
+    &quot;module_key&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;module key within collection&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}
+</code></pre>
+<h3 id="presidium-browse-module">presidium_browse_module</h3>
+<p>Navigate articles within a module</p>
+<p><strong>Input Schema:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;module_key&quot;
+  ],
+  &quot;properties&quot;: {
+    &quot;depth&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;description&quot;: &quot;depth of navigation&quot;
+    },
+    &quot;module_key&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;module key to browse&quot;
+    },
+    &quot;section_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;description&quot;: &quot;section ID within module&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}
+</code></pre>
+<h3 id="presidium-get-article">presidium_get_article</h3>
+<p>Retrieve specific article by ID or path</p>
+<p><strong>Input Schema:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;article_id&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;description&quot;: &quot;article ID&quot;
+    },
+    &quot;article_path&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;article path&quot;
+    },
+    &quot;format&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;format for the response&quot;
+    },
+    &quot;module_key&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;module key for article path lookup&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}
+</code></pre>
+<h3 id="presidium-list-modules">presidium_list_modules</h3>
+<p>List accessible projects/modules for user</p>
+<p><strong>Input Schema:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;filter&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;filter for modules&quot;
+    },
+    &quot;limit&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;description&quot;: &quot;maximum number of modules to return&quot;
+    },
+    &quot;offset&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;description&quot;: &quot;offset for pagination&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}
+</code></pre>
+<h3 id="presidium-search">presidium_search</h3>
+<p>Full-text search across accessible content</p>
+<p><strong>Input Schema:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;required&quot;: [
+    &quot;query&quot;
+  ],
+  &quot;properties&quot;: {
+    &quot;limit&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;description&quot;: &quot;maximum number of results to return&quot;
+    },
+    &quot;module_filter&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;optional module filter&quot;
+    },
+    &quot;offset&quot;: {
+      &quot;type&quot;: &quot;integer&quot;,
+      &quot;description&quot;: &quot;offset for pagination&quot;
+    },
+    &quot;query&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;description&quot;: &quot;search query&quot;
+    }
+  },
+  &quot;additionalProperties&quot;: false
+}
+</code></pre>
+
+</body>
+</html>
