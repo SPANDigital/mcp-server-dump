@@ -12,6 +12,67 @@ const (
 	boolFalse = "false"
 )
 
+// extractJSONNumber extracts a complete number from a JSON string starting at index i
+func extractJSONNumber(jsonStr string, i int) (numberStr string, nextIndex int) {
+	start := i
+
+	// Handle negative sign
+	if i < len(jsonStr) && jsonStr[i] == '-' {
+		i++
+	}
+
+	// Handle integer part
+	for i < len(jsonStr) && jsonStr[i] >= '0' && jsonStr[i] <= '9' {
+		i++
+	}
+
+	// Handle decimal part
+	if i < len(jsonStr) && jsonStr[i] == '.' {
+		i++
+		for i < len(jsonStr) && jsonStr[i] >= '0' && jsonStr[i] <= '9' {
+			i++
+		}
+	}
+
+	// Handle scientific notation
+	if i < len(jsonStr) && (jsonStr[i] == 'e' || jsonStr[i] == 'E') {
+		i++
+		if i < len(jsonStr) && (jsonStr[i] == '+' || jsonStr[i] == '-') {
+			i++
+		}
+		for i < len(jsonStr) && jsonStr[i] >= '0' && jsonStr[i] <= '9' {
+			i++
+		}
+	}
+
+	return jsonStr[start:i], i
+}
+
+// extractJSONQuotedString extracts a complete quoted string from JSON starting at index i
+func extractJSONQuotedString(jsonStr string, i int) (quotedStr string, nextIndex int) {
+	if i >= len(jsonStr) || jsonStr[i] != '"' {
+		return "", i
+	}
+
+	start := i
+	i++ // Skip opening quote
+
+	for i < len(jsonStr) {
+		if jsonStr[i] == '"' {
+			// Check if it's escaped
+			if i > 0 && jsonStr[i-1] == '\\' {
+				i++
+				continue
+			}
+			i++ // Include closing quote
+			break
+		}
+		i++
+	}
+
+	return jsonStr[start:i], i
+}
+
 // anchorName converts a string to a URL-safe anchor name compatible with Goldmark's AutoHeadingID
 func anchorName(s string) string {
 	// Convert to lowercase

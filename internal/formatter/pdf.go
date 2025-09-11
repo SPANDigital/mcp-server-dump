@@ -326,7 +326,7 @@ func renderJSONLine(pdf *fpdf.Fpdf, line string) {
 
 		// Handle quoted strings (keys and string values)
 		if char == '"' {
-			quote, nextIndex := extractQuotedString(line, i)
+			quote, nextIndex := extractJSONQuotedString(line, i)
 
 			// Determine if this is a key or value by checking what follows
 			isKey := false
@@ -354,7 +354,7 @@ func renderJSONLine(pdf *fpdf.Fpdf, line string) {
 
 		// Handle numbers, booleans, and null
 		if char >= '0' && char <= '9' || char == '-' || char == '.' {
-			number, nextIndex := extractNumber(line, i)
+			number, nextIndex := extractJSONNumber(line, i)
 			pdf.SetTextColor(jsonNumber[0], jsonNumber[1], jsonNumber[2])
 			width := pdf.GetStringWidth(number)
 			pdf.CellFormat(width, lineHeight, number, "", 0, "L", false, 0, "")
@@ -390,65 +390,4 @@ func renderJSONLine(pdf *fpdf.Fpdf, line string) {
 		pdf.CellFormat(width, lineHeight, string(char), "", 0, "L", false, 0, "")
 		i++
 	}
-}
-
-// extractQuotedString extracts a complete quoted string from the line starting at index i
-func extractQuotedString(line string, i int) (quotedStr string, nextIndex int) {
-	if i >= len(line) || line[i] != '"' {
-		return "", i
-	}
-
-	start := i
-	i++ // Skip opening quote
-
-	for i < len(line) {
-		if line[i] == '"' {
-			// Check if it's escaped
-			if i > 0 && line[i-1] == '\\' {
-				i++
-				continue
-			}
-			i++ // Include closing quote
-			break
-		}
-		i++
-	}
-
-	return line[start:i], i
-}
-
-// extractNumber extracts a complete number from the line starting at index i
-func extractNumber(line string, i int) (numberStr string, nextIndex int) {
-	start := i
-
-	// Handle negative sign
-	if i < len(line) && line[i] == '-' {
-		i++
-	}
-
-	// Handle integer part
-	for i < len(line) && line[i] >= '0' && line[i] <= '9' {
-		i++
-	}
-
-	// Handle decimal part
-	if i < len(line) && line[i] == '.' {
-		i++
-		for i < len(line) && line[i] >= '0' && line[i] <= '9' {
-			i++
-		}
-	}
-
-	// Handle scientific notation
-	if i < len(line) && (line[i] == 'e' || line[i] == 'E') {
-		i++
-		if i < len(line) && (line[i] == '+' || line[i] == '-') {
-			i++
-		}
-		for i < len(line) && line[i] >= '0' && line[i] <= '9' {
-			i++
-		}
-	}
-
-	return line[start:i], i
 }

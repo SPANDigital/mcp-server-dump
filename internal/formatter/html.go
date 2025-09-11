@@ -3,7 +3,10 @@ package formatter
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
@@ -44,9 +47,121 @@ func FormatHTML(info *model.ServerInfo, includeTOC bool, templateFS embed.FS) (s
 		return "", err
 	}
 
+	// Add JSON syntax highlighting to code blocks
+	highlightedHTML := addJSONSyntaxHighlighting(buf.String())
+
 	// Wrap HTML with professional styling
-	styledHTML := wrapWithCSS(buf.String(), info.Name)
+	styledHTML := wrapWithCSS(highlightedHTML, info.Name)
 	return styledHTML, nil
+}
+
+// addJSONSyntaxHighlighting finds JSON code blocks and adds syntax highlighting
+func addJSONSyntaxHighlighting(htmlContent string) string {
+	// Regular expression to find code blocks that might contain JSON
+	codeBlockRegex := regexp.MustCompile(`<pre><code>([^<]*)</code></pre>`)
+
+	return codeBlockRegex.ReplaceAllStringFunc(htmlContent, func(match string) string {
+		// Extract the code content
+		content := codeBlockRegex.FindStringSubmatch(match)
+		if len(content) < 2 {
+			return match
+		}
+
+		codeContent := content[1]
+
+		// Try to determine if this is JSON by attempting to parse it
+		var jsonData any
+		if err := json.Unmarshal([]byte(codeContent), &jsonData); err != nil {
+			// Not valid JSON, return original
+			return match
+		}
+
+		// Apply syntax highlighting
+		highlightedCode := highlightJSONHTML(codeContent)
+		return fmt.Sprintf(`<pre><code class="json-highlighted">%s</code></pre>`, highlightedCode)
+	})
+}
+
+// highlightJSONHTML applies syntax highlighting to JSON string for HTML output
+func highlightJSONHTML(jsonStr string) string {
+	var result strings.Builder
+
+	i := 0
+	for i < len(jsonStr) {
+		char := jsonStr[i]
+
+		// Handle whitespace - preserve formatting
+		if char == ' ' || char == '\t' || char == '\n' || char == '\r' {
+			result.WriteByte(char)
+			i++
+			continue
+		}
+
+		// Handle structural characters
+		if char == '{' || char == '}' || char == '[' || char == ']' || char == ',' || char == ':' {
+			result.WriteString(fmt.Sprintf(`<span class="json-punctuation">%c</span>`, char))
+			i++
+			continue
+		}
+
+		// Handle quoted strings (keys and string values)
+		if char == '"' {
+			quote, nextIndex := extractJSONQuotedString(jsonStr, i)
+
+			// Determine if this is a key or value
+			isKey := false
+			for j := nextIndex; j < len(jsonStr); j++ {
+				if jsonStr[j] == ':' {
+					isKey = true
+					break
+				}
+				if jsonStr[j] != ' ' && jsonStr[j] != '\t' && jsonStr[j] != '\n' && jsonStr[j] != '\r' {
+					break
+				}
+			}
+
+			if isKey {
+				result.WriteString(fmt.Sprintf(`<span class="json-key">%s</span>`, quote))
+			} else {
+				result.WriteString(fmt.Sprintf(`<span class="json-string">%s</span>`, quote))
+			}
+			i = nextIndex
+			continue
+		}
+
+		// Handle numbers
+		if (char >= '0' && char <= '9') || char == '-' || char == '.' {
+			number, nextIndex := extractJSONNumber(jsonStr, i)
+			result.WriteString(fmt.Sprintf(`<span class="json-number">%s</span>`, number))
+			i = nextIndex
+			continue
+		}
+
+		// Handle booleans and null
+		if strings.HasPrefix(jsonStr[i:], boolTrue) || strings.HasPrefix(jsonStr[i:], boolFalse) {
+			var word string
+			if strings.HasPrefix(jsonStr[i:], boolTrue) {
+				word = boolTrue
+			} else {
+				word = boolFalse
+			}
+			result.WriteString(fmt.Sprintf(`<span class="json-boolean">%s</span>`, word))
+			i += len(word)
+			continue
+		}
+
+		if strings.HasPrefix(jsonStr[i:], "null") {
+			result.WriteString(`<span class="json-null">null</span>`)
+			i += 4
+			continue
+		}
+
+		// Default: output character as-is
+		result.WriteByte(char)
+		i++
+	}
+
+	return result.String()
 }
 
 // wrapWithCSS wraps HTML content with professional styling
@@ -156,6 +271,40 @@ func wrapWithCSS(htmlContent, title string) string {
             background: none;
             color: #334155;
             padding: 0;
+        }
+        
+        /* JSON syntax highlighting */
+        .json-highlighted {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        }
+        
+        .json-key {
+            color: #4f46e5;  /* Purple for keys */
+            font-weight: 500;
+        }
+        
+        .json-string {
+            color: #16a34a;  /* Green for string values */
+        }
+        
+        .json-number {
+            color: #dc2626;  /* Red for numbers */
+            font-weight: 500;
+        }
+        
+        .json-boolean {
+            color: #3b82f6;  /* Blue for booleans */
+            font-weight: 600;
+        }
+        
+        .json-null {
+            color: #9ca3af;  /* Gray for null */
+            font-style: italic;
+        }
+        
+        .json-punctuation {
+            color: #4b5563;  /* Dark gray for punctuation */
+            font-weight: 500;
         }
         
         /* Table styling */
