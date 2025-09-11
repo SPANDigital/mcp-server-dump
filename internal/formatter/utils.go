@@ -7,6 +7,11 @@ import (
 	"strings"
 )
 
+const (
+	boolTrue  = "true"
+	boolFalse = "false"
+)
+
 // anchorName converts a string to a URL-safe anchor name compatible with Goldmark's AutoHeadingID
 func anchorName(s string) string {
 	// Convert to lowercase
@@ -53,9 +58,9 @@ func ParseCustomFields(fields []string) map[string]any {
 					items[i] = strings.TrimSpace(item)
 				}
 				custom[key] = items
-			} else if value == "true" || value == "false" {
+			} else if value == boolTrue || value == boolFalse {
 				// Boolean values
-				custom[key] = value == "true"
+				custom[key] = value == boolTrue
 			} else if intVal, err := strconv.Atoi(value); err == nil {
 				// Integer values
 				custom[key] = intVal

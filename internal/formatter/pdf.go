@@ -393,7 +393,7 @@ func renderJSONLine(pdf *fpdf.Fpdf, line string) {
 }
 
 // extractQuotedString extracts a complete quoted string from the line starting at index i
-func extractQuotedString(line string, i int) (string, int) {
+func extractQuotedString(line string, i int) (quotedStr string, nextIndex int) {
 	if i >= len(line) || line[i] != '"' {
 		return "", i
 	}
@@ -418,7 +418,7 @@ func extractQuotedString(line string, i int) (string, int) {
 }
 
 // extractNumber extracts a complete number from the line starting at index i
-func extractNumber(line string, i int) (string, int) {
+func extractNumber(line string, i int) (numberStr string, nextIndex int) {
 	start := i
 
 	// Handle negative sign
