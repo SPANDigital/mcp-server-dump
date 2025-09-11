@@ -5,6 +5,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	htmlPkg "html"
 	"regexp"
 	"strings"
 
@@ -57,8 +58,8 @@ func FormatHTML(info *model.ServerInfo, includeTOC bool, templateFS embed.FS) (s
 
 // addJSONSyntaxHighlighting finds JSON code blocks and adds syntax highlighting
 func addJSONSyntaxHighlighting(htmlContent string) string {
-	// Regular expression to find code blocks that might contain JSON
-	codeBlockRegex := regexp.MustCompile(`<pre><code>([^<]*)</code></pre>`)
+	// Regular expression to find code blocks (with or without language class)
+	codeBlockRegex := regexp.MustCompile(`<pre><code(?:\s+class="[^"]*")?[^>]*>([^<]*)</code></pre>`)
 
 	return codeBlockRegex.ReplaceAllStringFunc(htmlContent, func(match string) string {
 		// Extract the code content
@@ -69,15 +70,23 @@ func addJSONSyntaxHighlighting(htmlContent string) string {
 
 		codeContent := content[1]
 
-		// Try to determine if this is JSON by attempting to parse it
-		var jsonData any
-		if err := json.Unmarshal([]byte(codeContent), &jsonData); err != nil {
-			// Not valid JSON, return original
-			return match
+		// Decode HTML entities to get the actual JSON content
+		decodedContent := htmlPkg.UnescapeString(codeContent)
+
+		// Check if this block already has language-json class or try to detect JSON
+		isJSONBlock := strings.Contains(match, `class="language-json"`) || strings.Contains(match, `class="json`)
+
+		if !isJSONBlock {
+			// Try to determine if this is JSON by attempting to parse it
+			var jsonData any
+			if err := json.Unmarshal([]byte(decodedContent), &jsonData); err != nil {
+				// Not valid JSON, return original
+				return match
+			}
 		}
 
-		// Apply syntax highlighting
-		highlightedCode := highlightJSONHTML(codeContent)
+		// Apply syntax highlighting to the decoded content
+		highlightedCode := highlightJSONHTML(decodedContent)
 		return fmt.Sprintf(`<pre><code class="json-highlighted">%s</code></pre>`, highlightedCode)
 	})
 }
