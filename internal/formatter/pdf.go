@@ -31,6 +31,14 @@ var (
 	warningRed   = [3]int{220, 38, 38}   // #dc2626
 	textGray     = [3]int{100, 116, 139} // #64748b
 	lightGray    = [3]int{241, 245, 249} // #f1f5f9
+
+	// JSON syntax highlighting colors
+	jsonKey     = [3]int{79, 70, 229}   // #4f46e5 - Purple for keys
+	jsonString  = [3]int{22, 163, 74}   // #16a34a - Green for string values
+	jsonNumber  = [3]int{245, 101, 101} // #f56565 - Orange-red for numbers
+	jsonBoolean = [3]int{59, 130, 246}  // #3b82f6 - Blue for booleans
+	jsonNull    = [3]int{156, 163, 175} // #9ca3af - Gray for null
+	jsonBrace   = [3]int{75, 85, 99}    // #4b5563 - Dark gray for braces/brackets
 )
 
 // FormatPDF formats server info as PDF
@@ -262,7 +270,7 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// renderJSONSchema renders a JSON schema in the PDF
+// renderJSONSchema renders a JSON schema with syntax highlighting in the PDF
 func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 	pdf.SetFont("DejaVuSans", "", 9)
 
@@ -274,14 +282,173 @@ func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 		return
 	}
 
-	// Split into lines and add to PDF
+	// Process each line with syntax highlighting
 	lines := strings.Split(string(schemaJSON), "\n")
 	for _, line := range lines {
 		// Limit line length to prevent overflow
 		if len(line) > 100 {
 			line = line[:97] + "..."
 		}
-		pdf.Cell(0, 4, line)
+		renderJSONLine(pdf, line)
 		pdf.Ln(4)
 	}
+}
+
+// renderJSONLine renders a single line of JSON with syntax highlighting
+func renderJSONLine(pdf *fpdf.Fpdf, line string) {
+	lineHeight := 4.0
+
+	i := 0
+	for i < len(line) {
+		char := line[i]
+
+		// Handle whitespace - preserve indentation
+		if char == ' ' || char == '\t' {
+			spaces := ""
+			for i < len(line) && (line[i] == ' ' || line[i] == '\t') {
+				spaces += string(line[i])
+				i++
+			}
+			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+			width := pdf.GetStringWidth(spaces)
+			pdf.CellFormat(width, lineHeight, spaces, "", 0, "L", false, 0, "")
+			continue
+		}
+
+		// Handle structural characters
+		if char == '{' || char == '}' || char == '[' || char == ']' || char == ',' || char == ':' {
+			pdf.SetTextColor(jsonBrace[0], jsonBrace[1], jsonBrace[2])
+			width := pdf.GetStringWidth(string(char))
+			pdf.CellFormat(width, lineHeight, string(char), "", 0, "L", false, 0, "")
+			i++
+			continue
+		}
+
+		// Handle quoted strings (keys and string values)
+		if char == '"' {
+			quote, nextIndex := extractQuotedString(line, i)
+
+			// Determine if this is a key or value by checking what follows
+			isKey := false
+			for j := nextIndex; j < len(line); j++ {
+				if line[j] == ':' {
+					isKey = true
+					break
+				}
+				if line[j] != ' ' && line[j] != '\t' {
+					break
+				}
+			}
+
+			if isKey {
+				pdf.SetTextColor(jsonKey[0], jsonKey[1], jsonKey[2])
+			} else {
+				pdf.SetTextColor(jsonString[0], jsonString[1], jsonString[2])
+			}
+
+			width := pdf.GetStringWidth(quote)
+			pdf.CellFormat(width, lineHeight, quote, "", 0, "L", false, 0, "")
+			i = nextIndex
+			continue
+		}
+
+		// Handle numbers, booleans, and null
+		if char >= '0' && char <= '9' || char == '-' || char == '.' {
+			number, nextIndex := extractNumber(line, i)
+			pdf.SetTextColor(jsonNumber[0], jsonNumber[1], jsonNumber[2])
+			width := pdf.GetStringWidth(number)
+			pdf.CellFormat(width, lineHeight, number, "", 0, "L", false, 0, "")
+			i = nextIndex
+			continue
+		}
+
+		if strings.HasPrefix(line[i:], "true") || strings.HasPrefix(line[i:], "false") {
+			var word string
+			if strings.HasPrefix(line[i:], "true") {
+				word = "true"
+			} else {
+				word = "false"
+			}
+			pdf.SetTextColor(jsonBoolean[0], jsonBoolean[1], jsonBoolean[2])
+			width := pdf.GetStringWidth(word)
+			pdf.CellFormat(width, lineHeight, word, "", 0, "L", false, 0, "")
+			i += len(word)
+			continue
+		}
+
+		if strings.HasPrefix(line[i:], "null") {
+			pdf.SetTextColor(jsonNull[0], jsonNull[1], jsonNull[2])
+			width := pdf.GetStringWidth("null")
+			pdf.CellFormat(width, lineHeight, "null", "", 0, "L", false, 0, "")
+			i += 4
+			continue
+		}
+
+		// Default: render as regular text
+		pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+		width := pdf.GetStringWidth(string(char))
+		pdf.CellFormat(width, lineHeight, string(char), "", 0, "L", false, 0, "")
+		i++
+	}
+}
+
+// extractQuotedString extracts a complete quoted string from the line starting at index i
+func extractQuotedString(line string, i int) (string, int) {
+	if i >= len(line) || line[i] != '"' {
+		return "", i
+	}
+
+	start := i
+	i++ // Skip opening quote
+
+	for i < len(line) {
+		if line[i] == '"' {
+			// Check if it's escaped
+			if i > 0 && line[i-1] == '\\' {
+				i++
+				continue
+			}
+			i++ // Include closing quote
+			break
+		}
+		i++
+	}
+
+	return line[start:i], i
+}
+
+// extractNumber extracts a complete number from the line starting at index i
+func extractNumber(line string, i int) (string, int) {
+	start := i
+
+	// Handle negative sign
+	if i < len(line) && line[i] == '-' {
+		i++
+	}
+
+	// Handle integer part
+	for i < len(line) && line[i] >= '0' && line[i] <= '9' {
+		i++
+	}
+
+	// Handle decimal part
+	if i < len(line) && line[i] == '.' {
+		i++
+		for i < len(line) && line[i] >= '0' && line[i] <= '9' {
+			i++
+		}
+	}
+
+	// Handle scientific notation
+	if i < len(line) && (line[i] == 'e' || line[i] == 'E') {
+		i++
+		if i < len(line) && (line[i] == '+' || line[i] == '-') {
+			i++
+		}
+		for i < len(line) && line[i] >= '0' && line[i] <= '9' {
+			i++
+		}
+	}
+
+	return line[start:i], i
 }
