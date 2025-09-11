@@ -1,0 +1,54 @@
+name: 'MCP Server Dump'
+description: 'Extract documentation from MCP (Model Context Protocol) servers and output in various formats'
+author: 'SPAN Digital'
+branding:
+  icon: 'file-text'
+  color: 'blue'
+
+inputs:
+  server-command:
+    description: 'MCP server command to execute (e.g., "npx @modelcontextprotocol/server-filesystem /path")'
+    required: false
+  transport:
+    description: 'Transport type (stdio, sse, streamable)'
+    required: false
+    default: 'stdio'
+  endpoint:
+    description: 'Endpoint URL for sse or streamable transport'
+    required: false
+  headers:
+    description: 'HTTP headers in Key:Value format (comma-separated for multiple)'
+    required: false
+  format:
+    description: 'Output format (markdown, html, json, pdf)'
+    required: false
+    default: 'markdown'
+  output-file:
+    description: 'Output file path (required for pdf format)'
+    required: false
+  no-toc:
+    description: 'Disable table of contents in markdown output'
+    required: false
+    default: 'false'
+  frontmatter:
+    description: 'Add frontmatter to output (yaml, toml, json)'
+    required: false
+  timeout:
+    description: 'Connection timeout in seconds'
+    required: false
+    default: '30'
+  verbose:
+    description: 'Enable verbose output'
+    required: false
+    default: 'false'
+
+outputs:
+  output-file:
+    description: 'Path to the generated output file'
+  server-info:
+    description: 'JSON string containing server capabilities and metadata'
+
+runs:
+  using: 'docker'
+  image: 'ghcr.io/spandigital/mcp-server-dump:latest'
+  entrypoint: '/entrypoint.sh'

@@ -1,0 +1,41 @@
+name: Test MCP Server Dump Action
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'action.yml'
+      - 'entrypoint.sh'
+      - '.github/workflows/test-action.yml'
+
+jobs:
+  test-action:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Test Action with Echo Command
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          format: 'json'
+          output-file: 'test-output.json'
+          verbose: 'true'
+      
+      - name: Verify Output
+        run: |
+          if [ -f test-output.json ]; then
+            echo "✓ Output file created successfully"
+            ls -la test-output.json
+          else
+            echo "✗ Output file not found"
+            exit 1
+          fi
+      
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: test-output.json

@@ -205,6 +205,129 @@ Flags:
       --server-command=STRING Server command for explicit command transport
 ```
 
+## GitHub Action
+
+This tool is also available as a GitHub Action for automated documentation generation in CI/CD pipelines.
+
+### Basic Usage
+
+```yaml
+name: Generate MCP Server Documentation
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Generate MCP Server Documentation
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'node server.js'
+          format: 'markdown'
+          output-file: 'docs/server-documentation.md'
+      
+      - name: Upload documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-server-docs
+          path: docs/server-documentation.md
+```
+
+### Advanced Usage
+
+```yaml
+name: Multi-format Documentation Generation
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  generate-docs:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        format: [markdown, html, json, pdf]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Generate MCP Documentation (${{ matrix.format }})
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'npx @modelcontextprotocol/server-filesystem ./data'
+          format: ${{ matrix.format }}
+          output-file: 'docs/server.${{ matrix.format == "markdown" && "md" || matrix.format }}'
+          frontmatter: 'yaml'
+          verbose: 'true'
+      
+      - name: Upload ${{ matrix.format }} documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-docs-${{ matrix.format }}
+          path: docs/server.*
+```
+
+### HTTP Transport Usage
+
+```yaml
+name: Document Remote MCP Server
+on:
+  workflow_dispatch:
+    inputs:
+      endpoint:
+        description: 'MCP Server Endpoint'
+        required: true
+        default: 'http://localhost:3001/stream'
+      auth_token:
+        description: 'Authentication Token'
+        required: false
+
+jobs:
+  document-server:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Generate Remote Server Documentation
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          transport: 'streamable'
+          endpoint: ${{ github.event.inputs.endpoint }}
+          headers: 'Authorization:Bearer ${{ github.event.inputs.auth_token }}'
+          format: 'html'
+          output-file: 'remote-server-docs.html'
+```
+
+### Action Inputs
+
+| Input | Description | Required | Default |
+|-------|-------------|----------|---------|
+| `server-command` | MCP server command to execute | No | - |
+| `transport` | Transport type (stdio, sse, streamable) | No | `stdio` |
+| `endpoint` | Endpoint URL for sse or streamable transport | No | - |
+| `headers` | HTTP headers in Key:Value format (comma-separated) | No | - |
+| `format` | Output format (markdown, html, json, pdf) | No | `markdown` |
+| `output-file` | Output file path (required for pdf format) | No | - |
+| `no-toc` | Disable table of contents in markdown output | No | `false` |
+| `frontmatter` | Add frontmatter to output (yaml, toml, json) | No | - |
+| `timeout` | Connection timeout in seconds | No | `30` |
+| `verbose` | Enable verbose output | No | `false` |
+
+### Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| `output-file` | Path to the generated output file |
+| `server-info` | JSON string containing server capabilities and metadata |
+
 ## Use Cases
 
 - **Server Documentation**: Generate comprehensive documentation for MCP servers
@@ -212,6 +335,7 @@ Flags:
 - **Integration Planning**: Analyze server capabilities before integration
 - **Reverse Engineering**: Explore and document third-party MCP servers
 - **Testing & Validation**: Verify server implementations match specifications
+- **CI/CD Integration**: Automated documentation generation in GitHub workflows
 
 ## Dependencies
 
