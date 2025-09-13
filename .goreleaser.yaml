@@ -55,6 +55,29 @@ checksum:
 snapshot:
   version_template: "{{ incpatch .Version }}-next"
 
+brews:
+  - name: mcp-server-dump
+    repository:
+      owner: spandigital
+      name: homebrew-tap
+      branch: main
+    directory: Formula
+    homepage: "https://github.com/spandigital/mcp-server-dump"
+    description: "Extract and document MCP server capabilities in various formats"
+    license: "MIT"
+    skip_upload: auto
+    commit_author:
+      name: GoReleaser Bot
+      email: bot@goreleaser.com
+    commit_msg_template: "Brew formula update for {{ .ProjectName }} version {{ .Tag }}"
+    dependencies:
+      - name: git
+        type: optional
+    test: |
+      system "#{bin}/mcp-server-dump", "--help"
+    install: |
+      bin.install "mcp-server-dump"
+
 changelog:
   sort: asc
   filters:
