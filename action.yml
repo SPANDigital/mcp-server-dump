@@ -51,12 +51,6 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Login to GHCR
-      shell: bash
-      run: |
-        if [ -n "${{ github.token }}" ]; then
-          echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-        fi
     - name: Run MCP Server Dump
       shell: bash
       run: |
@@ -191,8 +185,3 @@ runs:
         else
             error_exit "MCP Server Dump failed"
         fi
-    - name: Logout from GHCR
-      shell: bash
-      if: always()
-      run: |
-        docker logout ghcr.io || true
