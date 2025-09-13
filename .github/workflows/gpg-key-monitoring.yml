@@ -82,73 +82,62 @@ jobs:
 
             const gpgKeyId = '${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}';
 
-            const body = `${priority}: The GPG key used for Linux package signing is approaching expiration.
-
-## Key Details
-- **Key ID**: ${gpgKeyId}
-- **Expiration Date**: ${expiryDate}
-- **Days Until Expiry**: ${daysUntil} days
-- **Alert Level**: ${alertLevel.toUpperCase()}
-
-## Required Actions
-${alertLevel === 'critical' ?
-  '- **IMMEDIATE ACTION REQUIRED** - Key expires in 30 days or less' :
-  '- **ACTION REQUIRED** - Key expires in 90 days or less'
-}
-
-### Steps to Rotate GPG Key:
-
-1. **Generate New Key**:
-   \`\`\`bash
-   # Generate new GPG key (4096-bit RSA, 3-year expiration)
-   gpg --batch --full-generate-key <<EOF
-   %no-protection
-   Key-Type: RSA
-   Key-Length: 4096
-   Subkey-Type: RSA
-   Subkey-Length: 4096
-   Name-Real: SPAN Digital
-   Name-Email: richard.wooding@spandigital.com
-   Expire-Date: 3y
-   %commit
-   EOF
-   \`\`\`
-
-2. **Cross-Sign with Existing Key**:
-   \`\`\`bash
-   # Export and sign new key with existing key for continuity
-   gpg --armor --export NEW_KEY_ID > new-public.key
-   gpg --sign-key NEW_KEY_ID
-   \`\`\`
-
-3. **Update Repository Secrets**:
-   - Update \`GPG_PRIVATE_KEY\` secret with new private key
-   - Update \`GPG_PUBLIC_KEY\` secret with new public key
-   - Update \`docs/public.key\` file with new public key
-
-4. **Update Documentation**:
-   - Update key fingerprint in \`docs/linux-repos.md\`
-   - Update expiration date in documentation
-   - Announce key rotation in release notes
-
-5. **Publish Key Transition Notice**:
-   - Create release announcing key change
-   - Update repository with transition period overlap
-   - Test package verification with both keys
-
-## Security Checklist
-- [ ] New key generated with appropriate parameters
-- [ ] Cross-signed with existing key for trust continuity
-- [ ] Repository secrets updated
-- [ ] Documentation updated with new fingerprint
-- [ ] Key transition announced to users
-- [ ] Package verification tested
-- [ ] Old key revoked after transition period
-
-**Responsible**: @${github.repository_owner}
-**Due Date**: ${new Date(Date.now() + (daysUntil - 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
-
-This issue was automatically created by the GPG key monitoring workflow.`;
+            const body = priority + ': The GPG key used for Linux package signing is approaching expiration.\n\n' +
+              '## Key Details\n' +
+              '- **Key ID**: ' + gpgKeyId + '\n' +
+              '- **Expiration Date**: ' + expiryDate + '\n' +
+              '- **Days Until Expiry**: ' + daysUntil + ' days\n' +
+              '- **Alert Level**: ' + alertLevel.toUpperCase() + '\n\n' +
+              '## Required Actions\n' +
+              (alertLevel === 'critical' ?
+                '- **IMMEDIATE ACTION REQUIRED** - Key expires in 30 days or less' :
+                '- **ACTION REQUIRED** - Key expires in 90 days or less'
+              ) + '\n\n' +
+              '### Steps to Rotate GPG Key:\n\n' +
+              '1. **Generate New Key**:\n' +
+              '   ```bash\n' +
+              '   # Generate new GPG key (4096-bit RSA, 3-year expiration)\n' +
+              '   gpg --batch --full-generate-key <<EOF\n' +
+              '   %no-protection\n' +
+              '   Key-Type: RSA\n' +
+              '   Key-Length: 4096\n' +
+              '   Subkey-Type: RSA\n' +
+              '   Subkey-Length: 4096\n' +
+              '   Name-Real: SPAN Digital\n' +
+              '   Name-Email: richard.wooding@spandigital.com\n' +
+              '   Expire-Date: 3y\n' +
+              '   %commit\n' +
+              '   EOF\n' +
+              '   ```\n\n' +
+              '2. **Cross-Sign with Existing Key**:\n' +
+              '   ```bash\n' +
+              '   # Export and sign new key with existing key for continuity\n' +
+              '   gpg --armor --export NEW_KEY_ID > new-public.key\n' +
+              '   gpg --sign-key NEW_KEY_ID\n' +
+              '   ```\n\n' +
+              '3. **Update Repository Secrets**:\n' +
+              '   - Update `GPG_PRIVATE_KEY` secret with new private key\n' +
+              '   - Update `GPG_PUBLIC_KEY` secret with new public key\n' +
+              '   - Update `docs/public.key` file with new public key\n\n' +
+              '4. **Update Documentation**:\n' +
+              '   - Update key fingerprint in `docs/linux-repos.md`\n' +
+              '   - Update expiration date in documentation\n' +
+              '   - Announce key rotation in release notes\n\n' +
+              '5. **Publish Key Transition Notice**:\n' +
+              '   - Create release announcing key change\n' +
+              '   - Update repository with transition period overlap\n' +
+              '   - Test package verification with both keys\n\n' +
+              '## Security Checklist\n' +
+              '- [ ] New key generated with appropriate parameters\n' +
+              '- [ ] Cross-signed with existing key for trust continuity\n' +
+              '- [ ] Repository secrets updated\n' +
+              '- [ ] Documentation updated with new fingerprint\n' +
+              '- [ ] Key transition announced to users\n' +
+              '- [ ] Package verification tested\n' +
+              '- [ ] Old key revoked after transition period\n\n' +
+              '**Responsible**: @' + context.repo.owner + '\n' +
+              '**Due Date**: ' + new Date(Date.now() + (daysUntil - 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0] + '\n\n' +
+              'This issue was automatically created by the GPG key monitoring workflow.';
 
             // Check for existing issues
             const issues = await github.rest.issues.listForRepo({
@@ -198,24 +187,19 @@ This issue was automatically created by the GPG key monitoring workflow.`;
 
             const gpgKeyId = '${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}';
 
-            const body = `The GPG key used for Linux package signing will expire in approximately 6 months.
-
-## Key Details
-- **Key ID**: ${gpgKeyId}
-- **Expiration Date**: ${expiryDate}
-- **Days Until Expiry**: ${daysUntil} days
-
-## Planning Required
-This is an advance notice to begin planning for GPG key rotation. The key rotation should be completed at least 3 months before expiry to ensure smooth transition.
-
-**Recommended Action Timeline**:
-- **3 months before expiry**: Begin key rotation process
-- **2 months before expiry**: Complete testing and documentation updates
-- **1 month before expiry**: Announce transition to users
-
-**Next Review**: This issue will escalate to HIGH priority when the key has 90 days remaining.
-
-This issue was automatically created by the GPG key monitoring workflow.`;
+            const body = 'The GPG key used for Linux package signing will expire in approximately 6 months.\n\n' +
+              '## Key Details\n' +
+              '- **Key ID**: ' + gpgKeyId + '\n' +
+              '- **Expiration Date**: ' + expiryDate + '\n' +
+              '- **Days Until Expiry**: ' + daysUntil + ' days\n\n' +
+              '## Planning Required\n' +
+              'This is an advance notice to begin planning for GPG key rotation. The key rotation should be completed at least 3 months before expiry to ensure smooth transition.\n\n' +
+              '**Recommended Action Timeline**:\n' +
+              '- **3 months before expiry**: Begin key rotation process\n' +
+              '- **2 months before expiry**: Complete testing and documentation updates\n' +
+              '- **1 month before expiry**: Announce transition to users\n\n' +
+              '**Next Review**: This issue will escalate to HIGH priority when the key has 90 days remaining.\n\n' +
+              'This issue was automatically created by the GPG key monitoring workflow.';
 
             // Check for existing medium priority issues
             const issues = await github.rest.issues.listForRepo({
