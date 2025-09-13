@@ -562,71 +562,69 @@ jobs:
           YUM_SECTION=""
 
           if [ "$DEB_AVAILABLE" = "true" ]; then
-            cat > apt_section.html <<'APTEND'
-              <h2>APT Repository (Debian/Ubuntu)</h2>
-              <h3>Quick Install</h3>
-              <pre>
-# Add the repository
-echo "deb [trusted=yes] https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
-
-# Update and install
-sudo apt update
-sudo apt install mcp-server-dump
-              </pre>
-
-              <h3>With GPG verification (if available)</h3>
-              <pre>
-# Import GPG key
-curl -fsSL https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
-
-# Add the repository
-echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
-
-# Update and install
-sudo apt update
-sudo apt install mcp-server-dump
-              </pre>
-APTEND
+            printf '%s\n' \
+              '              <h2>APT Repository (Debian/Ubuntu)</h2>' \
+              '              <h3>Quick Install</h3>' \
+              '              <pre>' \
+              '# Add the repository' \
+              'echo "deb [trusted=yes] https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list' \
+              '' \
+              '# Update and install' \
+              'sudo apt update' \
+              'sudo apt install mcp-server-dump' \
+              '              </pre>' \
+              '' \
+              '              <h3>With GPG verification (if available)</h3>' \
+              '              <pre>' \
+              '# Import GPG key' \
+              'curl -fsSL https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg' \
+              '' \
+              '# Add the repository' \
+              'echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list' \
+              '' \
+              '# Update and install' \
+              'sudo apt update' \
+              'sudo apt install mcp-server-dump' \
+              '              </pre>' > apt_section.html
             APT_SECTION=$(cat apt_section.html)
           fi
 
           if [ "$RPM_AVAILABLE" = "true" ]; then
-            cat > yum_section.html <<'YUMEND'
-              <h2>YUM Repository (RHEL/Fedora/CentOS)</h2>
-              <h3>Quick Install</h3>
-              <pre>
-# Add the repository
-sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'REPO'
-[mcp-server-dump]
-name=MCP Server Dump
-baseurl=https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/yum/$basearch
-enabled=1
-gpgcheck=0
-REPO
-
-# Install
-sudo dnf install mcp-server-dump
-              </pre>
-
-              <h3>With GPG verification (if available)</h3>
-              <pre>
-# Import GPG key
-sudo rpm --import https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/public.key
-
-# Add the repository
-sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'REPO'
-[mcp-server-dump]
-name=MCP Server Dump
-baseurl=https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/yum/$basearch
-enabled=1
-gpgcheck=1
-gpgkey=https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/public.key
-REPO
-
-# Install
-sudo dnf install mcp-server-dump
-              </pre>
-YUMEND
+            printf '%s\n' \
+              '              <h2>YUM Repository (RHEL/Fedora/CentOS)</h2>' \
+              '              <h3>Quick Install</h3>' \
+              '              <pre>' \
+              '# Add the repository' \
+              'sudo tee /etc/yum.repos.d/mcp-server-dump.repo << REPO' \
+              '[mcp-server-dump]' \
+              'name=MCP Server Dump' \
+              'baseurl=https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/yum/$basearch' \
+              'enabled=1' \
+              'gpgcheck=0' \
+              'REPO' \
+              '' \
+              '# Install' \
+              'sudo dnf install mcp-server-dump' \
+              '              </pre>' \
+              '' \
+              '              <h3>With GPG verification (if available)</h3>' \
+              '              <pre>' \
+              '# Import GPG key' \
+              'sudo rpm --import https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/public.key' \
+              '' \
+              '# Add the repository' \
+              'sudo tee /etc/yum.repos.d/mcp-server-dump.repo << REPO' \
+              '[mcp-server-dump]' \
+              'name=MCP Server Dump' \
+              'baseurl=https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/yum/$basearch' \
+              'enabled=1' \
+              'gpgcheck=1' \
+              'gpgkey=https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/public.key' \
+              'REPO' \
+              '' \
+              '# Install' \
+              'sudo dnf install mcp-server-dump' \
+              '              </pre>' > yum_section.html
             YUM_SECTION=$(cat yum_section.html)
           fi
 
