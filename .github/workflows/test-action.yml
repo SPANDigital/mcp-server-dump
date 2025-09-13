@@ -116,6 +116,12 @@ jobs:
           echo "=== File content preview ==="
           head -5 mock-mcp-server-json.sh
 
+      - name: Debug - Test Docker container file access
+        run: |
+          echo "=== Testing Docker container file access ==="
+          docker run --rm -v "$PWD:/workspace" -w /workspace ghcr.io/spandigital/mcp-server-dump:latest sh -c "ls -la mock-* || echo 'No mock files found in container'"
+          docker run --rm -v "$PWD:/workspace" -w /workspace ghcr.io/spandigital/mcp-server-dump:latest sh -c "pwd && ls -la . | head -10"
+
       - name: Test Action with Mock Server - JSON Output
         id: test-json
         uses: ./
