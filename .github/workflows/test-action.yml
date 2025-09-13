@@ -103,6 +103,15 @@ jobs:
           EOF
           chmod +x mock-mcp-server-json.sh
 
+      - name: Debug - List available files
+        run: |
+          echo "=== Current directory files ==="
+          ls -la ./mock-*
+          echo "=== File permissions ==="
+          ls -la mock-mcp-server-json.sh
+          echo "=== File content preview ==="
+          head -5 mock-mcp-server-json.sh
+
       - name: Test Action with Mock Server - JSON Output
         id: test-json
         uses: ./
