@@ -24,7 +24,22 @@ A command-line tool to extract and document MCP (Model Context Protocol) server 
 
 ## Installation
 
-### Using go install (Recommended)
+### Using Homebrew (macOS/Linux)
+
+```bash
+# Add the tap
+brew tap spandigital/homebrew-tap
+
+# Install the tool
+brew install mcp-server-dump
+```
+
+Or install directly in one command:
+```bash
+brew install spandigital/homebrew-tap/mcp-server-dump
+```
+
+### Using go install
 
 ```bash
 go install github.com/spandigital/mcp-server-dump/cmd/mcp-server-dump@latest
@@ -37,8 +52,12 @@ The binary will be installed to `$GOPATH/bin/mcp-server-dump` (or `$(go env GOPA
 ```bash
 git clone https://github.com/spandigital/mcp-server-dump.git
 cd mcp-server-dump
-go build -o mcp-server-dump
+go build -o mcp-server-dump ./cmd/mcp-server-dump
 ```
+
+### Pre-built Binaries
+
+Download the latest release from the [releases page](https://github.com/spandigital/mcp-server-dump/releases) for your platform.
 
 ### Requirements
 
