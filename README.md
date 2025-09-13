@@ -49,38 +49,19 @@ scoop bucket add spandigital https://github.com/spandigital/scoop-bucket
 scoop install mcp-server-dump
 ```
 
-### Linux Package Repositories
+### Linux Packages
 
-Native Linux packages are available for Debian/Ubuntu, RHEL/Fedora, and Alpine Linux:
+Pre-built Linux packages (.deb, .rpm, .apk) are available on the [releases page](https://github.com/spandigital/mcp-server-dump/releases).
 
 ```bash
-# Debian/Ubuntu (APT) - Secure Installation
-curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
-echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
-sudo apt update && sudo apt install mcp-server-dump
+# Example: Download and install a .deb package
+wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_1.20.1_amd64.deb
+sudo dpkg -i mcp-server-dump_1.20.1_amd64.deb
 
-# RHEL/Fedora/CentOS (YUM/DNF) - Secure Installation
-sudo rpm --import https://spandigital.github.io/mcp-server-dump/public.key
-sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'EOF'
-[mcp-server-dump]
-name=MCP Server Dump
-baseurl=https://spandigital.github.io/mcp-server-dump/yum/$basearch
-enabled=1
-gpgcheck=1
-gpgkey=https://spandigital.github.io/mcp-server-dump/public.key
-EOF
-sudo dnf install mcp-server-dump
-
-# Alpine Linux (APK) - Secure Installation
-# Import GPG key first
-curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /etc/apk/keys/mcp-server-dump.gpg.pub
-
-# Download and install signed package (gpg verification automatic)
-wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
-sudo apk add mcp-server-dump_linux_amd64.apk
+# Example: Download and install an .rpm package
+wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump-1.20.1-1.x86_64.rpm
+sudo rpm -i mcp-server-dump-1.20.1-1.x86_64.rpm
 ```
-
-📖 **For detailed installation instructions, security considerations, and GPG verification**: See [Linux Package Repository Documentation](docs/linux-repos.md)
 
 ### Using go install
 
