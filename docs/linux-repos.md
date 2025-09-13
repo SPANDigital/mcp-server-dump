@@ -163,10 +163,34 @@ gpg --verify package.deb.asc package.deb
 rpm --checksig package.rpm
 ```
 
+### GPG Key Management Strategy
+The project uses a dedicated GPG key for package signing:
+
+- **Key ID**: `9079FAE841B09114`
+- **Key Type**: 4096-bit RSA
+- **Expires**: September 13, 2027
+- **Owner**: SPAN Digital <richard.wooding@spandigital.com>
+- **Purpose**: Linux package and repository signing only
+
+**Key Storage**:
+- Private key stored as GitHub repository secret (`GPG_PRIVATE_KEY`)
+- Public key available in repository (`docs/public.key`) and published to GitHub Pages
+- Key rotation planned before expiration with advance notice
+
+**Key Verification**:
+```bash
+# Download and verify the public key
+curl -fsSL https://spandigital.github.io/mcp-server-dump/docs/public.key | gpg --import
+gpg --fingerprint 9079FAE841B09114
+# Expected fingerprint: 3340 5835 CE12 B5D3 440F 1611 9079 FAE8 41B0 9114
+```
+
 ### Trust Considerations
 - Packages are built automatically from tagged releases using GitHub Actions
 - The build process is auditable via the public [workflow logs](https://github.com/spandigital/mcp-server-dump/actions)
 - Repository hosting uses GitHub's infrastructure security
+- GPG signing provides cryptographic verification of package authenticity
+- Key management follows security best practices with time-limited keys
 
 ## Troubleshooting
 

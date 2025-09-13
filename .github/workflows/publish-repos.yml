@@ -225,10 +225,10 @@ sudo dnf install mcp-server-dump
           git commit -m "Update Linux repositories for ${{ github.event.release.tag_name }}" || echo "No changes to commit"
           git push
 
-      - name: Deploy to GitHub Pages
+      - name: Configure GitHub Pages
         uses: actions/configure-pages@v4
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
