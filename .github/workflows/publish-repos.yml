@@ -26,20 +26,17 @@ jobs:
 
       - name: Setup linux-repos branch
         run: |
+          set -euo pipefail
           # Check if linux-repos branch exists
           echo "Checking for existing linux-repos branch..."
           if git ls-remote --heads origin linux-repos | grep -q linux-repos; then
             echo "linux-repos branch exists, checking out and updating"
             git checkout linux-repos
-            if [ $? -ne 0 ]; then
-              echo "Error: Failed to checkout linux-repos branch"
-              exit 1
-            fi
 
-            git pull origin linux-repos
-            if [ $? -ne 0 ]; then
+            git pull origin linux-repos || {
               echo "Warning: Failed to pull latest changes, continuing with local branch"
-            fi
+              echo "This may result in conflicts or outdated content."
+            }
 
             echo "Successfully switched to existing linux-repos branch"
           else
@@ -50,10 +47,6 @@ jobs:
             echo "Current branch: $CURRENT_BRANCH"
 
             git checkout -b linux-repos
-            if [ $? -ne 0 ]; then
-              echo "Error: Failed to create linux-repos branch"
-              exit 1
-            fi
 
             # Clear the branch content for repository files only
             # Use git clean for safer cleanup
@@ -62,16 +55,7 @@ jobs:
             # Create initial commit
             git add . 2>/dev/null || true
             git commit -m "Initialize Linux package repository branch" --allow-empty
-            if [ $? -ne 0 ]; then
-              echo "Error: Failed to create initial commit"
-              exit 1
-            fi
-
             git push -u origin linux-repos
-            if [ $? -ne 0 ]; then
-              echo "Error: Failed to push new linux-repos branch"
-              exit 1
-            fi
 
             echo "Successfully created and pushed linux-repos branch"
           fi
@@ -95,6 +79,7 @@ jobs:
 
       - name: Verify downloaded packages
         run: |
+          set -euo pipefail
           if [ ! -d "./packages" ] || [ -z "$(ls -A ./packages 2>/dev/null)" ]; then
             echo "Error: No packages were downloaded from the release"
             echo "Release: ${{ github.event.release.tag_name }}"
@@ -135,6 +120,7 @@ jobs:
 
       - name: Setup GPG
         run: |
+          set -euo pipefail
           # Check if GPG secrets are available
           if [ -z "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
             echo "GPG_PRIVATE_KEY not configured - packages will be unsigned"
@@ -144,20 +130,20 @@ jobs:
             echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
           else
             echo "Setting up GPG keys for package signing..."
-            echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --quiet
-            if [ $? -ne 0 ]; then
-              echo "Error: Failed to import GPG private key"
-              echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
-            else
+            if echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --quiet; then
               echo "${{ secrets.GPG_PUBLIC_KEY }}" > public.key
               echo "GPG_AVAILABLE=true" >> $GITHUB_ENV
               echo "GPG keys imported successfully"
+            else
+              echo "Error: Failed to import GPG private key"
+              echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
             fi
           fi
 
       - name: Create APT repository
         if: env.DEB_AVAILABLE == 'true'
         run: |
+          set -euo pipefail
           # Install required tools
           sudo apt-get update
           sudo apt-get install -y dpkg-dev apt-utils
@@ -177,10 +163,6 @@ jobs:
           if ls ../packages/*_amd64.deb >/dev/null 2>&1; then
             echo "Processing amd64 packages..."
             dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
-            if [ $? -ne 0 ]; then
-              echo "Error: Failed to generate amd64 Packages file"
-              exit 1
-            fi
             gzip -k dists/stable/main/binary-amd64/Packages
           else
             echo "No amd64 packages found - creating empty Packages file"
@@ -192,10 +174,6 @@ jobs:
           if ls ../packages/*_arm64.deb >/dev/null 2>&1; then
             echo "Processing arm64 packages..."
             dpkg-scanpackages --arch arm64 pool/ > dists/stable/main/binary-arm64/Packages
-            if [ $? -ne 0 ]; then
-              echo "Error: Failed to generate arm64 Packages file"
-              exit 1
-            fi
             gzip -k dists/stable/main/binary-arm64/Packages
           else
             echo "No arm64 packages found - creating empty Packages file"
@@ -224,22 +202,16 @@ jobs:
           EOF
 
           apt-ftparchive release dists/stable >> dists/stable/Release
-          if [ $? -ne 0 ]; then
-            echo "Error: Failed to generate Release file"
-            exit 1
-          fi
 
           # Sign Release file (if GPG key is available)
           if [ "$GPG_AVAILABLE" = "true" ]; then
             echo "Signing Release file with GPG..."
-            gpg --armor --detach-sign --yes -o dists/stable/Release.gpg dists/stable/Release
-            if [ $? -ne 0 ]; then
+            gpg --armor --detach-sign --yes -o dists/stable/Release.gpg dists/stable/Release || {
               echo "Warning: Failed to create detached signature"
-            fi
-            gpg --armor --clearsign --yes -o dists/stable/InRelease dists/stable/Release
-            if [ $? -ne 0 ]; then
+            }
+            gpg --armor --clearsign --yes -o dists/stable/InRelease dists/stable/Release || {
               echo "Warning: Failed to create clear-signed Release file"
-            fi
+            }
             echo "GPG signing completed"
           else
             echo "GPG not available - APT repository will be unsigned"
@@ -250,13 +222,10 @@ jobs:
       - name: Create YUM repository
         if: env.RPM_AVAILABLE == 'true'
         run: |
+          set -euo pipefail
           # Install required tools
           echo "Installing createrepo-c..."
           sudo apt-get update && sudo apt-get install -y createrepo-c
-          if [ $? -ne 0 ]; then
-            echo "Error: Failed to install createrepo-c"
-            exit 1
-          fi
 
           # Create YUM directory structure
           mkdir -p yum/x86_64
@@ -292,31 +261,20 @@ jobs:
           # Generate repository metadata
           echo "Generating YUM repository metadata..."
           createrepo_c yum/x86_64
-          if [ $? -ne 0 ]; then
-            echo "Error: Failed to create x86_64 repository metadata"
-            exit 1
-          fi
-
           createrepo_c yum/aarch64
-          if [ $? -ne 0 ]; then
-            echo "Error: Failed to create aarch64 repository metadata"
-            exit 1
-          fi
 
           # Sign repository metadata (if GPG key is available)
           if [ "$GPG_AVAILABLE" = "true" ]; then
             echo "Signing YUM repository metadata with GPG..."
             if [ -f yum/x86_64/repodata/repomd.xml ]; then
-              gpg --armor --detach-sign --yes yum/x86_64/repodata/repomd.xml
-              if [ $? -ne 0 ]; then
+              gpg --armor --detach-sign --yes yum/x86_64/repodata/repomd.xml || {
                 echo "Warning: Failed to sign x86_64 repository metadata"
-              fi
+              }
             fi
             if [ -f yum/aarch64/repodata/repomd.xml ]; then
-              gpg --armor --detach-sign --yes yum/aarch64/repodata/repomd.xml
-              if [ $? -ne 0 ]; then
+              gpg --armor --detach-sign --yes yum/aarch64/repodata/repomd.xml || {
                 echo "Warning: Failed to sign aarch64 repository metadata"
-              fi
+              }
             fi
             echo "YUM repository signing completed"
           else
@@ -325,6 +283,7 @@ jobs:
 
       - name: Create repository documentation
         run: |
+          set -euo pipefail
           # Generate dynamic documentation based on available packages
           APT_SECTION=""
           YUM_SECTION=""
@@ -430,6 +389,7 @@ sudo dnf install mcp-server-dump
 
       - name: Commit and push changes
         run: |
+          set -euo pipefail
           git config --local user.email "bot@goreleaser.com"
           git config --local user.name "GoReleaser Bot"
 
@@ -441,16 +401,7 @@ sudo dnf install mcp-server-dump
 
           git add .
           git commit -m "Update Linux repositories for ${{ github.event.release.tag_name }}"
-          if [ $? -ne 0 ]; then
-            echo "Error: Failed to commit changes"
-            exit 1
-          fi
-
           git push
-          if [ $? -ne 0 ]; then
-            echo "Error: Failed to push changes to remote repository"
-            exit 1
-          fi
 
           echo "Successfully updated Linux repositories"
 
