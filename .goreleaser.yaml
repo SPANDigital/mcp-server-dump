@@ -103,6 +103,8 @@ nfpms:
     maintainer: "SPAN Digital <richard.wooding@spandigital.com>"
     description: "Extract and document MCP server capabilities in various formats"
     license: "MIT"
+    section: "utils"
+    priority: "optional"
     formats:
       - deb
       - rpm

@@ -14,17 +14,24 @@ jobs:
   publish-repos:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout linux-repos branch
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: linux-repos
           fetch-depth: 0
-        continue-on-error: true
 
-      - name: Create branch if it doesn't exist
+      - name: Setup linux-repos branch
         run: |
-          if [ $? -ne 0 ]; then
+          # Check if linux-repos branch exists
+          if git ls-remote --heads origin linux-repos | grep linux-repos; then
+            echo "Branch exists, checking out"
+            git checkout linux-repos
+            git pull origin linux-repos
+          else
+            echo "Creating new linux-repos branch"
             git checkout -b linux-repos
+            # Clear the branch for repository files only
+            git rm -rf . || true
+            git commit -m "Initial repository branch" --allow-empty
             git push -u origin linux-repos
           fi
 
@@ -55,13 +62,36 @@ jobs:
           # Copy DEB packages
           cp packages/*.deb apt/pool/main/m/mcp-server-dump/
 
-          # Generate Packages files
+          # Generate architecture-specific Packages files
           cd apt
-          dpkg-scanpackages pool/ > dists/stable/main/binary-amd64/Packages
+
+          # Process amd64 packages
+          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
           gzip -k dists/stable/main/binary-amd64/Packages
 
-          # Generate Release file
-          apt-ftparchive release dists/stable > dists/stable/Release
+          # Process arm64 packages
+          dpkg-scanpackages --arch arm64 pool/ > dists/stable/main/binary-arm64/Packages
+          gzip -k dists/stable/main/binary-arm64/Packages
+
+          # Create Contents file
+          apt-ftparchive contents pool/ > dists/stable/Contents-amd64
+          apt-ftparchive contents pool/ > dists/stable/Contents-arm64
+          gzip -k dists/stable/Contents-amd64
+          gzip -k dists/stable/Contents-arm64
+
+          # Generate Release file with proper architecture support
+          cat > dists/stable/Release << EOF
+          Origin: SPAN Digital
+          Label: MCP Server Dump
+          Suite: stable
+          Codename: stable
+          Version: 1.0
+          Architectures: amd64 arm64
+          Components: main
+          Description: MCP Server Dump Linux Package Repository
+          EOF
+
+          apt-ftparchive release dists/stable >> dists/stable/Release
 
           # Sign Release file (if GPG key is available)
           if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
