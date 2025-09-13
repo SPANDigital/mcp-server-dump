@@ -17,22 +17,6 @@ A command-line tool to dump MCP (Model Context Protocol) server capabilities and
 - Built with the official [MCP Go SDK](https://github.com/modelcontextprotocol/go-sdk)
 - Clean CLI interface powered by [Kong](https://github.com/alecthomas/kong)
 
-## SPANDigital and Private Repos
-
-Make sure you have Github CLI
-
-```bash
-brew install gh
-gh auth login
-```
-and have this is in your .zshrc or .bashrc
-
-```bash
-go env -w GOPRIVATE="github.com/spandigital/*"
-echo "machine github.com login richardwooding password $(gh auth token)" > ~/.netrc
-export PATH=$PATH:$(go env GOPATH)/bin
-```
-
 ## Installation
 
 ### Using go install (Recommended)

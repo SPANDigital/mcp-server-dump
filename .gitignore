@@ -11,8 +11,10 @@
 # Project binary (only in root directory)
 /mcp-server-dump
 
-# Generated PDF test files
+# Generated test files
+test-*
 *.pdf
+*.html
 
 # Test binary, built with `go test -c`
 *.test
