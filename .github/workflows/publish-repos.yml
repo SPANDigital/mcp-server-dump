@@ -773,6 +773,7 @@ sudo dnf install mcp-server-dump
 
       - name: Test Direct Package Installation
         if: matrix.package_type == 'deb'
+        timeout-minutes: 10
         run: |
           echo "🧪 Testing direct package installation from GitHub release"
 
@@ -832,4 +833,4 @@ sudo dnf install mcp-server-dump
 
             echo '🎉 Direct package installation test completed'
           "
-        timeout-minutes: 10
+
