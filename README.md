@@ -70,80 +70,80 @@ Download the latest release from the [releases page](https://github.com/spandigi
 
 ```bash
 # Connect to a Node.js MCP server (default command transport)
-./mcp-server-dump node server.js
+mcp-server-dump node server.js
 
 # Connect to a Python MCP server with arguments
-./mcp-server-dump python server.py --config config.json
+mcp-server-dump python server.py --config config.json
 
 # Connect to an NPX package
-./mcp-server-dump npx @modelcontextprotocol/server-filesystem /path/to/directory
+mcp-server-dump npx @modelcontextprotocol/server-filesystem /path/to/directory
 
 # Connect to a UVX package (Python equivalent of npx)
-./mcp-server-dump uvx mcp-server-sqlite --db-path /path/to/database.db
+mcp-server-dump uvx mcp-server-sqlite --db-path /path/to/database.db
 
 # Run a Go MCP server directly
-./mcp-server-dump go run github.com/example/mcp-server@latest --example-argument=something
+mcp-server-dump go run github.com/example/mcp-server@latest --example-argument=something
 
 # Connect to a streamable HTTP transport server
-./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
+mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
 
 # Connect to a streamable HTTP transport server (alternative endpoint)
-./mcp-server-dump --transport=streamable --endpoint="http://localhost:8080/mcp"
+mcp-server-dump --transport=streamable --endpoint="http://localhost:8080/mcp"
 ```
 
 ### Transport Options
 
 ```bash
 # Command transport (default) - runs server as subprocess
-./mcp-server-dump --transport=command node server.js
-./mcp-server-dump --transport=command --server-command="python server.py --arg value"
+mcp-server-dump --transport=command node server.js
+mcp-server-dump --transport=command --server-command="python server.py --arg value"
 
 # Streamable transport - connects to HTTP streamable endpoint
-./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
+mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
 
 # Configure HTTP timeout for web transports
-./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" --timeout=60s
+mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" --timeout=60s
 
 # Add custom HTTP headers for authentication or other purposes
-./mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" \
+mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" \
   -H "Authorization:Bearer your-token-here" \
   -H "X-API-Key:your-api-key"
 
 # Disable table of contents in markdown output
-./mcp-server-dump --no-toc node server.js
+mcp-server-dump --no-toc node server.js
 
 # Generate HTML output from markdown
-./mcp-server-dump -f html node server.js
+mcp-server-dump -f html node server.js
 
 # HTML output without table of contents
-./mcp-server-dump -f html --no-toc node server.js
+mcp-server-dump -f html --no-toc node server.js
 
 # Generate PDF output (requires output file)
-./mcp-server-dump -f pdf -o server-docs.pdf node server.js
+mcp-server-dump -f pdf -o server-docs.pdf node server.js
 
 # PDF output without table of contents
-./mcp-server-dump -f pdf --no-toc -o server-docs.pdf node server.js
+mcp-server-dump -f pdf --no-toc -o server-docs.pdf node server.js
 ```
 
 ### Output Options
 
 ```bash
 # Output to file (Markdown by default)
-./mcp-server-dump -o server-docs.md node server.js
+mcp-server-dump -o server-docs.md node server.js
 
 # JSON output
-./mcp-server-dump -f json node server.js
+mcp-server-dump -f json node server.js
 
 # HTML output
-./mcp-server-dump -f html node server.js
+mcp-server-dump -f html node server.js
 
 # PDF output (requires output file)
-./mcp-server-dump -f pdf -o server-docs.pdf node server.js
+mcp-server-dump -f pdf -o server-docs.pdf node server.js
 
 # Output to file (any format)
-./mcp-server-dump -f json -o server-info.json python server.py
-./mcp-server-dump -f html -o server-docs.html python server.py
-./mcp-server-dump -f pdf -o server-docs.pdf python server.py
+mcp-server-dump -f json -o server-info.json python server.py
+mcp-server-dump -f html -o server-docs.html python server.py
+mcp-server-dump -f pdf -o server-docs.pdf python server.py
 ```
 
 ### Frontmatter Support
@@ -152,10 +152,10 @@ Generate YAML, TOML, or JSON frontmatter in markdown output for integration with
 
 ```bash
 # Basic frontmatter (YAML by default)
-./mcp-server-dump --frontmatter node server.js
+mcp-server-dump --frontmatter node server.js
 
 # With custom metadata fields
-./mcp-server-dump --frontmatter \
+mcp-server-dump --frontmatter \
   -M "author:joe.bloggs@company.com" \
   -M "status:draft" \
   -M "team:engineering" \
@@ -163,13 +163,13 @@ Generate YAML, TOML, or JSON frontmatter in markdown output for integration with
   node server.js
 
 # TOML format frontmatter
-./mcp-server-dump --frontmatter --frontmatter-format=toml \
+mcp-server-dump --frontmatter --frontmatter-format=toml \
   -M "author:jane.doe@example.org" \
   -M "reviewed:false" \
   python server.py
 
 # JSON format frontmatter
-./mcp-server-dump --frontmatter --frontmatter-format=json \
+mcp-server-dump --frontmatter --frontmatter-format=json \
   -M "build_number:42" \
   -M "environment:production" \
   npx @modelcontextprotocol/server-filesystem /path
@@ -253,13 +253,13 @@ The following features are deprecated and included only for backward compatibili
 
 ```bash
 # SSE transport - connects to HTTP Server-Sent Events endpoint
-./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse"
+mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse"
 
 # Configure HTTP timeout for SSE transport
-./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" --timeout=60s
+mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" --timeout=60s
 
 # Add custom HTTP headers for SSE transport
-./mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" \
+mcp-server-dump --transport=sse --endpoint="http://localhost:3001/sse" \
   -H "Authorization:Bearer your-token-here" \
   -H "X-API-Key:your-api-key"
 ```
