@@ -85,22 +85,33 @@ sudo yum install mcp-server-dump  # For older RHEL/CentOS
 
 ### Alpine Linux (APK)
 
-Alpine Linux packages are available as direct downloads from GitHub releases. APK packages are not hosted in a repository due to Alpine's package signing requirements.
+Alpine Linux packages are available as direct downloads from GitHub releases with GPG signature verification.
 
-#### Manual Installation
+#### Secure Installation (Recommended)
 ```bash
-# Download the APK package from the latest release
+# Import GPG key for package verification
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /etc/apk/keys/mcp-server-dump.gpg.pub
+
+# Download and install signed package
 wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
-
-# Install the package (requires --allow-untrusted for non-official packages)
-sudo apk add --allow-untrusted mcp-server-dump_linux_amd64.apk
+sudo apk add mcp-server-dump_linux_amd64.apk
 ```
 
-#### Using Alpine Package Manager with Direct URL
+#### Manual Verification (Alternative)
 ```bash
-# Install directly from URL
-sudo apk add --allow-untrusted https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
+# Download package and signature
+wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
+wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk.sig
+
+# Import GPG key and verify signature
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | gpg --import
+gpg --verify mcp-server-dump_linux_amd64.apk.sig mcp-server-dump_linux_amd64.apk
+
+# If verification successful, install with key imported above
+sudo apk add mcp-server-dump_linux_amd64.apk
 ```
+
+**⚠️ Security Warning**: Never use `--allow-untrusted` flag as it bypasses package signature verification and poses security risks.
 
 **Note**: Replace `amd64` with `arm64` for ARM-based systems.
 
@@ -127,8 +138,8 @@ sudo rpm -i mcp-server-dump-*.rpm
 # OR
 sudo dnf install ./mcp-server-dump-*.rpm
 
-# Alpine Linux
-sudo apk add --allow-untrusted mcp-server-dump_*.apk
+# Alpine Linux (after importing GPG key as shown above)
+sudo apk add mcp-server-dump_*.apk
 ```
 
 ## Updating
@@ -154,6 +165,172 @@ sudo dnf remove mcp-server-dump
 
 # Alpine Linux
 sudo apk del mcp-server-dump
+```
+
+## Package Verification Commands
+
+After installing packages, you can verify their authenticity and integrity using various methods:
+
+### 1. Verify Installation
+
+```bash
+# Check if mcp-server-dump is installed and working
+which mcp-server-dump
+mcp-server-dump --version
+mcp-server-dump --help
+
+# Test basic functionality
+echo '{"test": "command"}' | mcp-server-dump --help | head -5
+```
+
+### 2. Package Signature Verification
+
+#### For DEB packages (Debian/Ubuntu):
+```bash
+# List installed package details
+dpkg -l mcp-server-dump
+dpkg -s mcp-server-dump
+
+# Verify repository GPG key is trusted
+gpg --list-keys --keyring /usr/share/keyrings/mcp-server-dump.gpg 2>/dev/null || echo "Key not found"
+
+# Check if package was installed from signed repository
+apt-cache policy mcp-server-dump
+```
+
+#### For RPM packages (RHEL/Fedora/CentOS):
+```bash
+# List installed package details
+rpm -qi mcp-server-dump
+rpm -V mcp-server-dump  # Verify package integrity
+
+# Check package signature
+rpm --checksig $(rpm -q mcp-server-dump --queryformat '%{PACKAGEORIGIN}\n') 2>/dev/null || echo "Package origin not available"
+
+# Verify repository GPG keys
+rpm -qa | grep gpg-pubkey
+```
+
+#### For Alpine Linux (APK):
+```bash
+# Check installed package
+apk info mcp-server-dump
+apk info -L mcp-server-dump  # List package files
+
+# Verify GPG key is installed
+ls -la /etc/apk/keys/*mcp-server-dump* 2>/dev/null || echo "GPG key not found in APK keyring"
+```
+
+### 3. Manual Package Verification (for direct downloads)
+
+If you downloaded packages directly from GitHub releases:
+
+```bash
+# Download package and signature
+LATEST=$(curl -s https://api.github.com/repos/spandigital/mcp-server-dump/releases/latest | grep tag_name | cut -d'"' -f4)
+echo "Latest release: $LATEST"
+
+# For DEB packages
+wget "https://github.com/spandigital/mcp-server-dump/releases/download/$LATEST/mcp-server-dump_${LATEST#v}_linux_amd64.deb"
+wget "https://github.com/spandigital/mcp-server-dump/releases/download/$LATEST/mcp-server-dump_${LATEST#v}_linux_amd64.deb.sig" 2>/dev/null || echo "No signature file"
+
+# Import GPG key and verify
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | gpg --import
+gpg --verify "mcp-server-dump_${LATEST#v}_linux_amd64.deb.sig" "mcp-server-dump_${LATEST#v}_linux_amd64.deb" 2>/dev/null || echo "Verification failed or no signature"
+
+# Verify SHA256 checksum (if available)
+wget "https://github.com/spandigital/mcp-server-dump/releases/download/$LATEST/checksums.txt" 2>/dev/null || echo "No checksums file"
+sha256sum -c checksums.txt --ignore-missing 2>/dev/null || echo "Checksum verification failed"
+```
+
+### 4. Security Verification Checklist
+
+Run this checklist after installation to ensure security:
+
+```bash
+#!/bin/bash
+echo "🔍 mcp-server-dump Security Verification Checklist"
+echo "=================================================="
+
+# 1. Verify binary location and permissions
+echo "1. Binary location and permissions:"
+ls -la $(which mcp-server-dump 2>/dev/null) || echo "   ❌ Binary not found in PATH"
+
+# 2. Check if binary is properly signed (on supported systems)
+echo "2. Binary signature (if supported):"
+if command -v codesign >/dev/null 2>&1; then
+    codesign -v $(which mcp-server-dump) 2>/dev/null && echo "   ✅ Code signature valid" || echo "   ⚠️  No code signature"
+fi
+
+# 3. Verify package manager source
+echo "3. Package source verification:"
+case $(which apt dnf yum apk 2>/dev/null | head -1 | xargs basename 2>/dev/null) in
+    apt)
+        if apt-cache policy mcp-server-dump | grep -q "spandigital.github.io"; then
+            echo "   ✅ Installed from official repository"
+        else
+            echo "   ⚠️  Package source unknown"
+        fi
+        ;;
+    dnf|yum)
+        if rpm -qi mcp-server-dump 2>/dev/null | grep -q "spandigital"; then
+            echo "   ✅ Installed from official repository"
+        else
+            echo "   ⚠️  Package source unknown"
+        fi
+        ;;
+    apk)
+        echo "   ℹ️  Alpine packages installed manually"
+        ;;
+    *)
+        echo "   ⚠️  Unknown package manager"
+        ;;
+esac
+
+# 4. Test basic functionality
+echo "4. Functionality test:"
+if mcp-server-dump --help >/dev/null 2>&1; then
+    echo "   ✅ Basic functionality works"
+else
+    echo "   ❌ Basic functionality failed"
+fi
+
+# 5. Check for expected version pattern
+echo "5. Version verification:"
+VERSION=$(mcp-server-dump --version 2>/dev/null || mcp-server-dump --help 2>/dev/null | head -1)
+if echo "$VERSION" | grep -qE "(v[0-9]+\.[0-9]+\.[0-9]+|mcp-server-dump)"; then
+    echo "   ✅ Version info available: $VERSION"
+else
+    echo "   ⚠️  Version info unclear: $VERSION"
+fi
+
+echo "=================================================="
+echo "✅ Verification complete"
+echo "💡 For additional security, verify GPG signatures and checksums"
+echo "📖 Documentation: https://github.com/spandigital/mcp-server-dump"
+```
+
+### 5. Troubleshooting Verification Issues
+
+**Common verification problems and solutions:**
+
+```bash
+# GPG verification fails
+gpg --keyserver keyserver.ubuntu.com --recv-keys 9079FAE841B09114
+gpg --fingerprint 9079FAE841B09114
+# Expected: 3340 5835 CE12 B5D3 440F 1611 9079 FAE8 41B0 9114
+
+# Package not found in repository
+sudo apt update  # or dnf clean all && dnf makecache
+apt-cache search mcp-server-dump
+
+# Permission issues
+ls -la ~/.gnupg/
+chmod 700 ~/.gnupg && chmod 600 ~/.gnupg/*
+
+# Network issues
+curl -v https://spandigital.github.io/mcp-server-dump/public.key
+ping -c 3 spandigital.github.io
 ```
 
 ## Repository Structure

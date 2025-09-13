@@ -71,11 +71,13 @@ gpgkey=https://spandigital.github.io/mcp-server-dump/public.key
 EOF
 sudo dnf install mcp-server-dump
 
-# Alpine Linux (APK) - Direct Download (Signed Package)
+# Alpine Linux (APK) - Secure Installation
+# Import GPG key first
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /etc/apk/keys/mcp-server-dump.gpg.pub
+
+# Download and install signed package (gpg verification automatic)
 wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
-wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk.sig
-gpg --verify mcp-server-dump_linux_amd64.apk.sig mcp-server-dump_linux_amd64.apk
-sudo apk add --allow-untrusted mcp-server-dump_linux_amd64.apk
+sudo apk add mcp-server-dump_linux_amd64.apk
 ```
 
 📖 **For detailed installation instructions, security considerations, and GPG verification**: See [Linux Package Repository Documentation](docs/linux-repos.md)

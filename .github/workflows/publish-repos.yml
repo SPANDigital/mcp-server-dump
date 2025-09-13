@@ -78,28 +78,97 @@ jobs:
             CURRENT_BRANCH=$(git branch --show-current)
             echo "Current branch: $CURRENT_BRANCH"
 
-            git checkout -b linux-repos
+            # Validate git configuration before proceeding
+            if ! git config user.name >/dev/null || ! git config user.email >/dev/null; then
+              echo "Error: Git user configuration not set"
+              git config user.name "GitHub Actions"
+              git config user.email "action@github.com"
+              echo "✓ Set default git configuration for actions"
+            fi
+
+            # Create new branch with error handling
+            if git checkout -b linux-repos; then
+              echo "✓ Successfully created linux-repos branch"
+            else
+              echo "❌ Error: Failed to create linux-repos branch"
+              echo "Debug: Current git status:"
+              git status || true
+              echo "Debug: Available branches:"
+              git branch -a || true
+              exit 1
+            fi
 
             # Clear the branch content for repository files only
             # Use git clean for safer cleanup
-            git clean -fdx
+            if git clean -fdx; then
+              echo "✓ Successfully cleaned branch content"
+            else
+              echo "⚠ Warning: git clean failed, continuing anyway"
+            fi
 
-            # Create initial commit
+            # Create initial commit with error handling
             git add . 2>/dev/null || true
-            git commit -m "Initialize Linux package repository branch" --allow-empty
-            git push -u origin linux-repos
+            if git commit -m "Initialize Linux package repository branch" --allow-empty; then
+              echo "✓ Successfully created initial commit"
+            else
+              echo "❌ Error: Failed to create initial commit"
+              git status
+              exit 1
+            fi
 
-            echo "Successfully created and pushed linux-repos branch"
+            # Push with retry mechanism
+            echo "Pushing new branch to origin..."
+            for push_attempt in 1 2 3; do
+              if git push -u origin linux-repos; then
+                echo "✓ Successfully pushed linux-repos branch (attempt $push_attempt)"
+                break
+              else
+                echo "❌ Failed to push linux-repos branch (attempt $push_attempt/3)"
+                if [ $push_attempt -eq 3 ]; then
+                  echo "Error: Failed to push branch after 3 attempts"
+                  echo "Debug: Remote information:"
+                  git remote -v || true
+                  echo "Debug: Branch information:"
+                  git branch -vv || true
+                  exit 1
+                fi
+                echo "Retrying in 10 seconds..."
+                sleep 10
+              fi
+            done
+
+            echo "✅ Successfully created and pushed linux-repos branch"
           fi
 
-          # Verify we're on the correct branch
+          # Verify we're on the correct branch with enhanced diagnostics
           CURRENT_BRANCH=$(git branch --show-current)
           if [ "$CURRENT_BRANCH" != "linux-repos" ]; then
-            echo "Error: Not on linux-repos branch (currently on: $CURRENT_BRANCH)"
+            echo "❌ Error: Not on linux-repos branch (currently on: $CURRENT_BRANCH)"
+            echo "Debug: Branch verification failed"
+            echo "Available branches:"
+            git branch -a || true
+            echo "Current HEAD:"
+            git show-ref --head || true
+            echo "Remote tracking:"
+            git branch -vv || true
             exit 1
           fi
 
-          echo "Branch setup complete - ready to publish packages"
+          # Additional branch health checks
+          if ! git diff-index --quiet HEAD --; then
+            echo "⚠ Warning: Working directory has uncommitted changes"
+            git status --porcelain
+          fi
+
+          # Verify remote tracking is set up correctly
+          UPSTREAM=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null || echo "none")
+          if [ "$UPSTREAM" = "origin/linux-repos" ]; then
+            echo "✓ Branch correctly tracking origin/linux-repos"
+          else
+            echo "⚠ Warning: Branch not tracking origin/linux-repos (tracking: $UPSTREAM)"
+          fi
+
+          echo "✅ Branch setup complete - ready to publish packages"
 
       - name: Download release assets
         timeout-minutes: 15
@@ -113,64 +182,159 @@ jobs:
       - name: Verify downloaded packages
         run: |
           set -euo pipefail
-          if [ ! -d "./packages" ] || [ -z "$(ls -A ./packages 2>/dev/null)" ]; then
-            echo "Error: No packages were downloaded from the release"
-            echo "Release: ${{ github.event.release.tag_name }}"
-            echo "Expected files: DEB and RPM packages"
+
+          echo "🔍 Verifying downloaded packages from release: ${{ github.event.release.tag_name }}"
+
+          # Check if packages directory exists and has content
+          if [ ! -d "./packages" ]; then
+            echo "❌ Error: Packages directory not created"
+            echo "This indicates the download action may have failed completely"
+            echo "Debug: Checking current directory contents:"
+            ls -la ./ || true
             exit 1
           fi
+
+          # Check if directory has any content
+          PACKAGE_COUNT=$(ls -1 ./packages/ 2>/dev/null | wc -l)
+          if [ "$PACKAGE_COUNT" -eq 0 ]; then
+            echo "❌ Error: No packages were downloaded from the release"
+            echo "Release: ${{ github.event.release.tag_name }}"
+            echo "Expected files: DEB and RPM packages matching pattern: .*\\.(deb|rpm)$"
+
+            # Enhanced diagnostics for download failures
+            echo ""
+            echo "🔍 Download diagnostics:"
+            echo "Packages directory exists: $([ -d './packages' ] && echo 'Yes' || echo 'No')"
+            echo "Packages directory permissions: $(ls -ld ./packages/ 2>/dev/null || echo 'N/A')"
+
+            # Check if there are any files at all (including wrong extensions)
+            echo "All files in packages directory:"
+            ls -la ./packages/ 2>/dev/null || echo "Directory is empty or unreadable"
+
+            # Try to diagnose release asset availability
+            echo ""
+            echo "Release asset availability check would require GitHub API access"
+            echo "Manual verification steps:"
+            echo "1. Check release at: https://github.com/${{ github.repository }}/releases/tag/${{ github.event.release.tag_name }}"
+            echo "2. Verify .deb and .rpm files are attached as release assets"
+            echo "3. Ensure filenames match the regex pattern: .*\\.(deb|rpm)$"
+
+            exit 1
+          fi
+
+          echo "✓ Downloaded $PACKAGE_COUNT files total"
           echo "Downloaded packages:"
           ls -la ./packages/
 
-          # Check package availability and set flags
+          # Enhanced package validation with file type checking
           DEB_AVAILABLE=false
           RPM_AVAILABLE=false
+          INVALID_FILES=()
 
+          # Check DEB packages with file validation
           if ls ./packages/*.deb >/dev/null 2>&1; then
-            DEB_AVAILABLE=true
-            echo "✓ DEB packages found: $(ls ./packages/*.deb | wc -l)"
+            DEB_COUNT=0
+            echo ""
+            echo "🔍 Validating DEB packages..."
+            for deb_file in ./packages/*.deb; do
+              if [ -f "$deb_file" ]; then
+                # Check if it's actually a DEB file
+                if file "$deb_file" | grep -q "Debian binary package"; then
+                  DEB_COUNT=$((DEB_COUNT + 1))
+                  echo "✓ Valid DEB: $(basename "$deb_file") ($(stat -f%z "$deb_file" 2>/dev/null || stat -c%s "$deb_file") bytes)"
+                else
+                  INVALID_FILES+=("$deb_file (not a valid DEB file)")
+                  echo "⚠ Invalid DEB format: $(basename "$deb_file")"
+                fi
+              fi
+            done
+
+            if [ $DEB_COUNT -gt 0 ]; then
+              DEB_AVAILABLE=true
+              echo "✅ Found $DEB_COUNT valid DEB package(s)"
+            else
+              echo "❌ No valid DEB packages found (files exist but wrong format)"
+            fi
           else
             echo "⚠ Warning: No DEB packages found - APT repository will be skipped"
           fi
 
+          # Check RPM packages with file validation
           if ls ./packages/*.rpm >/dev/null 2>&1; then
-            RPM_AVAILABLE=true
-            echo "✓ RPM packages found: $(ls ./packages/*.rpm | wc -l)"
+            RPM_COUNT=0
+            echo ""
+            echo "🔍 Validating RPM packages..."
+            for rpm_file in ./packages/*.rpm; do
+              if [ -f "$rpm_file" ]; then
+                # Check if it's actually an RPM file
+                if file "$rpm_file" | grep -q "RPM"; then
+                  RPM_COUNT=$((RPM_COUNT + 1))
+                  echo "✓ Valid RPM: $(basename "$rpm_file") ($(stat -f%z "$rpm_file" 2>/dev/null || stat -c%s "$rpm_file") bytes)"
+                else
+                  INVALID_FILES+=("$rpm_file (not a valid RPM file)")
+                  echo "⚠ Invalid RPM format: $(basename "$rpm_file")"
+                fi
+              fi
+            done
+
+            if [ $RPM_COUNT -gt 0 ]; then
+              RPM_AVAILABLE=true
+              echo "✅ Found $RPM_COUNT valid RPM package(s)"
+            else
+              echo "❌ No valid RPM packages found (files exist but wrong format)"
+            fi
           else
             echo "⚠ Warning: No RPM packages found - YUM repository will be skipped"
+          fi
+
+          # Report any invalid files found
+          if [ ${#INVALID_FILES[@]} -gt 0 ]; then
+            echo ""
+            echo "⚠ Found ${#INVALID_FILES[@]} file(s) with incorrect format:"
+            printf '%s\n' "${INVALID_FILES[@]}"
           fi
 
           # Set environment variables for later steps
           echo "DEB_AVAILABLE=$DEB_AVAILABLE" >> $GITHUB_ENV
           echo "RPM_AVAILABLE=$RPM_AVAILABLE" >> $GITHUB_ENV
 
-          # Ensure we have at least some packages
+          # Final validation
           if [ "$DEB_AVAILABLE" = false ] && [ "$RPM_AVAILABLE" = false ]; then
-            echo "❌ Error: No Linux packages found in release"
-            echo "Expected: .deb and/or .rpm files"
+            echo ""
+            echo "❌ Error: No valid Linux packages found in release"
+            echo "Downloaded $PACKAGE_COUNT files but none were valid DEB or RPM packages"
+            echo ""
+            echo "Troubleshooting steps:"
+            echo "1. Verify GoReleaser nFPM configuration is generating Linux packages"
+            echo "2. Check that release workflow completed successfully"
+            echo "3. Ensure package files have .deb/.rpm extensions"
+            echo "4. Verify file contents are valid package formats"
             exit 1
           fi
 
-      - name: Setup GPG
+          echo ""
+          echo "✅ Package download and validation completed successfully"
+
+      - name: Setup GPG keys for package signing
+        id: gpg
+        uses: crazy-max/ghaction-import-gpg@v6
+        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
+        with:
+          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.GPG_PASSPHRASE }}
+          trust_level: 5
+
+      - name: Set GPG availability environment variable
         run: |
-          set -euo pipefail
-          # Check if GPG secrets are available
-          if [ -z "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
-            echo "GPG_PRIVATE_KEY not configured - packages will be unsigned"
-            echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
-          elif [ -z "${{ secrets.GPG_PUBLIC_KEY }}" ]; then
-            echo "GPG_PUBLIC_KEY not configured - packages will be unsigned"
-            echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
+          if [ "${{ steps.gpg.outputs.fingerprint }}" != "" ]; then
+            echo "GPG_AVAILABLE=true" >> $GITHUB_ENV
+            echo "GPG_KEY_ID=${{ steps.gpg.outputs.keyid }}" >> $GITHUB_ENV
+            echo "GPG keys imported successfully"
+            echo "Key ID: ${{ steps.gpg.outputs.keyid }}"
+            echo "Fingerprint: ${{ steps.gpg.outputs.fingerprint }}"
           else
-            echo "Setting up GPG keys for package signing..."
-            if echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --quiet; then
-              echo "${{ secrets.GPG_PUBLIC_KEY }}" > public.key
-              echo "GPG_AVAILABLE=true" >> $GITHUB_ENV
-              echo "GPG keys imported successfully"
-            else
-              echo "Error: Failed to import GPG private key"
-              echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
-            fi
+            echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
+            echo "GPG keys not available - packages will be unsigned"
           fi
 
       - name: Create APT repository
@@ -268,6 +432,9 @@ EOF
 
           # Copy RPM packages with enhanced architecture detection
           echo "Copying RPM packages with architecture detection..."
+          echo "Available RPM packages:"
+          ls -la packages/*.rpm 2>/dev/null || echo "No RPM files found"
+
           x86_64_found=false
           aarch64_found=false
           i386_found=false
@@ -276,39 +443,78 @@ EOF
           # Create additional architecture directories
           mkdir -p yum/i386 yum/armv7hl
 
-          # Detect and copy x86_64/amd64 packages
-          for pattern in "*x86_64.rpm" "*amd64.rpm"; do
-            if ls packages/$pattern >/dev/null 2>&1; then
-              cp packages/$pattern yum/x86_64/
+          # Enhanced architecture detection with better pattern matching
+          echo "🔍 Detecting package architectures..."
+
+          # Process all RPM files and categorize by architecture
+          for rpm_file in packages/*.rpm; do
+            if [ ! -f "$rpm_file" ]; then
+              continue  # No RPM files found
+            fi
+
+            basename_file=$(basename "$rpm_file")
+            echo "Processing: $basename_file"
+
+            # Detect x86_64/amd64 packages
+            if [[ "$basename_file" =~ (x86_64|amd64) ]]; then
+              cp "$rpm_file" yum/x86_64/
               x86_64_found=true
-              echo "Copied x86_64 packages: $(ls packages/$pattern | wc -l)"
-            fi
-          done
+              echo "✓ Copied to x86_64: $basename_file"
 
-          # Detect and copy aarch64/arm64 packages
-          for pattern in "*aarch64.rpm" "*arm64.rpm"; do
-            if ls packages/$pattern >/dev/null 2>&1; then
-              cp packages/$pattern yum/aarch64/
+            # Detect aarch64/arm64 packages
+            elif [[ "$basename_file" =~ (aarch64|arm64) ]]; then
+              cp "$rpm_file" yum/aarch64/
               aarch64_found=true
-              echo "Copied aarch64 packages: $(ls packages/$pattern | wc -l)"
-            fi
-          done
+              echo "✓ Copied to aarch64: $basename_file"
 
-          # Detect and copy i386/i686 packages
-          for pattern in "*i386.rpm" "*i686.rpm"; do
-            if ls packages/$pattern >/dev/null 2>&1; then
-              cp packages/$pattern yum/i386/
+            # Detect i386/i686 packages
+            elif [[ "$basename_file" =~ (i386|i686) ]]; then
+              cp "$rpm_file" yum/i386/
               i386_found=true
-              echo "Copied i386 packages: $(ls packages/$pattern | wc -l)"
-            fi
-          done
+              echo "✓ Copied to i386: $basename_file"
 
-          # Detect and copy armv7 packages
-          for pattern in "*armv7*.rpm" "*armhf.rpm"; do
-            if ls packages/$pattern >/dev/null 2>&1; then
-              cp packages/$pattern yum/armv7hl/
+            # Detect armv7 packages (various naming patterns)
+            elif [[ "$basename_file" =~ (armv7|armhf|armv7hl) ]]; then
+              cp "$rpm_file" yum/armv7hl/
               armv7_found=true
-              echo "Copied armv7 packages: $(ls packages/$pattern | wc -l)"
+              echo "✓ Copied to armv7hl: $basename_file"
+
+            else
+              echo "⚠ Unknown architecture for package: $basename_file"
+              echo "  Package will be skipped. Supported architectures: x86_64, amd64, aarch64, arm64, i386, i686, armv7, armhf"
+
+              # Try to extract architecture from RPM metadata
+              if command -v rpm >/dev/null 2>&1; then
+                rpm_arch=$(rpm -qp --queryformat '%{ARCH}' "$rpm_file" 2>/dev/null || echo "unknown")
+                echo "  RPM metadata shows architecture: $rpm_arch"
+
+                # Try to handle common architecture mappings
+                case "$rpm_arch" in
+                  x86_64|amd64)
+                    cp "$rpm_file" yum/x86_64/
+                    x86_64_found=true
+                    echo "✓ Mapped $rpm_arch to x86_64: $basename_file"
+                    ;;
+                  aarch64|arm64)
+                    cp "$rpm_file" yum/aarch64/
+                    aarch64_found=true
+                    echo "✓ Mapped $rpm_arch to aarch64: $basename_file"
+                    ;;
+                  i386|i686)
+                    cp "$rpm_file" yum/i386/
+                    i386_found=true
+                    echo "✓ Mapped $rpm_arch to i386: $basename_file"
+                    ;;
+                  armv7hl|armhf)
+                    cp "$rpm_file" yum/armv7hl/
+                    armv7_found=true
+                    echo "✓ Mapped $rpm_arch to armv7hl: $basename_file"
+                    ;;
+                  *)
+                    echo "❌ Unsupported architecture: $rpm_arch for $basename_file"
+                    ;;
+                esac
+              fi
             fi
           done
 
@@ -492,3 +698,138 @@ sudo dnf install mcp-server-dump
 
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
+
+  test-installation:
+    name: Test Package Installation
+    runs-on: ubuntu-latest
+    needs: publish-repos
+    if: always()  # Run even if publish-repos has warnings
+    strategy:
+      matrix:
+        # Test on different distributions
+        include:
+          - distro: debian:bookworm-slim
+            name: "Debian 12"
+            package_type: "deb"
+            install_cmd: "apt-get update && apt-get install -y curl gnupg && curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg && echo 'deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://spandigital.github.io/mcp-server-dump/apt stable main' > /etc/apt/sources.list.d/mcp-server-dump.list && apt-get update && apt-get install -y mcp-server-dump"
+          - distro: ubuntu:22.04
+            name: "Ubuntu 22.04"
+            package_type: "deb"
+            install_cmd: "apt-get update && apt-get install -y curl gnupg && curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg && echo 'deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://spandigital.github.io/mcp-server-dump/apt stable main' > /etc/apt/sources.list.d/mcp-server-dump.list && apt-get update && apt-get install -y mcp-server-dump"
+          - distro: fedora:39
+            name: "Fedora 39"
+            package_type: "rpm"
+            install_cmd: "dnf install -y curl && rpm --import https://spandigital.github.io/mcp-server-dump/public.key && cat > /etc/yum.repos.d/mcp-server-dump.repo << 'EOF'\n[mcp-server-dump]\nname=MCP Server Dump\nbaseurl=https://spandigital.github.io/mcp-server-dump/yum/\\$basearch\nenabled=1\ngpgcheck=1\ngpgkey=https://spandigital.github.io/mcp-server-dump/public.key\nEOF\n && dnf install -y mcp-server-dump"
+    steps:
+      - name: Test ${{ matrix.name }} Installation
+        run: |
+          # Give GitHub Pages some time to propagate (up to 10 minutes)
+          echo "⏳ Waiting for GitHub Pages to propagate repository changes..."
+          for i in {1..20}; do
+            if curl -sSf https://spandigital.github.io/mcp-server-dump/public.key >/dev/null; then
+              echo "✓ GitHub Pages is ready (attempt $i)"
+              break
+            fi
+            echo "Waiting for GitHub Pages... (attempt $i/20)"
+            sleep 30
+          done
+
+          echo "🧪 Testing package installation on ${{ matrix.name }}"
+
+          # Run installation test in container
+          docker run --rm ${{ matrix.distro }} bash -c "
+            set -euo pipefail
+            echo '📦 Installing mcp-server-dump package...'
+
+            # Set non-interactive mode for apt
+            export DEBIAN_FRONTEND=noninteractive
+
+            # Install the package using the repository
+            ${{ matrix.install_cmd }}
+
+            echo '✅ Package installed successfully'
+
+            # Verify installation
+            echo '🔍 Verifying installation...'
+            which mcp-server-dump
+            mcp-server-dump --version || mcp-server-dump --help | head -5
+
+            # Test basic functionality (if possible without actual MCP server)
+            echo '🔧 Testing basic functionality...'
+            if mcp-server-dump --help | grep -q 'mcp-server-dump'; then
+              echo '✅ Help command works'
+            else
+              echo '❌ Help command failed'
+              exit 1
+            fi
+
+            # Verify binary permissions and location
+            echo '📍 Binary location and permissions:'
+            ls -la /usr/bin/mcp-server-dump || ls -la /usr/local/bin/mcp-server-dump
+
+            echo '🎉 Installation test completed successfully for ${{ matrix.name }}'
+          "
+        timeout-minutes: 15
+
+      - name: Test Direct Package Installation
+        if: matrix.package_type == 'deb'
+        run: |
+          echo "🧪 Testing direct package installation from GitHub release"
+
+          # Test direct package installation as fallback
+          docker run --rm ${{ matrix.distro }} bash -c "
+            set -euo pipefail
+            echo '📦 Testing direct package installation...'
+
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update && apt-get install -y curl wget gnupg
+
+            # Import GPG key for verification
+            curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | gpg --import
+
+            # Download and verify package from latest release
+            LATEST_RELEASE=\$(curl -s https://api.github.com/repos/spandigital/mcp-server-dump/releases/latest | grep tag_name | cut -d'\"' -f4)
+            echo \"Downloading from release: \$LATEST_RELEASE\"
+
+            # Detect system architecture
+            SYSTEM_ARCH=\$(dpkg --print-architecture 2>/dev/null || echo 'amd64')
+            echo \"System architecture: \$SYSTEM_ARCH\"
+
+            # Map common architecture names to package naming conventions
+            case \"\$SYSTEM_ARCH\" in
+              amd64|x86_64) PKG_ARCH=\"amd64\" ;;
+              arm64|aarch64) PKG_ARCH=\"arm64\" ;;
+              i386|i686) PKG_ARCH=\"i386\" ;;
+              armhf|armv7*) PKG_ARCH=\"armhf\" ;;
+              *) PKG_ARCH=\"amd64\" ;; # Default fallback
+            esac
+
+            echo \"Using package architecture: \$PKG_ARCH\"
+
+            # Try to download the package with detected architecture
+            PACKAGE_NAME=\"mcp-server-dump_\${LATEST_RELEASE#v}_linux_\${PKG_ARCH}.deb\"
+            wget \"https://github.com/spandigital/mcp-server-dump/releases/download/\$LATEST_RELEASE/\$PACKAGE_NAME\" || {
+              echo \"Failed to download \$PKG_ARCH package, trying amd64 as fallback\"
+              PKG_ARCH=\"amd64\"
+              PACKAGE_NAME=\"mcp-server-dump_\${LATEST_RELEASE#v}_linux_\${PKG_ARCH}.deb\"
+              wget \"https://github.com/spandigital/mcp-server-dump/releases/download/\$LATEST_RELEASE/\$PACKAGE_NAME\"
+            }
+
+            # Try to download signature file
+            wget \"https://github.com/spandigital/mcp-server-dump/releases/download/\$LATEST_RELEASE/\${PACKAGE_NAME}.sig\" || echo 'No signature file found'
+
+            # Verify signature if available
+            if [ -f \"\${PACKAGE_NAME}.sig\" ]; then
+              gpg --verify \"\${PACKAGE_NAME}.sig\" \"\$PACKAGE_NAME\"
+              echo '✅ Package signature verified'
+            fi
+
+            # Install package
+            dpkg -i \"\$PACKAGE_NAME\" || apt-get install -f -y
+
+            # Test installation
+            mcp-server-dump --help | head -5
+
+            echo '🎉 Direct package installation test completed'
+          "
+        timeout-minutes: 10
