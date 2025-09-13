@@ -14,6 +14,21 @@
 ```json
 {{.Arguments | json}}
 ```
+
+{{end -}}
+{{- if .Context}}
+**Context:**
+
+{{range $key, $value := .Context -}}
+{{if contains $value "\n" -}}
+**{{$key}}:**
+
+{{$value}}
+
+{{else -}}
+- **{{$key}}:** {{$value}}
+{{end -}}
+{{end -}}
 {{end}}
 {{end}}
 {{end}}

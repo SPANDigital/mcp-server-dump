@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"strings"
 	"text/template"
 
 	"github.com/spandigital/mcp-server-dump/internal/model"
@@ -27,6 +28,7 @@ func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool,
 		"anchor":     anchorName,
 		"json":       jsonIndent,
 		"formatBool": formatBool,
+		"contains":   strings.Contains,
 	})
 
 	// Parse all templates

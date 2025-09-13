@@ -186,6 +186,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 				renderJSONSchema(pdf, tool.InputSchema)
 			}
 
+			if len(tool.Context) > 0 {
+				pdf.Cell(0, 6, "Context:")
+				pdf.Ln(6)
+				renderContext(pdf, tool.Context)
+			}
+
 			pdf.Ln(8)
 		}
 	}
@@ -219,6 +225,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 				pdf.Ln(6)
 			}
 
+			if len(resource.Context) > 0 {
+				pdf.Cell(0, 6, "Context:")
+				pdf.Ln(6)
+				renderContext(pdf, resource.Context)
+			}
+
 			pdf.Ln(8)
 		}
 	}
@@ -250,6 +262,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 				for _, arg := range prompt.Arguments {
 					renderJSONSchema(pdf, arg)
 				}
+			}
+
+			if len(prompt.Context) > 0 {
+				pdf.Cell(0, 6, "Context:")
+				pdf.Ln(6)
+				renderContext(pdf, prompt.Context)
 			}
 
 			pdf.Ln(8)
@@ -291,6 +309,82 @@ func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 		}
 		renderJSONLine(pdf, line)
 		pdf.Ln(4)
+	}
+}
+
+// renderContext renders context key-value pairs with proper formatting
+func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
+	pdf.SetFont("DejaVuSans", "", 9)
+
+	for key, value := range context {
+		// Check if value contains newlines (block content)
+		if strings.Contains(value, "\n") {
+			// Render as block with key header
+			pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
+			pdf.Cell(0, 5, key+":")
+			pdf.Ln(5)
+
+			// Render block content with indentation
+			pdf.SetTextColor(64, 64, 64)
+			lines := strings.Split(value, "\n")
+			inCodeBlock := false
+
+			for _, line := range lines {
+				// Handle different types of content
+				trimmed := strings.TrimSpace(line)
+
+				// Check for code block markers
+				if strings.HasPrefix(trimmed, "```") {
+					inCodeBlock = !inCodeBlock
+					// Render code block marker with different formatting
+					pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+					pdf.SetFont("DejaVuSans", "", 8)
+					pdf.Cell(0, 4, "  "+line)
+					pdf.Ln(4)
+					continue
+				}
+
+				if inCodeBlock {
+					// Inside code block - use monospace-like formatting
+					pdf.SetTextColor(32, 32, 32) // Darker text for code
+					pdf.SetFont("DejaVuSans", "", 8)
+					// Add extra indentation for code content
+					pdf.Cell(0, 4, "    "+line)
+					pdf.Ln(4)
+				} else {
+					// Outside code block - normal formatting
+					pdf.SetTextColor(64, 64, 64)
+					pdf.SetFont("DejaVuSans", "", 9)
+
+					switch {
+					case strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* "):
+						// List item - render with bullet
+						pdf.Cell(0, 4, "  "+bulletPoint+" "+trimmed[2:])
+					case strings.Contains(trimmed, ". ") && len(trimmed) > 2:
+						// Numbered list item - find the ". " and skip past it
+						if dotIndex := strings.Index(trimmed, ". "); dotIndex > 0 {
+							listContent := trimmed[dotIndex+2:]
+							pdf.Cell(0, 4, "  "+bulletPoint+" "+listContent)
+						} else {
+							pdf.Cell(0, 4, "  "+line)
+						}
+					case trimmed == "":
+						// Empty line
+						pdf.Cell(0, 4, "")
+					default:
+						// Regular content line
+						pdf.Cell(0, 4, "  "+line)
+					}
+					pdf.Ln(4)
+				}
+			}
+		} else {
+			// Single line - render as bullet point
+			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+			pdf.SetFont("DejaVuSans", "", 9)
+			pdf.Cell(0, 5, fmt.Sprintf("  %s %s: %s", bulletPoint, key, value))
+			pdf.Ln(5)
+		}
 	}
 }
 

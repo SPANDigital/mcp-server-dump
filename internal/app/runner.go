@@ -119,6 +119,25 @@ func Run(cli *CLI) error {
 		}
 	}
 
+	// Apply contexts if context files are provided
+	if len(cli.ContextFile) > 0 {
+		contextConfig, contextErr := model.LoadContextConfig(cli.ContextFile)
+		if contextErr != nil {
+			return fmt.Errorf("failed to load context configuration: %w", contextErr)
+		}
+
+		// Apply contexts to tools, resources, and prompts
+		for i := range info.Tools {
+			contextConfig.ApplyToTool(&info.Tools[i])
+		}
+		for i := range info.Resources {
+			contextConfig.ApplyToResource(&info.Resources[i])
+		}
+		for i := range info.Prompts {
+			contextConfig.ApplyToPrompt(&info.Prompts[i])
+		}
+	}
+
 	// Format output
 	var output []byte
 	switch cli.Format {
