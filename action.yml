@@ -41,6 +41,9 @@ inputs:
     description: 'Enable verbose output'
     required: false
     default: 'false'
+  context-files:
+    description: 'Context configuration files (YAML/JSON) for rich documentation context (comma-separated)'
+    required: false
 
 outputs:
   output-file:
@@ -152,6 +155,19 @@ runs:
         # Add verbose flag if specified
         if [ "${{ inputs.verbose }}" = "true" ]; then
             ARGS="$ARGS -v"
+        fi
+
+        # Add context files if specified
+        if [ -n "${{ inputs.context-files }}" ]; then
+            # Split context files by comma and add each one
+            IFS=',' read -ra CONTEXT_ARRAY <<< "${{ inputs.context-files }}"
+            for context_file in "${CONTEXT_ARRAY[@]}"; do
+                if [ -n "$context_file" ]; then
+                    # Remove leading/trailing whitespace
+                    context_file=$(echo "$context_file" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+                    ARGS="$ARGS --context-file \"$context_file\""
+                fi
+            done
         fi
 
         # Add server command (this should be the last argument)

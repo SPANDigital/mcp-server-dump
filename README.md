@@ -414,6 +414,37 @@ jobs:
           path: docs/server.*
 ```
 
+### Rich Context Documentation Usage
+
+```yaml
+name: Generate Enhanced MCP Server Documentation with Context
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  docs-with-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Enhanced MCP Documentation
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'npx @modelcontextprotocol/server-filesystem ./data'
+          format: 'html'
+          output-file: 'docs/enhanced-server-docs.html'
+          context-files: 'docs/server-context.yaml,docs/security-context.json'
+          frontmatter: 'yaml'
+
+      - name: Upload enhanced documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: enhanced-mcp-docs
+          path: docs/enhanced-server-docs.html
+```
+
 ### HTTP Transport Usage
 
 ```yaml
@@ -460,6 +491,7 @@ jobs:
 | `frontmatter` | Add frontmatter to output (yaml, toml, json) | No | - |
 | `timeout` | Connection timeout in seconds | No | `30` |
 | `verbose` | Enable verbose output | No | `false` |
+| `context-files` | Context configuration files (YAML/JSON) for rich documentation (comma-separated) | No | - |
 
 ### Action Outputs
 
