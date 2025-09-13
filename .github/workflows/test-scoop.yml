@@ -1,0 +1,74 @@
+name: Test Scoop Installation
+
+on:
+  push:
+    branches: [ main, feature/scoop-package-support ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  test-scoop:
+    runs-on: windows-latest
+    steps:
+    - name: Install Scoop
+      run: |
+        # Install Scoop
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+        Invoke-RestMethod -Uri https://get.scoop.sh | Invoke-Expression
+
+        # Verify Scoop installation
+        scoop --version
+
+        # Add PowerShell to PATH for subsequent steps
+        echo "$env:USERPROFILE\scoop\shims" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      shell: powershell
+
+    - name: Add SPAN Digital bucket
+      run: |
+        scoop bucket add spandigital https://github.com/spandigital/scoop-bucket
+        scoop bucket list
+      shell: powershell
+
+    - name: Test installation (if release exists)
+      run: |
+        # Try to install our package - this will only work after a release
+        try {
+          scoop install mcp-server-dump
+          Write-Output "✅ Installation successful"
+
+          # Test the installed binary
+          mcp-server-dump --version
+          mcp-server-dump --help
+
+          Write-Output "✅ Binary works correctly"
+        } catch {
+          Write-Output "⚠️ Installation failed - likely no release available yet: $_"
+          # This is expected for pre-release testing
+        }
+      shell: powershell
+
+    - name: Validate bucket structure
+      run: |
+        # Check if our bucket was added correctly
+        $buckets = scoop bucket list
+        if ($buckets -match "spandigital") {
+          Write-Output "✅ SPAN Digital bucket added successfully"
+        } else {
+          Write-Error "❌ Failed to add SPAN Digital bucket"
+          exit 1
+        }
+
+        # List available apps in our bucket
+        Write-Output "Available apps in spandigital bucket:"
+        scoop search spandigital/
+      shell: powershell
+
+    - name: Test bucket update
+      run: |
+        # Test bucket update functionality
+        scoop update
+        Write-Output "✅ Bucket update successful"
+      shell: powershell

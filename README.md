@@ -39,6 +39,16 @@ Or install directly in one command:
 brew install spandigital/homebrew-tap/mcp-server-dump
 ```
 
+### Using Scoop (Windows)
+
+```powershell
+# Add the bucket
+scoop bucket add spandigital https://github.com/spandigital/scoop-bucket
+
+# Install the tool
+scoop install mcp-server-dump
+```
+
 ### Using go install
 
 ```bash
