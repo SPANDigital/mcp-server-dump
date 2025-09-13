@@ -12,7 +12,9 @@
 /mcp-server-dump
 
 # Generated test files
-test-*
+test-*.pdf
+test-*.html
+test-output.*
 *.pdf
 *.html
 
