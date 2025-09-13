@@ -1,6 +1,11 @@
 # mcp-server-dump
 
-A command-line tool to dump MCP (Model Context Protocol) server capabilities and documentation for reverse engineering purposes.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-1.25.0%2B-blue)](https://go.dev)
+[![Go Report Card](https://goreportcard.com/badge/github.com/spandigital/mcp-server-dump)](https://goreportcard.com/report/github.com/spandigital/mcp-server-dump)
+[![Release](https://img.shields.io/github/v/release/spandigital/mcp-server-dump)](https://github.com/spandigital/mcp-server-dump/releases)
+
+A command-line tool to extract and document MCP (Model Context Protocol) server capabilities, tools, resources, and prompts in various formats.
 
 ## Features
 
@@ -30,7 +35,7 @@ The binary will be installed to `$GOPATH/bin/mcp-server-dump` (or `$(go env GOPA
 ### From Source
 
 ```bash
-git clone https://github.com/spandigtial/mcp-server-dump.git
+git clone https://github.com/spandigital/mcp-server-dump.git
 cd mcp-server-dump
 go build -o mcp-server-dump
 ```
@@ -244,12 +249,12 @@ The following features are deprecated and included only for backward compatibili
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details on how to submit pull requests, report issues, and contribute to the project.
+
+## Code of Conduct
+
+This project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
 ## License
 
-See [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
