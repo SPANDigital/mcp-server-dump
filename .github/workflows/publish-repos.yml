@@ -388,16 +388,7 @@ jobs:
 
           # Generate Release file with proper architecture support
           echo "Generating Release file..."
-          cat > dists/stable/Release << EOF
-Origin: SPAN Digital
-Label: MCP Server Dump
-Suite: stable
-Codename: stable
-Version: 1.0
-Architectures: amd64 arm64
-Components: main
-Description: MCP Server Dump Linux Package Repository
-EOF
+          printf "Origin: SPAN Digital\nLabel: MCP Server Dump\nSuite: stable\nCodename: stable\nVersion: 1.0\nArchitectures: amd64 arm64\nComponents: main\nDescription: MCP Server Dump Linux Package Repository\n" > dists/stable/Release
 
           apt-ftparchive release dists/stable >> dists/stable/Release
 
@@ -571,12 +562,12 @@ EOF
           YUM_SECTION=""
 
           if [ "$DEB_AVAILABLE" = "true" ]; then
-            APT_SECTION='
+            cat > apt_section.html <<'APTEND'
               <h2>APT Repository (Debian/Ubuntu)</h2>
               <h3>Quick Install</h3>
               <pre>
 # Add the repository
-echo "deb [trusted=yes] https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
+echo "deb [trusted=yes] https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
 
 # Update and install
 sudo apt update
@@ -586,27 +577,29 @@ sudo apt install mcp-server-dump
               <h3>With GPG verification (if available)</h3>
               <pre>
 # Import GPG key
-curl -fsSL https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
+curl -fsSL https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
 
 # Add the repository
-echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
+echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
 
 # Update and install
 sudo apt update
 sudo apt install mcp-server-dump
-              </pre>'
+              </pre>
+APTEND
+            APT_SECTION=$(cat apt_section.html)
           fi
 
           if [ "$RPM_AVAILABLE" = "true" ]; then
-            YUM_SECTION='
+            cat > yum_section.html <<'YUMEND'
               <h2>YUM Repository (RHEL/Fedora/CentOS)</h2>
               <h3>Quick Install</h3>
               <pre>
 # Add the repository
-sudo tee /etc/yum.repos.d/mcp-server-dump.repo << '\''REPO'\''
+sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'REPO'
 [mcp-server-dump]
 name=MCP Server Dump
-baseurl=https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/yum/\$basearch
+baseurl=https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/yum/$basearch
 enabled=1
 gpgcheck=0
 REPO
@@ -618,21 +611,23 @@ sudo dnf install mcp-server-dump
               <h3>With GPG verification (if available)</h3>
               <pre>
 # Import GPG key
-sudo rpm --import https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/public.key
+sudo rpm --import https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/public.key
 
 # Add the repository
-sudo tee /etc/yum.repos.d/mcp-server-dump.repo << '\''REPO'\''
+sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'REPO'
 [mcp-server-dump]
 name=MCP Server Dump
-baseurl=https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/yum/\$basearch
+baseurl=https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/yum/$basearch
 enabled=1
 gpgcheck=1
-gpgkey=https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/public.key
+gpgkey=https://${REPO_OWNER_LOWER}.github.io/mcp-server-dump/public.key
 REPO
 
 # Install
 sudo dnf install mcp-server-dump
-              </pre>'
+              </pre>
+YUMEND
+            YUM_SECTION=$(cat yum_section.html)
           fi
 
           cat > index.html << EOF
