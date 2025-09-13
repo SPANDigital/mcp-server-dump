@@ -118,6 +118,10 @@ nfpms:
         dst: /usr/share/doc/mcp-server-dump/LICENSE
       - src: ./README.md
         dst: /usr/share/doc/mcp-server-dump/README.md
+      - src: ./man/mcp-server-dump.1
+        dst: /usr/share/man/man1/mcp-server-dump.1
+        file_info:
+          mode: 0644
 
 
 changelog:
