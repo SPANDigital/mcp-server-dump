@@ -117,6 +117,7 @@ nfpms:
       - src: ./README.md
         dst: /usr/share/doc/mcp-server-dump/README.md
 
+
 changelog:
   sort: asc
   filters:

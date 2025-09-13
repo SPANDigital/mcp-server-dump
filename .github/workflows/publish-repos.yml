@@ -1,0 +1,207 @@
+name: Publish Linux Repositories
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  publish-repos:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout linux-repos branch
+        uses: actions/checkout@v4
+        with:
+          ref: linux-repos
+          fetch-depth: 0
+        continue-on-error: true
+
+      - name: Create branch if it doesn't exist
+        run: |
+          if [ $? -ne 0 ]; then
+            git checkout -b linux-repos
+            git push -u origin linux-repos
+          fi
+
+      - name: Download release assets
+        uses: dsaltares/fetch-gh-release-asset@master
+        with:
+          version: ${{ github.event.release.tag_name }}
+          regex: true
+          file: ".*\\.(deb|rpm)$"
+          target: "./packages/"
+
+      - name: Setup GPG
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --import
+          echo "${{ secrets.GPG_PUBLIC_KEY }}" > public.key
+
+      - name: Create APT repository
+        run: |
+          # Install required tools
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev apt-utils
+
+          # Create APT directory structure
+          mkdir -p apt/pool/main/m/mcp-server-dump
+          mkdir -p apt/dists/stable/main/binary-amd64
+          mkdir -p apt/dists/stable/main/binary-arm64
+
+          # Copy DEB packages
+          cp packages/*.deb apt/pool/main/m/mcp-server-dump/
+
+          # Generate Packages files
+          cd apt
+          dpkg-scanpackages pool/ > dists/stable/main/binary-amd64/Packages
+          gzip -k dists/stable/main/binary-amd64/Packages
+
+          # Generate Release file
+          apt-ftparchive release dists/stable > dists/stable/Release
+
+          # Sign Release file (if GPG key is available)
+          if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
+            gpg --armor --detach-sign --yes -o dists/stable/Release.gpg dists/stable/Release
+            gpg --armor --clearsign --yes -o dists/stable/InRelease dists/stable/Release
+          fi
+
+          cd ..
+
+      - name: Create YUM repository
+        run: |
+          # Install required tools
+          sudo apt-get install -y createrepo-c
+
+          # Create YUM directory structure
+          mkdir -p yum/x86_64
+          mkdir -p yum/aarch64
+
+          # Copy RPM packages
+          cp packages/*x86_64.rpm yum/x86_64/ 2>/dev/null || true
+          cp packages/*aarch64.rpm yum/aarch64/ 2>/dev/null || true
+          cp packages/*arm64.rpm yum/aarch64/ 2>/dev/null || true
+
+          # Generate repository metadata
+          createrepo_c yum/x86_64
+          createrepo_c yum/aarch64
+
+          # Sign repository metadata (if GPG key is available)
+          if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
+            gpg --armor --detach-sign --yes yum/x86_64/repodata/repomd.xml
+            gpg --armor --detach-sign --yes yum/aarch64/repodata/repomd.xml
+          fi
+
+      - name: Create repository documentation
+        run: |
+          cat > index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>MCP Server Dump - Linux Package Repository</title>
+              <style>
+                  body { font-family: system-ui, -apple-system, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+                  pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; }
+                  h2 { color: #333; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+                  .note { background: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
+              </style>
+          </head>
+          <body>
+              <h1>MCP Server Dump - Linux Package Repository</h1>
+
+              <p>Official Linux package repository for <a href="https://github.com/spandigital/mcp-server-dump">mcp-server-dump</a></p>
+
+              <h2>APT Repository (Debian/Ubuntu)</h2>
+
+              <h3>Quick Install</h3>
+              <pre>
+# Add the repository
+echo "deb [trusted=yes] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
+
+# Update and install
+sudo apt update
+sudo apt install mcp-server-dump
+              </pre>
+
+              <h3>With GPG verification (if available)</h3>
+              <pre>
+# Import GPG key
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
+
+# Add the repository
+echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
+
+# Update and install
+sudo apt update
+sudo apt install mcp-server-dump
+              </pre>
+
+              <h2>YUM Repository (RHEL/Fedora/CentOS)</h2>
+
+              <h3>Quick Install</h3>
+              <pre>
+# Add the repository
+sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'REPO'
+[mcp-server-dump]
+name=MCP Server Dump
+baseurl=https://spandigital.github.io/mcp-server-dump/yum/\$basearch
+enabled=1
+gpgcheck=0
+REPO
+
+# Install
+sudo dnf install mcp-server-dump
+              </pre>
+
+              <h3>With GPG verification (if available)</h3>
+              <pre>
+# Import GPG key
+sudo rpm --import https://spandigital.github.io/mcp-server-dump/public.key
+
+# Add the repository
+sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'REPO'
+[mcp-server-dump]
+name=MCP Server Dump
+baseurl=https://spandigital.github.io/mcp-server-dump/yum/\$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://spandigital.github.io/mcp-server-dump/public.key
+REPO
+
+# Install
+sudo dnf install mcp-server-dump
+              </pre>
+
+              <div class="note">
+                  <strong>Note:</strong> Replace <code>dnf</code> with <code>yum</code> on older RHEL/CentOS systems.
+              </div>
+
+              <h2>Direct Package Downloads</h2>
+              <ul>
+                  <li><a href="https://github.com/spandigital/mcp-server-dump/releases/latest">Latest Release on GitHub</a></li>
+              </ul>
+          </body>
+          </html>
+          EOF
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "bot@goreleaser.com"
+          git config --local user.name "GoReleaser Bot"
+          git add .
+          git commit -m "Update Linux repositories for ${{ github.event.release.tag_name }}" || echo "No changes to commit"
+          git push
+
+      - name: Deploy to GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
