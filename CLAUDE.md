@@ -93,28 +93,28 @@ golangci-lint run
 ### Basic Usage
 ```bash
 # Connect to filesystem server (command transport)
-./mcp-server-dump npx @modelcontextprotocol/server-filesystem /Users/username/Documents
+mcp-server-dump npx @modelcontextprotocol/server-filesystem /Users/username/Documents
 
 # Connect to custom Node.js server
-./mcp-server-dump node server.js --port 3000
+mcp-server-dump node server.js --port 3000
 
 # Connect via SSE transport with headers
-./mcp-server-dump -t sse --endpoint "http://localhost:3001/sse" -H "Authorization:Bearer token"
+mcp-server-dump -t sse --endpoint "http://localhost:3001/sse" -H "Authorization:Bearer token"
 
 # Connect via streamable transport
-./mcp-server-dump -t streamable --endpoint "http://localhost:3001/stream"
+mcp-server-dump -t streamable --endpoint "http://localhost:3001/stream"
 
 # Disable table of contents in markdown output
-./mcp-server-dump --no-toc node server.js
+mcp-server-dump --no-toc node server.js
 
 # Generate HTML output
-./mcp-server-dump -f html node server.js
+mcp-server-dump -f html node server.js
 
 # Generate PDF output (requires output file)
-./mcp-server-dump -f pdf -o server-docs.pdf node server.js
+mcp-server-dump -f pdf -o server-docs.pdf node server.js
 
 # Output to JSON file
-./mcp-server-dump -f json -o output.json python mcp_server.py
+mcp-server-dump -f json -o output.json python mcp_server.py
 ```
 
 ### Development Testing
@@ -205,10 +205,10 @@ internal/
 ### Debug Commands
 ```bash
 # Check if binary works
-./mcp-server-dump -h
+mcp-server-dump -h
 
 # Test with verbose output
-./mcp-server-dump -v node server.js 2>&1 | tee debug.log
+mcp-server-dump -v node server.js 2>&1 | tee debug.log
 ```
 
 ## Contributing
