@@ -2,6 +2,7 @@ package model
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -9,6 +10,11 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
+)
+
+const (
+	// maxContextFileSize limits context files to 10MB to prevent YAML/JSON bombs
+	maxContextFileSize = 10 * 1024 * 1024
 )
 
 // ContextConfig represents the structure of context configuration files
@@ -38,21 +44,43 @@ func LoadContextConfig(files []string) (*ContextConfig, error) {
 
 // mergeFile loads a single context file and merges it with existing configuration
 func (c *ContextConfig) mergeFile(filename string) error {
-	file, err := os.Open(filename) // #nosec G304 - filename is from user-controlled CLI parameter
+	// Validate file path to prevent directory traversal
+	cleanPath := filepath.Clean(filename)
+	if strings.Contains(cleanPath, "..") {
+		return errors.New("invalid file path: directory traversal not allowed")
+	}
+
+	// Check file info before opening
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		return fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	// Validate file size to prevent YAML/JSON bombs
+	if fileInfo.Size() > maxContextFileSize {
+		return fmt.Errorf("file size exceeds maximum allowed size of %d bytes: %d", maxContextFileSize, fileInfo.Size())
+	}
+
+	file, err := os.Open(cleanPath) // #nosec G304 - path is validated and cleaned
 	if err != nil {
 		return err
 	}
 	defer func() {
-		_ = file.Close() // #nosec G104 - file is read-only and error is not critical
+		if closeErr := file.Close(); closeErr != nil {
+			// Log close error but don't override the main error
+			fmt.Fprintf(os.Stderr, "Warning: failed to close context file: %v\n", closeErr)
+		}
 	}()
 
-	data, err := io.ReadAll(file)
+	// Use LimitReader to ensure we don't read beyond the expected size
+	limitedReader := io.LimitReader(file, maxContextFileSize)
+	data, err := io.ReadAll(limitedReader)
 	if err != nil {
 		return err
 	}
 
 	// Determine file format by extension
-	ext := strings.ToLower(filepath.Ext(filename))
+	ext := strings.ToLower(filepath.Ext(cleanPath))
 
 	var tempConfig ContextConfig
 	switch ext {
@@ -116,9 +144,13 @@ func (c *ContextConfig) ApplyToTool(tool *Tool) {
 // ApplyToResource applies matching context to a resource using pattern matching
 func (c *ContextConfig) ApplyToResource(resource *Resource) {
 	for pattern, contexts := range c.Contexts.Resources {
-		matched, err := filepath.Match(pattern, resource.URI)
-		if err != nil {
-			// If pattern matching fails, try exact string match
+		var matched bool
+
+		// Try custom URI pattern matching first
+		if strings.Contains(pattern, "*") {
+			matched = matchURIPattern(pattern, resource.URI)
+		} else {
+			// Exact string match
 			matched = pattern == resource.URI
 		}
 
@@ -132,6 +164,24 @@ func (c *ContextConfig) ApplyToResource(resource *Resource) {
 			break // Apply first matching pattern only
 		}
 	}
+}
+
+// matchURIPattern matches URI patterns like "file://*" against URIs like "file:///path/file.txt"
+func matchURIPattern(pattern, uri string) bool {
+	// Handle simple prefix patterns like "file://*"
+	if strings.HasSuffix(pattern, "*") {
+		prefix := strings.TrimSuffix(pattern, "*")
+		return strings.HasPrefix(uri, prefix)
+	}
+
+	// Handle suffix patterns like "*.txt"
+	if strings.HasPrefix(pattern, "*") {
+		suffix := strings.TrimPrefix(pattern, "*")
+		return strings.HasSuffix(uri, suffix)
+	}
+
+	// Handle middle wildcards - for now, fall back to exact match
+	return pattern == uri
 }
 
 // ApplyToPrompt applies matching context to a prompt

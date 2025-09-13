@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/go-pdf/fpdf"
@@ -14,6 +16,9 @@ import (
 
 //go:embed DejaVuSans.ttf
 var dejaVuSansFont []byte
+
+// Regex for numbered lists (1. 2. 10. etc.)
+var numberedListRegex = regexp.MustCompile(`^\s*\d+\.\s+(.*)`)
 
 const (
 	supportedStatus    = "Supported"
@@ -316,7 +321,15 @@ func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
 	pdf.SetFont("DejaVuSans", "", 9)
 
-	for key, value := range context {
+	// Sort keys to ensure deterministic output
+	keys := make([]string, 0, len(context))
+	for key := range context {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := context[key]
 		// Check if value contains newlines (block content)
 		if strings.Contains(value, "\n") {
 			// Render as block with key header
@@ -359,11 +372,15 @@ func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
 					switch {
 					case strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* "):
 						// List item - render with bullet
-						pdf.Cell(0, 4, "  "+bulletPoint+" "+trimmed[2:])
-					case strings.Contains(trimmed, ". ") && len(trimmed) > 2:
-						// Numbered list item - find the ". " and skip past it
-						if dotIndex := strings.Index(trimmed, ". "); dotIndex > 0 {
-							listContent := trimmed[dotIndex+2:]
+						if len(trimmed) > 2 {
+							pdf.Cell(0, 4, "  "+bulletPoint+" "+trimmed[2:])
+						} else {
+							pdf.Cell(0, 4, "  "+bulletPoint)
+						}
+					case numberedListRegex.MatchString(trimmed):
+						// Numbered list item - extract content after number
+						if matches := numberedListRegex.FindStringSubmatch(trimmed); len(matches) > 1 {
+							listContent := matches[1]
 							pdf.Cell(0, 4, "  "+bulletPoint+" "+listContent)
 						} else {
 							pdf.Cell(0, 4, "  "+line)
