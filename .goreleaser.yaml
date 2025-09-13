@@ -61,6 +61,7 @@ brews:
       owner: spandigital
       name: homebrew-tap
       branch: main
+      token: "{{ .Env.TAP_GITHUB_TOKEN }}"
     directory: Formula
     homepage: "https://github.com/spandigital/mcp-server-dump"
     description: "Extract and document MCP server capabilities in various formats"
