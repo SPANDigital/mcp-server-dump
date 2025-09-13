@@ -1,0 +1,245 @@
+name: GPG Key Expiration Monitoring
+
+on:
+  schedule:
+    # Run monthly on the 1st at 08:00 UTC
+    - cron: '0 8 1 * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+env:
+  GPG_KEY_ID: 9079FAE841B09114  # Default GPG key ID (can be overridden via repository variable)
+
+jobs:
+  check-gpg-key-expiration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check GPG Key Expiration
+        id: check-expiration
+        run: |
+          set -euo pipefail
+
+          # Import the public key
+          gpg --import docs/public.key
+
+          # Get key information
+          GPG_KEY_ID="${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}"
+          echo "Checking GPG key: $GPG_KEY_ID"
+          KEY_INFO=$(gpg --list-keys --with-colons "$GPG_KEY_ID" | grep ^pub)
+          KEY_EXPIRY=$(echo "$KEY_INFO" | cut -d':' -f7)
+
+          if [ -z "$KEY_EXPIRY" ] || [ "$KEY_EXPIRY" = "" ]; then
+            echo "Error: Could not determine key expiration date"
+            exit 1
+          fi
+
+          # Convert expiry timestamp to readable date
+          EXPIRY_DATE=$(date -d "@$KEY_EXPIRY" '+%Y-%m-%d')
+          CURRENT_DATE=$(date '+%Y-%m-%d')
+
+          # Calculate days until expiry
+          DAYS_UNTIL_EXPIRY=$(( ($(date -d "$EXPIRY_DATE" '+%s') - $(date -d "$CURRENT_DATE" '+%s')) / 86400 ))
+
+          echo "GPG Key expires on: $EXPIRY_DATE"
+          echo "Days until expiry: $DAYS_UNTIL_EXPIRY"
+
+          # Set outputs
+          echo "expiry_date=$EXPIRY_DATE" >> $GITHUB_OUTPUT
+          echo "days_until_expiry=$DAYS_UNTIL_EXPIRY" >> $GITHUB_OUTPUT
+
+          # Determine alert level
+          if [ $DAYS_UNTIL_EXPIRY -le 30 ]; then
+            echo "alert_level=critical" >> $GITHUB_OUTPUT
+            echo "Alert Level: CRITICAL (30 days or less)"
+          elif [ $DAYS_UNTIL_EXPIRY -le 90 ]; then
+            echo "alert_level=high" >> $GITHUB_OUTPUT
+            echo "Alert Level: HIGH (90 days or less)"
+          elif [ $DAYS_UNTIL_EXPIRY -le 180 ]; then
+            echo "alert_level=medium" >> $GITHUB_OUTPUT
+            echo "Alert Level: MEDIUM (180 days or less)"
+          else
+            echo "alert_level=low" >> $GITHUB_OUTPUT
+            echo "Alert Level: LOW (more than 180 days)"
+          fi
+
+      - name: Create or Update GPG Expiry Issue (Critical/High)
+        if: steps.check-expiration.outputs.alert_level == 'critical' || steps.check-expiration.outputs.alert_level == 'high'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const alertLevel = '${{ steps.check-expiration.outputs.alert_level }}';
+            const expiryDate = '${{ steps.check-expiration.outputs.expiry_date }}';
+            const daysUntil = '${{ steps.check-expiration.outputs.days_until_expiry }}';
+
+            const title = `🔑 GPG Key Expiration Alert - ${alertLevel.toUpperCase()}`;
+            const priority = alertLevel === 'critical' ? '🚨 URGENT' : '⚠️ HIGH PRIORITY';
+
+            const gpgKeyId = '${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}';
+
+            const body = `${priority}: The GPG key used for Linux package signing is approaching expiration.
+
+## Key Details
+- **Key ID**: ${gpgKeyId}
+- **Expiration Date**: ${expiryDate}
+- **Days Until Expiry**: ${daysUntil} days
+- **Alert Level**: ${alertLevel.toUpperCase()}
+
+## Required Actions
+${alertLevel === 'critical' ?
+  '- **IMMEDIATE ACTION REQUIRED** - Key expires in 30 days or less' :
+  '- **ACTION REQUIRED** - Key expires in 90 days or less'
+}
+
+### Steps to Rotate GPG Key:
+
+1. **Generate New Key**:
+   \`\`\`bash
+   # Generate new GPG key (4096-bit RSA, 3-year expiration)
+   gpg --batch --full-generate-key <<EOF
+   %no-protection
+   Key-Type: RSA
+   Key-Length: 4096
+   Subkey-Type: RSA
+   Subkey-Length: 4096
+   Name-Real: SPAN Digital
+   Name-Email: richard.wooding@spandigital.com
+   Expire-Date: 3y
+   %commit
+   EOF
+   \`\`\`
+
+2. **Cross-Sign with Existing Key**:
+   \`\`\`bash
+   # Export and sign new key with existing key for continuity
+   gpg --armor --export NEW_KEY_ID > new-public.key
+   gpg --sign-key NEW_KEY_ID
+   \`\`\`
+
+3. **Update Repository Secrets**:
+   - Update \`GPG_PRIVATE_KEY\` secret with new private key
+   - Update \`GPG_PUBLIC_KEY\` secret with new public key
+   - Update \`docs/public.key\` file with new public key
+
+4. **Update Documentation**:
+   - Update key fingerprint in \`docs/linux-repos.md\`
+   - Update expiration date in documentation
+   - Announce key rotation in release notes
+
+5. **Publish Key Transition Notice**:
+   - Create release announcing key change
+   - Update repository with transition period overlap
+   - Test package verification with both keys
+
+## Security Checklist
+- [ ] New key generated with appropriate parameters
+- [ ] Cross-signed with existing key for trust continuity
+- [ ] Repository secrets updated
+- [ ] Documentation updated with new fingerprint
+- [ ] Key transition announced to users
+- [ ] Package verification tested
+- [ ] Old key revoked after transition period
+
+**Responsible**: @${github.repository_owner}
+**Due Date**: ${new Date(Date.now() + (daysUntil - 30) * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
+
+This issue was automatically created by the GPG key monitoring workflow.`;
+
+            // Check for existing issues
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['gpg-expiry', 'security'],
+              state: 'open'
+            });
+
+            const existingIssue = issues.data.find(issue =>
+              issue.title.includes('GPG Key Expiration Alert')
+            );
+
+            if (existingIssue) {
+              // Update existing issue
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                title: title,
+                body: body,
+                labels: ['gpg-expiry', 'security', alertLevel, 'automated']
+              });
+              console.log(`Updated existing issue #${existingIssue.number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['gpg-expiry', 'security', alertLevel, 'automated'],
+                assignees: ['richardwooding']
+              });
+              console.log(`Created new issue #${issue.data.number}`);
+            }
+
+      - name: Create Medium Priority Issue
+        if: steps.check-expiration.outputs.alert_level == 'medium'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const expiryDate = '${{ steps.check-expiration.outputs.expiry_date }}';
+            const daysUntil = '${{ steps.check-expiration.outputs.days_until_expiry }}';
+
+            const title = `🔑 GPG Key Expiration Notice - Medium Priority`;
+
+            const gpgKeyId = '${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}';
+
+            const body = `The GPG key used for Linux package signing will expire in approximately 6 months.
+
+## Key Details
+- **Key ID**: ${gpgKeyId}
+- **Expiration Date**: ${expiryDate}
+- **Days Until Expiry**: ${daysUntil} days
+
+## Planning Required
+This is an advance notice to begin planning for GPG key rotation. The key rotation should be completed at least 3 months before expiry to ensure smooth transition.
+
+**Recommended Action Timeline**:
+- **3 months before expiry**: Begin key rotation process
+- **2 months before expiry**: Complete testing and documentation updates
+- **1 month before expiry**: Announce transition to users
+
+**Next Review**: This issue will escalate to HIGH priority when the key has 90 days remaining.
+
+This issue was automatically created by the GPG key monitoring workflow.`;
+
+            // Check for existing medium priority issues
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['gpg-expiry', 'medium'],
+              state: 'open'
+            });
+
+            if (issues.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: body,
+                labels: ['gpg-expiry', 'security', 'medium', 'automated']
+              });
+              console.log('Created medium priority GPG expiry issue');
+            }
+
+      - name: Log Status for Low Priority
+        if: steps.check-expiration.outputs.alert_level == 'low'
+        run: |
+          echo "✅ GPG Key status: OK"
+          echo "Key expires on: ${{ steps.check-expiration.outputs.expiry_date }}"
+          echo "Days until expiry: ${{ steps.check-expiration.outputs.days_until_expiry }}"
+          echo "No action required at this time."
