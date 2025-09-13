@@ -10,6 +10,9 @@ permissions:
   issues: write
   contents: read
 
+env:
+  GPG_KEY_ID: 9079FAE841B09114  # Default GPG key ID (can be overridden via repository variable)
+
 jobs:
   check-gpg-key-expiration:
     runs-on: ubuntu-latest
@@ -26,7 +29,9 @@ jobs:
           gpg --import docs/public.key
 
           # Get key information
-          KEY_INFO=$(gpg --list-keys --with-colons 9079FAE841B09114 | grep ^pub)
+          GPG_KEY_ID="${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}"
+          echo "Checking GPG key: $GPG_KEY_ID"
+          KEY_INFO=$(gpg --list-keys --with-colons "$GPG_KEY_ID" | grep ^pub)
           KEY_EXPIRY=$(echo "$KEY_INFO" | cut -d':' -f7)
 
           if [ -z "$KEY_EXPIRY" ] || [ "$KEY_EXPIRY" = "" ]; then
@@ -75,10 +80,12 @@ jobs:
             const title = `🔑 GPG Key Expiration Alert - ${alertLevel.toUpperCase()}`;
             const priority = alertLevel === 'critical' ? '🚨 URGENT' : '⚠️ HIGH PRIORITY';
 
+            const gpgKeyId = '${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}';
+
             const body = `${priority}: The GPG key used for Linux package signing is approaching expiration.
 
 ## Key Details
-- **Key ID**: 9079FAE841B09114
+- **Key ID**: ${gpgKeyId}
 - **Expiration Date**: ${expiryDate}
 - **Days Until Expiry**: ${daysUntil} days
 - **Alert Level**: ${alertLevel.toUpperCase()}
@@ -189,10 +196,12 @@ This issue was automatically created by the GPG key monitoring workflow.`;
 
             const title = `🔑 GPG Key Expiration Notice - Medium Priority`;
 
+            const gpgKeyId = '${{ vars.GPG_KEY_ID || env.GPG_KEY_ID }}';
+
             const body = `The GPG key used for Linux package signing will expire in approximately 6 months.
 
 ## Key Details
-- **Key ID**: 9079FAE841B09114
+- **Key ID**: ${gpgKeyId}
 - **Expiration Date**: ${expiryDate}
 - **Days Until Expiry**: ${daysUntil} days
 

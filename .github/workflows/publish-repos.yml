@@ -225,15 +225,15 @@ jobs:
           # Generate Release file with proper architecture support
           echo "Generating Release file..."
           cat > dists/stable/Release << EOF
-          Origin: SPAN Digital
-          Label: MCP Server Dump
-          Suite: stable
-          Codename: stable
-          Version: 1.0
-          Architectures: amd64 arm64
-          Components: main
-          Description: MCP Server Dump Linux Package Repository
-          EOF
+Origin: SPAN Digital
+Label: MCP Server Dump
+Suite: stable
+Codename: stable
+Version: 1.0
+Architectures: amd64 arm64
+Components: main
+Description: MCP Server Dump Linux Package Repository
+EOF
 
           apt-ftparchive release dists/stable >> dists/stable/Release
 

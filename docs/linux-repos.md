@@ -191,11 +191,14 @@ rpm --checksig package.rpm
 ### GPG Key Management Strategy
 The project uses a dedicated GPG key for package signing:
 
-- **Key ID**: `9079FAE841B09114`
+- **Key ID**: `9079FAE841B09114` (configurable via repository variables)
 - **Key Type**: 4096-bit RSA
 - **Expires**: September 13, 2027
 - **Owner**: SPAN Digital <richard.wooding@spandigital.com>
 - **Purpose**: Linux package and repository signing only
+
+**Key ID Configuration**:
+The GPG key ID can be configured via GitHub repository variables (`GPG_KEY_ID`) to support fork-friendly development and key rotation.
 
 **Key Storage**:
 - Private key stored as GitHub repository secret (`GPG_PRIVATE_KEY`)
@@ -596,3 +599,16 @@ find yum -name "*.rpm" -mtime +365 -delete       # Remove RPM packages older tha
 ## Contributing
 
 The repository publishing is automated through GitHub Actions. See `.github/workflows/publish-repos.yml` for the implementation details.
+
+### Repository Configuration
+
+For forks or key rotation, configure these repository variables and secrets:
+
+**Required Secrets**:
+- `GPG_PRIVATE_KEY`: GPG private key for signing packages (armored format)
+- `GPG_PUBLIC_KEY`: GPG public key for verification (armored format)
+
+**Optional Variables**:
+- `GPG_KEY_ID`: GPG key ID for signing (defaults to `9079FAE841B09114`)
+
+The GPG key monitoring workflow automatically adapts to the configured key ID.
