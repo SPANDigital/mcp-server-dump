@@ -34,4 +34,5 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         TAP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        SCOOP_GITHUB_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
         KO_DOCKER_REPO: ghcr.io/spandigital
