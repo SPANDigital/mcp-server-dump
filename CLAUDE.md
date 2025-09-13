@@ -4,7 +4,7 @@ This file contains configuration and commands for Claude Code to assist with thi
 
 ## Project Overview
 
-mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown, JSON, HTML, or PDF format. The tool includes frontmatter support for static site generator integration.
+mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown, JSON, HTML, or PDF format. The tool includes frontmatter support for static site generator integration and rich structured context support via external YAML/JSON configuration files.
 
 ## Development Commands
 
@@ -82,7 +82,7 @@ golangci-lint run
 - `github.com/alecthomas/kong` - Command line argument parsing library
 - `github.com/yuin/goldmark` - Markdown to HTML converter with GitHub Flavored Markdown support
 - `github.com/go-pdf/fpdf` - Pure Go PDF generation library with bookmark support
-- `gopkg.in/yaml.v2` - YAML parsing and generation for frontmatter support
+- `gopkg.in/yaml.v2` - YAML parsing and generation for frontmatter and context file support
 
 ### Development Tools
 - Go 1.25.0+ - Required Go version
@@ -117,6 +117,22 @@ mcp-server-dump -f pdf -o server-docs.pdf node server.js
 mcp-server-dump -f json -o output.json python mcp_server.py
 ```
 
+### Context Enhancement Usage
+```bash
+# Basic context usage with single file
+mcp-server-dump --context-file context.yaml npx @modelcontextprotocol/server-filesystem /docs
+
+# Multiple context files (merged in order)
+mcp-server-dump --context-file base.yaml --context-file overrides.json node server.js
+
+# Context with different output formats
+mcp-server-dump --context-file context.yaml -f html -o docs.html node server.js
+mcp-server-dump --context-file context.yaml -f pdf -o docs.pdf node server.js
+
+# Context with frontmatter for static sites
+mcp-server-dump --context-file context.yaml --frontmatter -M "author:team" node server.js
+```
+
 ### Development Testing
 ```bash
 # Build and test with example server
@@ -144,7 +160,11 @@ The tool follows a modern layered architecture with clear separation of concerns
    - HTTP Headers Support: Custom headers via HeaderRoundTripper middleware
 3. **MCP Communication** - JSON-RPC over the selected transport using official MCP Go SDK
 4. **Data Extraction** - Session-based communication to list tools, resources, prompts
-5. **Output Formatting** - Pluggable formatters convert server data to various formats:
+5. **Context Enhancement** - Optional context loading and application:
+   - Context file loading with YAML/JSON support and merging
+   - Pattern matching for tools (exact name), resources (URI patterns), prompts (exact name)
+   - Rich markdown content processing and validation
+6. **Output Formatting** - Pluggable formatters convert server data to various formats:
    - Markdown: Go text/template with embedded template files and TOC support
    - HTML: Generated from Markdown using Goldmark with GitHub Flavored Markdown extensions
    - JSON: Direct marshaling of data structures
@@ -181,7 +201,8 @@ internal/
 │   ├── frontmatter.go - YAML/TOML/JSON frontmatter generation
 │   └── utils.go - Shared formatting utilities (anchors, JSON indent)
 └── model/
-    └── server.go - Data structures (ServerInfo, Tool, Resource, Prompt, Capabilities)
+    ├── server.go - Data structures (ServerInfo, Tool, Resource, Prompt, Capabilities)
+    └── context.go - Context configuration system and application logic
 ```
 
 ### Key Design Patterns
