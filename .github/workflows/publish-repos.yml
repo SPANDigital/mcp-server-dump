@@ -22,18 +22,63 @@ jobs:
       - name: Setup linux-repos branch
         run: |
           # Check if linux-repos branch exists
-          if git ls-remote --heads origin linux-repos | grep linux-repos; then
-            echo "Branch exists, checking out"
+          echo "Checking for existing linux-repos branch..."
+          if git ls-remote --heads origin linux-repos | grep -q linux-repos; then
+            echo "linux-repos branch exists, checking out and updating"
             git checkout linux-repos
+            if [ $? -ne 0 ]; then
+              echo "Error: Failed to checkout linux-repos branch"
+              exit 1
+            fi
+
             git pull origin linux-repos
+            if [ $? -ne 0 ]; then
+              echo "Warning: Failed to pull latest changes, continuing with local branch"
+            fi
+
+            echo "Successfully switched to existing linux-repos branch"
           else
-            echo "Creating new linux-repos branch"
+            echo "linux-repos branch does not exist, creating it"
+
+            # Create a backup of current branch info
+            CURRENT_BRANCH=$(git branch --show-current)
+            echo "Current branch: $CURRENT_BRANCH"
+
             git checkout -b linux-repos
-            # Clear the branch for repository files only
-            git rm -rf . || true
-            git commit -m "Initial repository branch" --allow-empty
+            if [ $? -ne 0 ]; then
+              echo "Error: Failed to create linux-repos branch"
+              exit 1
+            fi
+
+            # Clear the branch content for repository files only
+            # Keep .git directory and be more careful with deletion
+            find . -mindepth 1 -maxdepth 1 ! -name '.git' -exec rm -rf {} + 2>/dev/null || true
+
+            # Create initial commit
+            git add . 2>/dev/null || true
+            git commit -m "Initialize Linux package repository branch" --allow-empty
+            if [ $? -ne 0 ]; then
+              echo "Error: Failed to create initial commit"
+              exit 1
+            fi
+
             git push -u origin linux-repos
+            if [ $? -ne 0 ]; then
+              echo "Error: Failed to push new linux-repos branch"
+              exit 1
+            fi
+
+            echo "Successfully created and pushed linux-repos branch"
           fi
+
+          # Verify we're on the correct branch
+          CURRENT_BRANCH=$(git branch --show-current)
+          if [ "$CURRENT_BRANCH" != "linux-repos" ]; then
+            echo "Error: Not on linux-repos branch (currently on: $CURRENT_BRANCH)"
+            exit 1
+          fi
+
+          echo "Branch setup complete - ready to publish packages"
 
       - name: Download release assets
         uses: dsaltares/fetch-gh-release-asset@master
@@ -43,10 +88,46 @@ jobs:
           file: ".*\\.(deb|rpm)$"
           target: "./packages/"
 
+      - name: Verify downloaded packages
+        run: |
+          if [ ! -d "./packages" ] || [ -z "$(ls -A ./packages 2>/dev/null)" ]; then
+            echo "Error: No packages were downloaded from the release"
+            echo "Release: ${{ github.event.release.tag_name }}"
+            echo "Expected files: DEB and RPM packages"
+            exit 1
+          fi
+          echo "Downloaded packages:"
+          ls -la ./packages/
+
+          # Verify we have at least one DEB and one RPM
+          if ! ls ./packages/*.deb >/dev/null 2>&1; then
+            echo "Warning: No DEB packages found"
+          fi
+          if ! ls ./packages/*.rpm >/dev/null 2>&1; then
+            echo "Warning: No RPM packages found"
+          fi
+
       - name: Setup GPG
         run: |
-          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --import
-          echo "${{ secrets.GPG_PUBLIC_KEY }}" > public.key
+          # Check if GPG secrets are available
+          if [ -z "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
+            echo "GPG_PRIVATE_KEY not configured - packages will be unsigned"
+            echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
+          elif [ -z "${{ secrets.GPG_PUBLIC_KEY }}" ]; then
+            echo "GPG_PUBLIC_KEY not configured - packages will be unsigned"
+            echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
+          else
+            echo "Setting up GPG keys for package signing..."
+            echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import --quiet
+            if [ $? -ne 0 ]; then
+              echo "Error: Failed to import GPG private key"
+              echo "GPG_AVAILABLE=false" >> $GITHUB_ENV
+            else
+              echo "${{ secrets.GPG_PUBLIC_KEY }}" > public.key
+              echo "GPG_AVAILABLE=true" >> $GITHUB_ENV
+              echo "GPG keys imported successfully"
+            fi
+          fi
 
       - name: Create APT repository
         run: |
@@ -66,20 +147,44 @@ jobs:
           cd apt
 
           # Process amd64 packages
-          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
-          gzip -k dists/stable/main/binary-amd64/Packages
+          if ls ../packages/*_amd64.deb >/dev/null 2>&1; then
+            echo "Processing amd64 packages..."
+            dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+            if [ $? -ne 0 ]; then
+              echo "Error: Failed to generate amd64 Packages file"
+              exit 1
+            fi
+            gzip -k dists/stable/main/binary-amd64/Packages
+          else
+            echo "No amd64 packages found - creating empty Packages file"
+            touch dists/stable/main/binary-amd64/Packages
+            gzip -c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
+          fi
 
           # Process arm64 packages
-          dpkg-scanpackages --arch arm64 pool/ > dists/stable/main/binary-arm64/Packages
-          gzip -k dists/stable/main/binary-arm64/Packages
+          if ls ../packages/*_arm64.deb >/dev/null 2>&1; then
+            echo "Processing arm64 packages..."
+            dpkg-scanpackages --arch arm64 pool/ > dists/stable/main/binary-arm64/Packages
+            if [ $? -ne 0 ]; then
+              echo "Error: Failed to generate arm64 Packages file"
+              exit 1
+            fi
+            gzip -k dists/stable/main/binary-arm64/Packages
+          else
+            echo "No arm64 packages found - creating empty Packages file"
+            touch dists/stable/main/binary-arm64/Packages
+            gzip -c dists/stable/main/binary-arm64/Packages > dists/stable/main/binary-arm64/Packages.gz
+          fi
 
           # Create Contents file
-          apt-ftparchive contents pool/ > dists/stable/Contents-amd64
-          apt-ftparchive contents pool/ > dists/stable/Contents-arm64
+          echo "Generating Contents files..."
+          apt-ftparchive contents pool/ > dists/stable/Contents-amd64 || echo "Warning: Contents-amd64 generation failed"
+          apt-ftparchive contents pool/ > dists/stable/Contents-arm64 || echo "Warning: Contents-arm64 generation failed"
           gzip -k dists/stable/Contents-amd64
           gzip -k dists/stable/Contents-arm64
 
           # Generate Release file with proper architecture support
+          echo "Generating Release file..."
           cat > dists/stable/Release << EOF
           Origin: SPAN Digital
           Label: MCP Server Dump
@@ -92,11 +197,25 @@ jobs:
           EOF
 
           apt-ftparchive release dists/stable >> dists/stable/Release
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to generate Release file"
+            exit 1
+          fi
 
           # Sign Release file (if GPG key is available)
-          if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
+          if [ "$GPG_AVAILABLE" = "true" ]; then
+            echo "Signing Release file with GPG..."
             gpg --armor --detach-sign --yes -o dists/stable/Release.gpg dists/stable/Release
+            if [ $? -ne 0 ]; then
+              echo "Warning: Failed to create detached signature"
+            fi
             gpg --armor --clearsign --yes -o dists/stable/InRelease dists/stable/Release
+            if [ $? -ne 0 ]; then
+              echo "Warning: Failed to create clear-signed Release file"
+            fi
+            echo "GPG signing completed"
+          else
+            echo "GPG not available - APT repository will be unsigned"
           fi
 
           cd ..
@@ -104,25 +223,76 @@ jobs:
       - name: Create YUM repository
         run: |
           # Install required tools
-          sudo apt-get install -y createrepo-c
+          echo "Installing createrepo-c..."
+          sudo apt-get update && sudo apt-get install -y createrepo-c
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to install createrepo-c"
+            exit 1
+          fi
 
           # Create YUM directory structure
           mkdir -p yum/x86_64
           mkdir -p yum/aarch64
 
-          # Copy RPM packages
-          cp packages/*x86_64.rpm yum/x86_64/ 2>/dev/null || true
-          cp packages/*aarch64.rpm yum/aarch64/ 2>/dev/null || true
-          cp packages/*arm64.rpm yum/aarch64/ 2>/dev/null || true
+          # Copy RPM packages with proper error handling
+          echo "Copying RPM packages..."
+          x86_64_found=false
+          aarch64_found=false
+
+          if ls packages/*x86_64.rpm >/dev/null 2>&1; then
+            cp packages/*x86_64.rpm yum/x86_64/
+            x86_64_found=true
+            echo "Copied x86_64 packages: $(ls packages/*x86_64.rpm | wc -l)"
+          fi
+
+          if ls packages/*aarch64.rpm >/dev/null 2>&1; then
+            cp packages/*aarch64.rpm yum/aarch64/
+            aarch64_found=true
+            echo "Copied aarch64 packages: $(ls packages/*aarch64.rpm | wc -l)"
+          fi
+
+          if ls packages/*arm64.rpm >/dev/null 2>&1; then
+            cp packages/*arm64.rpm yum/aarch64/
+            aarch64_found=true
+            echo "Copied arm64 packages: $(ls packages/*arm64.rpm | wc -l)"
+          fi
+
+          if [ "$x86_64_found" = false ] && [ "$aarch64_found" = false ]; then
+            echo "Warning: No RPM packages found for any architecture"
+          fi
 
           # Generate repository metadata
+          echo "Generating YUM repository metadata..."
           createrepo_c yum/x86_64
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to create x86_64 repository metadata"
+            exit 1
+          fi
+
           createrepo_c yum/aarch64
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to create aarch64 repository metadata"
+            exit 1
+          fi
 
           # Sign repository metadata (if GPG key is available)
-          if [ -n "${{ secrets.GPG_PRIVATE_KEY }}" ]; then
-            gpg --armor --detach-sign --yes yum/x86_64/repodata/repomd.xml
-            gpg --armor --detach-sign --yes yum/aarch64/repodata/repomd.xml
+          if [ "$GPG_AVAILABLE" = "true" ]; then
+            echo "Signing YUM repository metadata with GPG..."
+            if [ -f yum/x86_64/repodata/repomd.xml ]; then
+              gpg --armor --detach-sign --yes yum/x86_64/repodata/repomd.xml
+              if [ $? -ne 0 ]; then
+                echo "Warning: Failed to sign x86_64 repository metadata"
+              fi
+            fi
+            if [ -f yum/aarch64/repodata/repomd.xml ]; then
+              gpg --armor --detach-sign --yes yum/aarch64/repodata/repomd.xml
+              if [ $? -ne 0 ]; then
+                echo "Warning: Failed to sign aarch64 repository metadata"
+              fi
+            fi
+            echo "YUM repository signing completed"
+          else
+            echo "GPG not available - YUM repositories will be unsigned"
           fi
 
       - name: Create repository documentation
@@ -221,9 +391,27 @@ sudo dnf install mcp-server-dump
         run: |
           git config --local user.email "bot@goreleaser.com"
           git config --local user.name "GoReleaser Bot"
+
+          # Check if there are any changes
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
           git add .
-          git commit -m "Update Linux repositories for ${{ github.event.release.tag_name }}" || echo "No changes to commit"
+          git commit -m "Update Linux repositories for ${{ github.event.release.tag_name }}"
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to commit changes"
+            exit 1
+          fi
+
           git push
+          if [ $? -ne 0 ]; then
+            echo "Error: Failed to push changes to remote repository"
+            exit 1
+          fi
+
+          echo "Successfully updated Linux repositories"
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v4
