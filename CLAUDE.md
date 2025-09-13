@@ -121,7 +121,7 @@ mcp-server-dump -f json -o output.json python mcp_server.py
 ```bash
 # Build and test with example server
 go build -o mcp-server-dump ./cmd/mcp-server-dump
-mcp-server-dump echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}''
+./mcp-server-dump echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
 ```
 
 ## Architecture
