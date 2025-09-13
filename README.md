@@ -54,21 +54,24 @@ scoop install mcp-server-dump
 Native Linux packages are available for Debian/Ubuntu, RHEL/Fedora, and Alpine Linux:
 
 ```bash
-# Debian/Ubuntu (APT)
-echo "deb [trusted=yes] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
+# Debian/Ubuntu (APT) - Secure Installation
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
+echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
 sudo apt update && sudo apt install mcp-server-dump
 
-# RHEL/Fedora/CentOS (YUM/DNF)
+# RHEL/Fedora/CentOS (YUM/DNF) - Secure Installation
+sudo rpm --import https://spandigital.github.io/mcp-server-dump/public.key
 sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'EOF'
 [mcp-server-dump]
 name=MCP Server Dump
 baseurl=https://spandigital.github.io/mcp-server-dump/yum/$basearch
 enabled=1
-gpgcheck=0
+gpgcheck=1
+gpgkey=https://spandigital.github.io/mcp-server-dump/public.key
 EOF
 sudo dnf install mcp-server-dump
 
-# Alpine Linux (APK)
+# Alpine Linux (APK) - Direct Download
 sudo apk add --allow-untrusted https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
 ```
 

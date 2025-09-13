@@ -16,19 +16,9 @@ The Linux packages are automatically published to GitHub Pages after each releas
 
 ### Debian/Ubuntu (APT)
 
-#### Quick Install (Unsigned)
+#### Recommended: Secure Install (GPG Verified)
 ```bash
-# Add the repository (without GPG verification - not recommended for production)
-echo "deb [trusted=yes] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
-
-# Update package list and install
-sudo apt update
-sudo apt install mcp-server-dump
-```
-
-#### Secure Install (GPG Verified) - Recommended
-```bash
-# Import GPG key (when available)
+# Import GPG key
 curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
 
 # Add the repository with GPG verification
@@ -39,28 +29,23 @@ sudo apt update
 sudo apt install mcp-server-dump
 ```
 
-### RHEL/Fedora/CentOS (YUM/DNF)
+#### Alternative: Quick Install (Unsigned - Development/Testing Only)
+⚠️ **WARNING**: This method bypasses package signature verification and should only be used for development or testing environments.
 
-#### Quick Install (Unsigned)
 ```bash
-# Create repository configuration (without GPG verification - not recommended for production)
-sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'EOF'
-[mcp-server-dump]
-name=MCP Server Dump
-baseurl=https://spandigital.github.io/mcp-server-dump/yum/$basearch
-enabled=1
-gpgcheck=0
-EOF
+# Add the repository (without GPG verification - NOT RECOMMENDED for production)
+echo "deb [trusted=yes] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
 
-# Install the package
-sudo dnf install mcp-server-dump  # For Fedora/RHEL 8+
-# OR
-sudo yum install mcp-server-dump  # For older RHEL/CentOS
+# Update package list and install
+sudo apt update
+sudo apt install mcp-server-dump
 ```
 
-#### Secure Install (GPG Verified) - Recommended
+### RHEL/Fedora/CentOS (YUM/DNF)
+
+#### Recommended: Secure Install (GPG Verified)
 ```bash
-# Import GPG key (when available)
+# Import GPG key
 sudo rpm --import https://spandigital.github.io/mcp-server-dump/public.key
 
 # Create repository configuration with GPG verification
@@ -71,6 +56,25 @@ baseurl=https://spandigital.github.io/mcp-server-dump/yum/$basearch
 enabled=1
 gpgcheck=1
 gpgkey=https://spandigital.github.io/mcp-server-dump/public.key
+EOF
+
+# Install the package
+sudo dnf install mcp-server-dump  # For Fedora/RHEL 8+
+# OR
+sudo yum install mcp-server-dump  # For older RHEL/CentOS
+```
+
+#### Alternative: Quick Install (Unsigned - Development/Testing Only)
+⚠️ **WARNING**: This method bypasses package signature verification and should only be used for development or testing environments.
+
+```bash
+# Create repository configuration (without GPG verification - NOT RECOMMENDED for production)
+sudo tee /etc/yum.repos.d/mcp-server-dump.repo << 'EOF'
+[mcp-server-dump]
+name=MCP Server Dump
+baseurl=https://spandigital.github.io/mcp-server-dump/yum/$basearch
+enabled=1
+gpgcheck=0
 EOF
 
 # Install the package
@@ -198,6 +202,18 @@ The project uses a dedicated GPG key for package signing:
 - Public key available in repository (`docs/public.key`) and published to GitHub Pages
 - Key rotation planned before expiration with advance notice
 
+**Private Key Backup & Recovery**:
+- Private key is securely backed up offline by project maintainers
+- Recovery process documented in internal security procedures
+- Emergency contact: richard.wooding@spandigital.com for key-related issues
+- Backup verification performed annually
+
+**Key Expiration Monitoring**:
+- GPG key expires September 13, 2027 (3 years from creation)
+- Automated monitoring planned for 6 months before expiration
+- Key rotation will be performed with 3 months advance notice
+- New key will be cross-signed by the expiring key for continuity
+
 **Key Verification**:
 ```bash
 # Download and verify the public key
@@ -212,6 +228,42 @@ gpg --fingerprint 9079FAE841B09114
 - Repository hosting uses GitHub's infrastructure security
 - GPG signing provides cryptographic verification of package authenticity
 - Key management follows security best practices with time-limited keys
+
+### Supply Chain Security
+- All packages include SHA256 checksums for integrity verification
+- Release assets are cryptographically signed using GPG
+- Build process uses reproducible builds where possible
+- Dependency updates are tracked and auditable via GitHub
+- Package authenticity can be verified through multiple methods:
+  ```bash
+  # Verify GPG signature
+  gpg --verify package.sig package.deb
+
+  # Verify SHA256 checksum
+  sha256sum -c package.sha256
+  ```
+
+### Repository Performance & Rate Limiting
+
+**GitHub Pages Hosting**:
+- Repositories are hosted on GitHub Pages with global CDN distribution
+- No explicit rate limits for package downloads from GitHub Pages
+- Best practices for automated systems:
+  - Implement reasonable delays between package manager operations
+  - Use caching where possible to reduce repository metadata requests
+  - Consider mirroring for high-volume enterprise deployments
+
+**Repository Mirrors**:
+For high-availability deployments, consider setting up repository mirrors:
+```bash
+# Example: Sync repository to internal mirror
+rsync -av --delete https://spandigital.github.io/mcp-server-dump/ /local/mirror/
+```
+
+**Enterprise Considerations**:
+- Large organizations may want to cache packages internally
+- Consider using tools like Nexus Repository or JFrog Artifactory for mirroring
+- Monitor repository access patterns and implement caching strategies
 
 ## Troubleshooting
 
