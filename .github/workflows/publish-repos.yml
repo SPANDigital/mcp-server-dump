@@ -595,7 +595,7 @@ jobs:
               '              <h3>Quick Install</h3>' \
               '              <pre>' \
               '# Add the repository' \
-              'sudo tee /etc/yum.repos.d/mcp-server-dump.repo << "REPO"' \
+              'sudo tee /etc/yum.repos.d/mcp-server-dump.repo << REPO' \
               '[mcp-server-dump]' \
               'name=MCP Server Dump' \
               'baseurl=https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/yum/$basearch' \
@@ -613,7 +613,7 @@ jobs:
               'sudo rpm --import https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/public.key' \
               '' \
               '# Add the repository' \
-              'sudo tee /etc/yum.repos.d/mcp-server-dump.repo << "REPO"' \
+              'sudo tee /etc/yum.repos.d/mcp-server-dump.repo << REPO' \
               '[mcp-server-dump]' \
               'name=MCP Server Dump' \
               'baseurl=https://'$REPO_OWNER_LOWER'.github.io/mcp-server-dump/yum/$basearch' \
