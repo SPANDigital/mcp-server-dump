@@ -1,0 +1,150 @@
+.\" Manual page for mcp-server-dump
+.TH MCP-SERVER-DUMP "1" "September 2025" "mcp-server-dump" "User Commands"
+.SH NAME
+mcp-server-dump \- Extract and document MCP server capabilities, tools, resources, and prompts
+.SH SYNOPSIS
+.B mcp-server-dump
+[\fIOPTIONS\fR] [\fICOMMAND\fR [\fIARGS\fR...]]
+.SH DESCRIPTION
+.B mcp-server-dump
+is a command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to various output formats including Markdown, JSON, HTML, or PDF.
+
+The tool supports connecting to servers through three transport mechanisms:
+.br
+\(bu \fBCommand transport\fR - Executes MCP server as subprocess with STDIO communication
+.br
+\(bu \fBSSE transport\fR - Connects to HTTP Server-Sent Events endpoints
+.br
+\(bu \fBStreamable transport\fR - Connects to HTTP streamable endpoints
+
+Output can be generated in multiple formats with optional frontmatter support for static site generator integration.
+.SH OPTIONS
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Show context-sensitive help and exit.
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Show version information and exit.
+.TP
+\fB\-o\fR, \fB\-\-output\fR=\fIFILE\fR
+Output file for documentation. Defaults to stdout for text formats. Required for PDF output.
+.TP
+\fB\-f\fR, \fB\-\-format\fR=\fIFORMAT\fR
+Output format. Valid values: \fBmarkdown\fR (default), \fBjson\fR, \fBhtml\fR, \fBpdf\fR.
+.TP
+\fB\-\-no\-toc\fR
+Disable table of contents generation in markdown output.
+.TP
+\fB\-F\fR, \fB\-\-frontmatter\fR
+Include frontmatter metadata in markdown output for static site generators.
+.TP
+\fB\-M\fR, \fB\-\-frontmatter\-field\fR=\fIKEY:VALUE\fR
+Add custom frontmatter field (format: key:value). Can be used multiple times to add multiple fields.
+.TP
+\fB\-\-frontmatter\-format\fR=\fIFORMAT\fR
+Frontmatter format. Valid values: \fByaml\fR (default), \fBtoml\fR, \fBjson\fR.
+.TP
+\fB\-t\fR, \fB\-\-transport\fR=\fITYPE\fR
+Transport type. Valid values: \fBcommand\fR (default), \fBsse\fR, \fBstreamable\fR.
+.TP
+\fB\-\-endpoint\fR=\fIURL\fR
+HTTP endpoint URL for SSE or streamable transports. Required when using SSE or streamable transport.
+.TP
+\fB\-\-timeout\fR=\fIDURATION\fR
+HTTP timeout for SSE and streamable transports. Default: 30s.
+.TP
+\fB\-H\fR, \fB\-\-headers\fR=\fIHEADER\fR
+HTTP headers for SSE and streamable transports in Key:Value format. Can be used multiple times for multiple headers.
+.TP
+\fB\-\-server\-command\fR=\fICOMMAND\fR
+Explicit server command for command transport. Overrides the command specified in arguments.
+.SH EXAMPLES
+.TP
+Connect to filesystem server using command transport:
+.nf
+\fBmcp-server-dump\fR npx @modelcontextprotocol/server-filesystem /Users/username/Documents
+.fi
+.TP
+Generate PDF documentation from a Node.js server:
+.nf
+\fBmcp-server-dump\fR -f pdf -o server-docs.pdf node server.js --port 3000
+.fi
+.TP
+Connect via SSE transport with authentication:
+.nf
+\fBmcp-server-dump\fR -t sse --endpoint "http://localhost:3001/sse" \\
+                   -H "Authorization:Bearer token"
+.fi
+.TP
+Generate HTML output with table of contents disabled:
+.nf
+\fBmcp-server-dump\fR -f html --no-toc -o output.html python mcp_server.py
+.fi
+.TP
+Generate markdown with custom frontmatter for Jekyll:
+.nf
+\fBmcp-server-dump\fR -F -M "layout:post" -M "category:documentation" \\
+                   --frontmatter-format yaml node server.js
+.fi
+.TP
+Connect via streamable transport:
+.nf
+\fBmcp-server-dump\fR -t streamable --endpoint "http://localhost:3001/stream" \\
+                   --timeout 60s
+.fi
+.TP
+Output to JSON file for programmatic processing:
+.nf
+\fBmcp-server-dump\fR -f json -o server-info.json echo '{"jsonrpc":"2.0",...}'
+.fi
+.SH TRANSPORT TYPES
+.TP
+.B command
+(Default) Executes the MCP server as a subprocess and communicates via STDIO. The server command and arguments are specified as positional arguments.
+.TP
+.B sse
+Connects to an HTTP Server-Sent Events endpoint. Requires \fB--endpoint\fR parameter. Useful for web-based MCP servers.
+.TP
+.B streamable
+Connects to an HTTP streamable endpoint with content-type normalization. Requires \fB--endpoint\fR parameter.
+.SH OUTPUT FORMATS
+.TP
+.B markdown
+(Default) Generates GitHub Flavored Markdown with optional table of contents and frontmatter support.
+.TP
+.B json
+Outputs server information as structured JSON data for programmatic processing.
+.TP
+.B html
+Converts markdown output to HTML using GitHub Flavored Markdown extensions.
+.TP
+.B pdf
+Generates PDF documentation with structured layout and bookmarks. Requires \fB-o\fR parameter.
+.SH FILES
+The tool does not use any configuration files. All configuration is provided via command-line options.
+.SH ENVIRONMENT
+No special environment variables are used.
+.SH EXIT STATUS
+.TP
+0
+Success
+.TP
+1
+General error (invalid arguments, connection failure, etc.)
+.TP
+2
+Server communication error
+.SH SEE ALSO
+More information about MCP (Model Context Protocol) and this tool can be found at:
+.br
+\fIhttps://github.com/spandigital/mcp-server-dump\fR
+.br
+\fIhttps://modelcontextprotocol.io\fR
+
+For MCP server implementations and examples:
+.br
+\fIhttps://github.com/modelcontextprotocol\fR
+.SH AUTHORS
+SPAN Digital <richard.wooding@spandigital.com>
+.SH BUGS
+Report bugs at: \fIhttps://github.com/spandigital/mcp-server-dump/issues\fR
