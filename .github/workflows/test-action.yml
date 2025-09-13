@@ -103,6 +103,10 @@ jobs:
           EOF
           chmod +x mock-mcp-server-json.sh
 
+          # Ensure file is fully written and accessible
+          sleep 1
+          sync
+
       - name: Debug - List available files
         run: |
           echo "=== Current directory files ==="
