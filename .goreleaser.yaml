@@ -100,7 +100,7 @@ nfpms:
     file_name_template: "{{ .ConventionalFileName }}"
     vendor: "SPAN Digital"
     homepage: "https://github.com/spandigital/mcp-server-dump"
-    maintainer: "SPAN Digital <tech@spandigital.com>"
+    maintainer: "SPAN Digital <richard.wooding@spandigital.com>"
     description: "Extract and document MCP server capabilities in various formats"
     license: "MIT"
     formats:
