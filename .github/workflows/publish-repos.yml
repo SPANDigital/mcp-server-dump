@@ -15,6 +15,9 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  REPO_OWNER_LOWER: spandigital  # GitHub Pages URLs are lowercase
+
 jobs:
   publish-repos:
     runs-on: ubuntu-latest
@@ -25,20 +28,49 @@ jobs:
           fetch-depth: 0
 
       - name: Setup linux-repos branch
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           # Check if linux-repos branch exists
           echo "Checking for existing linux-repos branch..."
           if git ls-remote --heads origin linux-repos | grep -q linux-repos; then
             echo "linux-repos branch exists, checking out and updating"
-            git checkout linux-repos
 
-            git pull origin linux-repos || {
-              echo "Warning: Failed to pull latest changes, continuing with local branch"
-              echo "This may result in conflicts or outdated content."
-            }
+            # Attempt to checkout with retry logic
+            for attempt in 1 2 3; do
+              if git checkout linux-repos; then
+                echo "Successfully checked out linux-repos branch (attempt $attempt)"
+                break
+              else
+                echo "Failed to checkout linux-repos branch (attempt $attempt/3)"
+                if [ $attempt -eq 3 ]; then
+                  echo "Error: Failed to checkout linux-repos branch after 3 attempts"
+                  exit 1
+                fi
+                sleep 5
+              fi
+            done
 
-            echo "Successfully switched to existing linux-repos branch"
+            # Pull latest changes with conflict resolution
+            echo "Updating local branch with latest changes..."
+            if git pull origin linux-repos; then
+              echo "Successfully pulled latest changes"
+            else
+              echo "Warning: Failed to pull latest changes"
+              echo "Checking for conflicts or local modifications..."
+              git status --porcelain
+
+              # Try to recover by resetting to remote
+              echo "Attempting to reset to match remote branch..."
+              if git reset --hard origin/linux-repos; then
+                echo "Successfully reset to remote branch state"
+              else
+                echo "Warning: Could not reset to remote. Continuing with current state."
+                echo "This may result in conflicts during publishing."
+              fi
+            fi
+
+            echo "Branch update completed"
           else
             echo "linux-repos branch does not exist, creating it"
 
@@ -70,6 +102,7 @@ jobs:
           echo "Branch setup complete - ready to publish packages"
 
       - name: Download release assets
+        timeout-minutes: 15
         uses: dsaltares/fetch-gh-release-asset@aa2ab1243d6e0d5b405b973c89fa4d06a2d0fff7  # v1.1.2
         with:
           version: ${{ github.event.release.tag_name }}
@@ -142,6 +175,7 @@ jobs:
 
       - name: Create APT repository
         if: env.DEB_AVAILABLE == 'true'
+        timeout-minutes: 20
         run: |
           set -euo pipefail
           # Install required tools
@@ -221,6 +255,7 @@ jobs:
 
       - name: Create YUM repository
         if: env.RPM_AVAILABLE == 'true'
+        timeout-minutes: 20
         run: |
           set -euo pipefail
           # Install required tools
@@ -231,51 +266,92 @@ jobs:
           mkdir -p yum/x86_64
           mkdir -p yum/aarch64
 
-          # Copy RPM packages with proper error handling
-          echo "Copying RPM packages..."
+          # Copy RPM packages with enhanced architecture detection
+          echo "Copying RPM packages with architecture detection..."
           x86_64_found=false
           aarch64_found=false
+          i386_found=false
+          armv7_found=false
 
-          if ls packages/*x86_64.rpm >/dev/null 2>&1; then
-            cp packages/*x86_64.rpm yum/x86_64/
-            x86_64_found=true
-            echo "Copied x86_64 packages: $(ls packages/*x86_64.rpm | wc -l)"
+          # Create additional architecture directories
+          mkdir -p yum/i386 yum/armv7hl
+
+          # Detect and copy x86_64/amd64 packages
+          for pattern in "*x86_64.rpm" "*amd64.rpm"; do
+            if ls packages/$pattern >/dev/null 2>&1; then
+              cp packages/$pattern yum/x86_64/
+              x86_64_found=true
+              echo "Copied x86_64 packages: $(ls packages/$pattern | wc -l)"
+            fi
+          done
+
+          # Detect and copy aarch64/arm64 packages
+          for pattern in "*aarch64.rpm" "*arm64.rpm"; do
+            if ls packages/$pattern >/dev/null 2>&1; then
+              cp packages/$pattern yum/aarch64/
+              aarch64_found=true
+              echo "Copied aarch64 packages: $(ls packages/$pattern | wc -l)"
+            fi
+          done
+
+          # Detect and copy i386/i686 packages
+          for pattern in "*i386.rpm" "*i686.rpm"; do
+            if ls packages/$pattern >/dev/null 2>&1; then
+              cp packages/$pattern yum/i386/
+              i386_found=true
+              echo "Copied i386 packages: $(ls packages/$pattern | wc -l)"
+            fi
+          done
+
+          # Detect and copy armv7 packages
+          for pattern in "*armv7*.rpm" "*armhf.rpm"; do
+            if ls packages/$pattern >/dev/null 2>&1; then
+              cp packages/$pattern yum/armv7hl/
+              armv7_found=true
+              echo "Copied armv7 packages: $(ls packages/$pattern | wc -l)"
+            fi
+          done
+
+          # Log architecture summary
+          total_archs=0
+          if [ "$x86_64_found" = true ]; then ((total_archs++)); fi
+          if [ "$aarch64_found" = true ]; then ((total_archs++)); fi
+          if [ "$i386_found" = true ]; then ((total_archs++)); fi
+          if [ "$armv7_found" = true ]; then ((total_archs++)); fi
+
+          echo "Architecture detection complete: found packages for $total_archs architecture(s)"
+
+          if [ $total_archs -eq 0 ]; then
+            echo "Warning: No RPM packages found for any supported architecture"
+            echo "Supported patterns: x86_64, amd64, aarch64, arm64, i386, i686, armv7, armhf"
           fi
 
-          if ls packages/*aarch64.rpm >/dev/null 2>&1; then
-            cp packages/*aarch64.rpm yum/aarch64/
-            aarch64_found=true
-            echo "Copied aarch64 packages: $(ls packages/*aarch64.rpm | wc -l)"
-          fi
-
-          if ls packages/*arm64.rpm >/dev/null 2>&1; then
-            cp packages/*arm64.rpm yum/aarch64/
-            aarch64_found=true
-            echo "Copied arm64 packages: $(ls packages/*arm64.rpm | wc -l)"
-          fi
-
-          if [ "$x86_64_found" = false ] && [ "$aarch64_found" = false ]; then
-            echo "Warning: No RPM packages found for any architecture"
-          fi
-
-          # Generate repository metadata
+          # Generate repository metadata for all architectures
           echo "Generating YUM repository metadata..."
-          createrepo_c yum/x86_64
-          createrepo_c yum/aarch64
+          for arch_dir in yum/*/; do
+            if [ -d "$arch_dir" ] && [ "$(find "$arch_dir" -name "*.rpm" | wc -l)" -gt 0 ]; then
+              arch_name=$(basename "$arch_dir")
+              echo "Creating repository metadata for $arch_name..."
+              createrepo_c "$arch_dir"
+            else
+              arch_name=$(basename "$arch_dir")
+              echo "Skipping empty architecture directory: $arch_name"
+            fi
+          done
 
           # Sign repository metadata (if GPG key is available)
           if [ "$GPG_AVAILABLE" = "true" ]; then
             echo "Signing YUM repository metadata with GPG..."
-            if [ -f yum/x86_64/repodata/repomd.xml ]; then
-              gpg --armor --detach-sign --yes yum/x86_64/repodata/repomd.xml || {
-                echo "Warning: Failed to sign x86_64 repository metadata"
-              }
-            fi
-            if [ -f yum/aarch64/repodata/repomd.xml ]; then
-              gpg --armor --detach-sign --yes yum/aarch64/repodata/repomd.xml || {
-                echo "Warning: Failed to sign aarch64 repository metadata"
-              }
-            fi
+            for arch_dir in yum/*/; do
+              arch_name=$(basename "$arch_dir")
+              repomd_file="$arch_dir/repodata/repomd.xml"
+              if [ -f "$repomd_file" ]; then
+                echo "Signing $arch_name repository metadata..."
+                gpg --armor --detach-sign --yes "$repomd_file" || {
+                  echo "Warning: Failed to sign $arch_name repository metadata"
+                }
+              fi
+            done
             echo "YUM repository signing completed"
           else
             echo "GPG not available - YUM repositories will be unsigned"
@@ -294,7 +370,7 @@ jobs:
               <h3>Quick Install</h3>
               <pre>
 # Add the repository
-echo "deb [trusted=yes] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
+echo "deb [trusted=yes] https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
 
 # Update and install
 sudo apt update
@@ -304,10 +380,10 @@ sudo apt install mcp-server-dump
               <h3>With GPG verification (if available)</h3>
               <pre>
 # Import GPG key
-curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
+curl -fsSL https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
 
 # Add the repository
-echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://spandigital.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
+echo "deb [signed-by=/usr/share/keyrings/mcp-server-dump.gpg] https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/apt stable main" | sudo tee /etc/apt/sources.list.d/mcp-server-dump.list
 
 # Update and install
 sudo apt update
@@ -324,7 +400,7 @@ sudo apt install mcp-server-dump
 sudo tee /etc/yum.repos.d/mcp-server-dump.repo << '\''REPO'\''
 [mcp-server-dump]
 name=MCP Server Dump
-baseurl=https://spandigital.github.io/mcp-server-dump/yum/\$basearch
+baseurl=https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/yum/\$basearch
 enabled=1
 gpgcheck=0
 REPO
@@ -336,16 +412,16 @@ sudo dnf install mcp-server-dump
               <h3>With GPG verification (if available)</h3>
               <pre>
 # Import GPG key
-sudo rpm --import https://spandigital.github.io/mcp-server-dump/public.key
+sudo rpm --import https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/public.key
 
 # Add the repository
 sudo tee /etc/yum.repos.d/mcp-server-dump.repo << '\''REPO'\''
 [mcp-server-dump]
 name=MCP Server Dump
-baseurl=https://spandigital.github.io/mcp-server-dump/yum/\$basearch
+baseurl=https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/yum/\$basearch
 enabled=1
 gpgcheck=1
-gpgkey=https://spandigital.github.io/mcp-server-dump/public.key
+gpgkey=https://${{ env.REPO_OWNER_LOWER }}.github.io/mcp-server-dump/public.key
 REPO
 
 # Install
@@ -369,7 +445,7 @@ sudo dnf install mcp-server-dump
           <body>
               <h1>MCP Server Dump - Linux Package Repository</h1>
 
-              <p>Official Linux package repository for <a href="https://github.com/spandigital/mcp-server-dump">mcp-server-dump</a></p>
+              <p>Official Linux package repository for <a href="https://github.com/${{ github.repository }}">mcp-server-dump</a></p>
 
           \$APT_SECTION
 
@@ -381,13 +457,14 @@ sudo dnf install mcp-server-dump
 
               <h2>Direct Package Downloads</h2>
               <ul>
-                  <li><a href="https://github.com/spandigital/mcp-server-dump/releases/latest">Latest Release on GitHub</a></li>
+                  <li><a href="https://github.com/${{ github.repository }}/releases/latest">Latest Release on GitHub</a></li>
               </ul>
           </body>
           </html>
           EOF
 
       - name: Commit and push changes
+        timeout-minutes: 10
         run: |
           set -euo pipefail
           git config --local user.email "bot@goreleaser.com"

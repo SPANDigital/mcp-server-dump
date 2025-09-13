@@ -267,6 +267,42 @@ rsync -av --delete https://spandigital.github.io/mcp-server-dump/ /local/mirror/
 
 ## Troubleshooting
 
+### GPG Issues
+
+**GPG Key Import Failures:**
+```bash
+# Error: "gpg: no valid OpenPGP data found"
+# Solution: Re-download the key with proper error checking
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key -o /tmp/mcp-key.asc
+file /tmp/mcp-key.asc  # Should show "PGP public key block"
+sudo gpg --dearmor /tmp/mcp-key.asc -o /usr/share/keyrings/mcp-server-dump.gpg
+```
+
+**Signature Verification Failures:**
+```bash
+# Error: "signatures were invalid" or "NO_PUBKEY"
+# Solution: Re-import the GPG key and update package cache
+sudo rm -f /usr/share/keyrings/mcp-server-dump.gpg
+curl -fsSL https://spandigital.github.io/mcp-server-dump/public.key | sudo gpg --dearmor -o /usr/share/keyrings/mcp-server-dump.gpg
+sudo apt update
+```
+
+**RPM GPG Key Trust Issues:**
+```bash
+# Error: "NOKEY" or "Public key is not installed"
+# Solution: Re-import the RPM GPG key
+sudo rpm --import https://spandigital.github.io/mcp-server-dump/public.key
+# Verify key is imported
+rpm -qa gpg-pubkey --qf '%{name}-%{version}-%{release} --> %{summary}\n'
+```
+
+**Key Fingerprint Verification:**
+```bash
+# Always verify the key fingerprint matches the expected value
+gpg --show-keys /usr/share/keyrings/mcp-server-dump.gpg
+# Expected fingerprint: 3340 5835 CE12 B5D3 440F 1611 9079 FAE8 41B0 9114
+```
+
 ### APT Issues
 
 If you encounter issues with the APT repository:
@@ -293,6 +329,45 @@ sudo dnf clean all  # or yum clean all
 sudo rm /etc/yum.repos.d/mcp-server-dump.repo
 # Then follow the installation instructions again
 ```
+
+## Repository Maintenance
+
+### Package Retention Policy
+
+The Linux package repositories grow with each release as new packages are added. To manage repository size:
+
+**Current Strategy:**
+- All package versions are retained indefinitely
+- Repository metadata is regenerated for each release
+- Old packages remain accessible for users who need specific versions
+
+**Future Considerations:**
+As the repository grows, maintainers may implement:
+- Retention of last N major versions (e.g., keep last 10 releases)
+- Automated cleanup of packages older than X months
+- Separate archive repository for historical packages
+
+**Manual Cleanup (Maintainers Only):**
+```bash
+# To manually clean up old packages from linux-repos branch:
+git checkout linux-repos
+find apt/pool -name "*.deb" -mtime +365 -delete  # Remove packages older than 1 year
+find yum -name "*.rpm" -mtime +365 -delete       # Remove RPM packages older than 1 year
+# Regenerate repository metadata after cleanup
+```
+
+### Repository Health Monitoring
+
+**Key Metrics to Monitor:**
+- Repository size growth rate
+- Package download statistics
+- GPG key expiration (current key expires September 13, 2027)
+- Failed repository updates or publishing errors
+
+**Health Checks:**
+- Verify repository metadata integrity monthly
+- Test package installation from repositories quarterly
+- Monitor GitHub Pages bandwidth usage
 
 ## Contributing
 
