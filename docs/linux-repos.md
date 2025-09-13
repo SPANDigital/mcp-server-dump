@@ -79,6 +79,27 @@ sudo dnf install mcp-server-dump  # For Fedora/RHEL 8+
 sudo yum install mcp-server-dump  # For older RHEL/CentOS
 ```
 
+### Alpine Linux (APK)
+
+Alpine Linux packages are available as direct downloads from GitHub releases. APK packages are not hosted in a repository due to Alpine's package signing requirements.
+
+#### Manual Installation
+```bash
+# Download the APK package from the latest release
+wget https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
+
+# Install the package (requires --allow-untrusted for non-official packages)
+sudo apk add --allow-untrusted mcp-server-dump_linux_amd64.apk
+```
+
+#### Using Alpine Package Manager with Direct URL
+```bash
+# Install directly from URL
+sudo apk add --allow-untrusted https://github.com/spandigital/mcp-server-dump/releases/latest/download/mcp-server-dump_linux_amd64.apk
+```
+
+**Note**: Replace `amd64` with `arm64` for ARM-based systems.
+
 ## Direct Package Download
 
 If you prefer to download packages directly, they are available as release assets:
