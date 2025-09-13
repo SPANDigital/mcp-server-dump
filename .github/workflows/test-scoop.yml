@@ -61,9 +61,19 @@ jobs:
           exit 1
         }
 
-        # List available apps in our bucket
-        Write-Output "Available apps in spandigital bucket:"
-        scoop search spandigital/
+        # Update bucket to ensure we have latest manifests
+        scoop update
+
+        # Search for our specific app
+        Write-Output "Searching for mcp-server-dump in spandigital bucket:"
+        $searchResult = scoop search mcp-server-dump
+        if ($searchResult -match "mcp-server-dump") {
+          Write-Output "✅ mcp-server-dump found in bucket"
+        } else {
+          Write-Output "Available apps in all buckets:"
+          scoop search mcp-
+          Write-Warning "mcp-server-dump not found - this may be expected for new releases"
+        }
       shell: powershell
 
     - name: Test bucket update
