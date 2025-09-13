@@ -318,11 +318,11 @@ jobs:
       - name: Setup GPG keys for package signing
         id: gpg
         uses: crazy-max/ghaction-import-gpg@v6
-        if: ${{ secrets.GPG_PRIVATE_KEY != '' }}
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
           trust_level: 5
+        continue-on-error: true
 
       - name: Set GPG availability environment variable
         run: |
