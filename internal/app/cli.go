@@ -25,10 +25,13 @@ type CLI struct {
 	Transport string `kong:"short='t',default='command',enum='command,sse,streamable',help='Transport type'"`
 
 	// Transport-specific options
-	Endpoint      string        `kong:"help='HTTP endpoint for SSE/Streamable transports'"`
-	Timeout       time.Duration `kong:"default='30s',help='HTTP timeout for SSE/Streamable transports'"`
-	Headers       []string      `kong:"short='H',help='HTTP headers for SSE/Streamable transports (format: Key:Value)'"`
-	ServerCommand string        `kong:"help='Server command for explicit command transport'"`
+	Endpoint string        `kong:"help='HTTP endpoint for SSE/Streamable transports'"`
+	Timeout  time.Duration `kong:"default='30s',help='HTTP timeout for SSE/Streamable transports'"`
+	Headers  []string      `kong:"short='H',help='HTTP headers for SSE/Streamable transports (format: Key:Value)'"`
+
+	// Context configuration
+	ContextFile   []string `kong:"help='Path to context configuration files (YAML/JSON), can be used multiple times'"`
+	ServerCommand string   `kong:"help='Server command for explicit command transport'"`
 
 	// Legacy command format (backward compatibility)
 	Args []string `kong:"arg,optional,help='Command and arguments (legacy format for backward compatibility)'"`

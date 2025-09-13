@@ -19,22 +19,25 @@ type Capabilities struct {
 
 // Tool represents an MCP tool
 type Tool struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	InputSchema any    `json:"inputSchema"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	InputSchema any               `json:"inputSchema"`
+	Context     map[string]string `json:"context,omitempty"`
 }
 
 // Resource represents an MCP resource
 type Resource struct {
-	URI         string `json:"uri"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	MimeType    string `json:"mimeType"`
+	URI         string            `json:"uri"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	MimeType    string            `json:"mimeType"`
+	Context     map[string]string `json:"context,omitempty"`
 }
 
 // Prompt represents an MCP prompt
 type Prompt struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Arguments   []any  `json:"arguments"`
+	Name        string            `json:"name"`
+	Description string            `json:"description"`
+	Arguments   []any             `json:"arguments"`
+	Context     map[string]string `json:"context,omitempty"`
 }

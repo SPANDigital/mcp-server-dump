@@ -1,0 +1,52 @@
+contexts:
+  tools:
+    read_file:
+      usage: "Use this tool to read the contents of files from the filesystem"
+      security: "Only accessible within allowed directories"
+      examples: |
+        ```json
+        {
+          "path": "/home/user/document.txt"
+        }
+        ```
+      limitations: |
+        - Maximum file size: 1MB
+        - Text files only
+        - Read-only access
+
+    write_file:
+      usage: "Create or overwrite files with provided content"
+      security: "Restricted to user's home directory and temp folder"
+      validation: "Content is validated for safety before writing"
+
+  resources:
+    "file://*":
+      description: "Local file system resources"
+      access: "Read-only access to allowed directories"
+
+    "memory://*":
+      description: "In-memory resources and state"
+      persistence: "Not persisted between sessions"
+      examples: |
+        ## Memory Resource Examples
+
+        ```bash
+        # Access current state
+        GET memory://state/current
+
+        # List all memory resources
+        GET memory://
+        ```
+
+  prompts:
+    analyze_code:
+      purpose: "Analyze code for security vulnerabilities and best practices"
+      output: "Structured analysis report with severity ratings"
+      parameters: |
+        Required parameters:
+        - `language`: Programming language (e.g., "python", "javascript")
+        - `code`: Source code to analyze
+
+        Optional parameters:
+        - `focus`: Specific areas to focus on ("security", "performance", "style")
+        - `severity_filter`: Minimum severity level to report

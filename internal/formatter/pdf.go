@@ -5,6 +5,8 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/go-pdf/fpdf"
@@ -14,6 +16,9 @@ import (
 
 //go:embed DejaVuSans.ttf
 var dejaVuSansFont []byte
+
+// Regex for numbered lists (1. 2. 10. etc.)
+var numberedListRegex = regexp.MustCompile(`^\s*\d+\.\s+(.*)`)
 
 const (
 	supportedStatus    = "Supported"
@@ -186,6 +191,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 				renderJSONSchema(pdf, tool.InputSchema)
 			}
 
+			if len(tool.Context) > 0 {
+				pdf.Cell(0, 6, "Context:")
+				pdf.Ln(6)
+				renderContext(pdf, tool.Context)
+			}
+
 			pdf.Ln(8)
 		}
 	}
@@ -219,6 +230,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 				pdf.Ln(6)
 			}
 
+			if len(resource.Context) > 0 {
+				pdf.Cell(0, 6, "Context:")
+				pdf.Ln(6)
+				renderContext(pdf, resource.Context)
+			}
+
 			pdf.Ln(8)
 		}
 	}
@@ -250,6 +267,12 @@ func FormatPDF(info *model.ServerInfo, includeTOC bool) ([]byte, error) {
 				for _, arg := range prompt.Arguments {
 					renderJSONSchema(pdf, arg)
 				}
+			}
+
+			if len(prompt.Context) > 0 {
+				pdf.Cell(0, 6, "Context:")
+				pdf.Ln(6)
+				renderContext(pdf, prompt.Context)
 			}
 
 			pdf.Ln(8)
@@ -291,6 +314,94 @@ func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 		}
 		renderJSONLine(pdf, line)
 		pdf.Ln(4)
+	}
+}
+
+// renderContext renders context key-value pairs with proper formatting
+func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
+	pdf.SetFont("DejaVuSans", "", 9)
+
+	// Sort keys to ensure deterministic output
+	keys := make([]string, 0, len(context))
+	for key := range context {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		value := context[key]
+		// Check if value contains newlines (block content)
+		if strings.Contains(value, "\n") {
+			// Render as block with key header
+			pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
+			pdf.Cell(0, 5, key+":")
+			pdf.Ln(5)
+
+			// Render block content with indentation
+			pdf.SetTextColor(64, 64, 64)
+			lines := strings.Split(value, "\n")
+			inCodeBlock := false
+
+			for _, line := range lines {
+				// Handle different types of content
+				trimmed := strings.TrimSpace(line)
+
+				// Check for code block markers
+				if strings.HasPrefix(trimmed, "```") {
+					inCodeBlock = !inCodeBlock
+					// Render code block marker with different formatting
+					pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+					pdf.SetFont("DejaVuSans", "", 8)
+					pdf.Cell(0, 4, "  "+line)
+					pdf.Ln(4)
+					continue
+				}
+
+				if inCodeBlock {
+					// Inside code block - use monospace-like formatting
+					pdf.SetTextColor(32, 32, 32) // Darker text for code
+					pdf.SetFont("DejaVuSans", "", 8)
+					// Add extra indentation for code content
+					pdf.Cell(0, 4, "    "+line)
+					pdf.Ln(4)
+				} else {
+					// Outside code block - normal formatting
+					pdf.SetTextColor(64, 64, 64)
+					pdf.SetFont("DejaVuSans", "", 9)
+
+					switch {
+					case strings.HasPrefix(trimmed, "- ") || strings.HasPrefix(trimmed, "* "):
+						// List item - render with bullet
+						if len(trimmed) > 2 {
+							pdf.Cell(0, 4, "  "+bulletPoint+" "+trimmed[2:])
+						} else {
+							pdf.Cell(0, 4, "  "+bulletPoint)
+						}
+					case numberedListRegex.MatchString(trimmed):
+						// Numbered list item - extract content after number
+						if matches := numberedListRegex.FindStringSubmatch(trimmed); len(matches) > 1 {
+							listContent := matches[1]
+							pdf.Cell(0, 4, "  "+bulletPoint+" "+listContent)
+						} else {
+							pdf.Cell(0, 4, "  "+line)
+						}
+					case trimmed == "":
+						// Empty line
+						pdf.Cell(0, 4, "")
+					default:
+						// Regular content line
+						pdf.Cell(0, 4, "  "+line)
+					}
+					pdf.Ln(4)
+				}
+			}
+		} else {
+			// Single line - render as bullet point
+			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
+			pdf.SetFont("DejaVuSans", "", 9)
+			pdf.Cell(0, 5, fmt.Sprintf("  %s %s: %s", bulletPoint, key, value))
+			pdf.Ln(5)
+		}
 	}
 }
 

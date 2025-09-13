@@ -16,6 +16,7 @@ A command-line tool to extract and document MCP (Model Context Protocol) server 
 - Extract server information, capabilities, tools, resources, and prompts
 - Output documentation in Markdown, JSON, HTML, or PDF format *(PDF format is WIP)*
 - **Enhanced Markdown output with clickable Table of Contents**
+- **Rich structured context support** via external YAML/JSON configuration files
 - **Frontmatter support** for static site generator integration (Hugo, Jekyll, etc.)
 - **External Go templates for customizable documentation**
 - **Backward compatible** with existing command-line usage
@@ -212,6 +213,111 @@ mcp-server-dump --frontmatter --frontmatter-format=json \
 - Comma-separated values become arrays: `tags:one,two,three`
 - Custom fields override auto-generated ones if same key is used
 
+### Rich Structured Context
+
+Add detailed documentation context to tools, resources, and prompts through external YAML/JSON configuration files:
+
+```bash
+# Single context file
+mcp-server-dump --context-file context.yaml node server.js
+
+# Multiple context files (merged in order)
+mcp-server-dump --context-file base.yaml --context-file overrides.json node server.js
+
+# Works with all output formats
+mcp-server-dump --context-file context.yaml -f pdf -o docs.pdf node server.js
+mcp-server-dump --context-file context.yaml -f html -o docs.html node server.js
+```
+
+**Context configuration format:**
+
+```yaml
+contexts:
+  tools:
+    tool_name:
+      usage: "Simple usage instruction"
+      security: "Security considerations and restrictions"
+      examples: |
+        Complex multi-line examples with formatting:
+
+        ```json
+        {
+          "example": "value",
+          "options": ["one", "two"]
+        }
+        ```
+
+        **Additional notes:**
+        - Supports markdown formatting
+        - Code blocks, lists, tables
+        - Multiple paragraphs
+
+  resources:
+    "file://*":          # Supports URI patterns with wildcards
+      access: "Read-only file system access"
+      limitations: |
+        **Access restrictions:**
+        - Limited to allowed directories
+        - Maximum file size: 10MB
+        - No write permissions
+
+    "memory://*":
+      persistence: "Session-only memory resources"
+
+  prompts:
+    prompt_name:
+      methodology: |
+        **Step-by-step process:**
+        1. Input validation and sanitization
+        2. Context analysis and processing
+        3. Response generation
+        4. Quality assurance checks
+      output: "Structured JSON response with analysis results"
+```
+
+**JSON configuration example:**
+
+```json
+{
+  "contexts": {
+    "tools": {
+      "read_file": {
+        "usage": "Use this tool to read the contents of files from the filesystem",
+        "security": "Only accessible within allowed directories",
+        "examples": "```json\\n{\\n  \"path\": \"/home/user/document.txt\"\\n}\\n```",
+        "limitations": "- Maximum file size: 1MB\\n- Text files only\\n- Read-only access"
+      }
+    },
+    "resources": {
+      "file://*": {
+        "description": "Local file system resources",
+        "access": "Read-only access to allowed directories"
+      },
+      "memory://*": {
+        "description": "In-memory resources and state",
+        "persistence": "Not persisted between sessions"
+      }
+    },
+    "prompts": {
+      "analyze_code": {
+        "purpose": "Analyze code for security vulnerabilities and best practices",
+        "output": "Structured analysis report with severity ratings",
+        "parameters": "Required: language, code\\nOptional: focus, severity_filter"
+      }
+    }
+  }
+}
+```
+
+**Key features:**
+- **Multiple formats**: YAML and JSON configuration files supported
+- **Rich content**: Multi-line values with full markdown support (code blocks, lists, tables)
+- **Smart rendering**: Single-line values as bullet points, multi-line as formatted blocks
+- **Pattern matching**: Resources support URI pattern matching with wildcards
+- **All output formats**: Context appears in Markdown, HTML, JSON, and PDF
+- **InputSchema first**: Context always appears after InputSchema in output
+- **Fully optional**: No breaking changes, completely backward compatible
+
 ### Command Line Options
 
 ```
@@ -234,6 +340,8 @@ Flags:
       --endpoint=STRING      HTTP endpoint for SSE/Streamable transports
       --timeout=30s          HTTP timeout for SSE/Streamable transports
   -H, --headers=HEADERS,...  HTTP headers for SSE/Streamable transports (format: Key:Value)
+      --context-file=CONTEXT-FILE,...
+                             Path to context configuration files (YAML/JSON), can be used multiple times
       --server-command=STRING Server command for explicit command transport
 ```
 
