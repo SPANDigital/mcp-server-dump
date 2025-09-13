@@ -94,6 +94,29 @@ scoops:
       email: bot@goreleaser.com
     commit_msg_template: "Scoop update for {{ .ProjectName }} version {{ .Tag }}"
 
+nfpms:
+  - id: mcp-server-dump
+    package_name: mcp-server-dump
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: "SPAN Digital"
+    homepage: "https://github.com/spandigital/mcp-server-dump"
+    maintainer: "SPAN Digital <tech@spandigital.com>"
+    description: "Extract and document MCP server capabilities in various formats"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+      - apk
+    recommends:
+      - nodejs
+      - python3
+    bindir: /usr/bin
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/mcp-server-dump/LICENSE
+      - src: ./README.md
+        dst: /usr/share/doc/mcp-server-dump/README.md
+
 changelog:
   sort: asc
   filters:
