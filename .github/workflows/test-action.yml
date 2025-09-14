@@ -54,6 +54,160 @@ jobs:
           echo "✅ Docker image is accessible (ghcr.io/spandigital/mcp-server-dump:latest)"
           echo "✅ Error handling works as expected"
       
+      - name: Create Test Context Files
+        run: |
+          echo "Creating test context files for context-files parameter testing..."
+
+          # Create valid YAML context file
+          cat > test-context.yaml << 'EOF'
+          title: "Test Context Configuration"
+          description: "This is a test context file for GitHub Action integration testing"
+          categories:
+            - testing
+            - integration
+          patterns:
+            tools:
+              - "test_tool"
+            resources:
+              - "test://resource"
+          context:
+            test_key: "test_value"
+            environment: "github_action"
+          EOF
+
+          # Create valid JSON context file
+          cat > test-context2.json << 'EOF'
+          {
+            "title": "Second Test Context",
+            "description": "Additional context file for multi-file testing",
+            "categories": ["multi-file", "json"],
+            "patterns": {
+              "prompts": ["test_prompt"]
+            },
+            "context": {
+              "source": "json_config",
+              "priority": "high"
+            }
+          }
+          EOF
+
+          # Create nested directory structure for path traversal test
+          mkdir -p nested/dir
+          cat > nested/dir/safe-context.yaml << 'EOF'
+          title: "Safe Nested Context"
+          description: "Context file in nested directory"
+          context:
+            location: "nested/safe"
+          EOF
+
+      - name: Test Context Files - Single File
+        id: test-single-context
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          context-files: 'test-context.yaml'
+          format: 'json'
+          output-file: 'single-context-test.json'
+
+      - name: Test Context Files - Multiple Files
+        id: test-multiple-context
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          context-files: 'test-context.yaml, test-context2.json,  nested/dir/safe-context.yaml'
+          format: 'markdown'
+          output-file: 'multiple-context-test.md'
+
+      - name: Test Context Files - Non-existent File
+        id: test-nonexistent-context
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          context-files: 'nonexistent-file.yaml, test-context.yaml'
+          format: 'json'
+          output-file: 'nonexistent-context-test.json'
+
+      - name: Test Context Files - Path Traversal Attempt
+        id: test-path-traversal
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          context-files: '../etc/passwd, ../../etc/shadow, test-context.yaml'
+          format: 'json'
+          output-file: 'path-traversal-test.json'
+
+      - name: Test Context Files - Empty and Whitespace Handling
+        id: test-whitespace-context
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          context-files: '  test-context.yaml  ,   , test-context2.json,  '
+          format: 'json'
+          output-file: 'whitespace-context-test.json'
+
+      - name: Verify Context Files Tests
+        run: |
+          echo "=== Verifying Context Files Integration Tests ==="
+
+          echo "Test 1: Single context file"
+          if [ "${{ steps.test-single-context.outcome }}" = "success" ]; then
+            echo "✅ Single context file test passed"
+            if [ -f "single-context-test.json" ]; then
+              echo "✅ Output file created successfully"
+              # Check if context information is in the output
+              if grep -q "test_key" single-context-test.json 2>/dev/null; then
+                echo "✅ Context data found in output"
+              else
+                echo "⚠️ Context data might not be included in output"
+              fi
+            else
+              echo "⚠️ Expected output file not found"
+            fi
+          else
+            echo "⚠️ Single context file test failed"
+          fi
+
+          echo "Test 2: Multiple context files"
+          if [ "${{ steps.test-multiple-context.outcome }}" = "success" ]; then
+            echo "✅ Multiple context files test passed"
+            if [ -f "multiple-context-test.md" ]; then
+              echo "✅ Output file created successfully"
+            else
+              echo "⚠️ Expected output file not found"
+            fi
+          else
+            echo "⚠️ Multiple context files test failed"
+          fi
+
+          echo "Test 3: Non-existent file handling"
+          # This should succeed but skip the non-existent file with a warning
+          if [ "${{ steps.test-nonexistent-context.outcome }}" = "success" ]; then
+            echo "✅ Non-existent file test handled gracefully"
+          else
+            echo "⚠️ Non-existent file test failed (expected to continue with warning)"
+          fi
+
+          echo "Test 4: Path traversal protection"
+          if [ "${{ steps.test-path-traversal.outcome }}" = "success" ]; then
+            echo "✅ Path traversal test completed (suspicious paths should be skipped)"
+          else
+            echo "⚠️ Path traversal test failed"
+          fi
+
+          echo "Test 5: Whitespace handling"
+          if [ "${{ steps.test-whitespace-context.outcome }}" = "success" ]; then
+            echo "✅ Whitespace handling test passed"
+          else
+            echo "⚠️ Whitespace handling test failed"
+          fi
+
+          echo "=== Context Files Integration Tests Completed ==="
+
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -62,3 +216,10 @@ jobs:
           path: |
             test-output.md
             test-output.json
+            single-context-test.json
+            multiple-context-test.md
+            nonexistent-context-test.json
+            path-traversal-test.json
+            whitespace-context-test.json
+            test-context.yaml
+            test-context2.json

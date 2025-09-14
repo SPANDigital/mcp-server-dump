@@ -414,6 +414,61 @@ jobs:
           path: docs/server.*
 ```
 
+### Rich Context Documentation Usage
+
+```yaml
+name: Generate Enhanced MCP Server Documentation with Context
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  docs-with-context:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Enhanced MCP Documentation
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'npx @modelcontextprotocol/server-filesystem ./data'
+          format: 'html'
+          output-file: 'docs/enhanced-server-docs.html'
+          context-files: 'docs/server-context.yaml,docs/security-context.json'
+          frontmatter: 'yaml'
+
+      - name: Upload enhanced documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: enhanced-mcp-docs
+          path: docs/enhanced-server-docs.html
+```
+
+**Context Files Configuration:**
+- Context files are merged in the order specified (left to right)
+- Later files override keys from earlier files
+- Supports both YAML and JSON formats
+- Files must be within the workspace directory for security
+- Non-existent files are skipped with a warning
+- See the [Rich Structured Context](#rich-structured-context) section for detailed configuration format
+
+**Path Handling for Context Files:**
+- **Relative paths** (recommended): `docs/context.yaml`, `config/server-context.json`
+  - Resolved relative to the GitHub Action workspace (repository root)
+  - More portable and secure for CI/CD environments
+  - Example: `context-files: 'docs/context.yaml,config/overrides.json'`
+
+- **Absolute paths**: Only if context files are outside the repository
+  - Must be within the workspace directory for security
+  - Not recommended for most use cases
+  - Example: `context-files: '/workspace/external-config.yaml'`
+
+- **Security restrictions**:
+  - Path traversal attempts (`../`, `../../`) are blocked automatically
+  - Files outside the workspace directory are inaccessible
+  - Suspicious path patterns are logged and skipped
+
 ### HTTP Transport Usage
 
 ```yaml
@@ -460,6 +515,7 @@ jobs:
 | `frontmatter` | Add frontmatter to output (yaml, toml, json) | No | - |
 | `timeout` | Connection timeout in seconds | No | `30` |
 | `verbose` | Enable verbose output | No | `false` |
+| `context-files` | Context configuration files (YAML/JSON) for rich documentation (comma-separated). Files are merged in order, with later files overriding earlier ones. | No | - |
 
 ### Action Outputs
 
