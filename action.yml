@@ -42,7 +42,7 @@ inputs:
     required: false
     default: 'false'
   context-files:
-    description: 'Context configuration files (YAML/JSON) for rich documentation context (comma-separated)'
+    description: 'Context configuration files (YAML/JSON) for rich documentation context (comma-separated). Use relative paths from workspace root (e.g., "docs/context.yaml,config/overrides.json"). Path traversal attempts are blocked for security.'
     required: false
 
 outputs:
@@ -75,7 +75,64 @@ runs:
             exit 1
         }
 
-        log "Starting MCP Server Dump Action"
+        # Function to parse comma-separated values with whitespace trimming
+        # Usage: parse_comma_separated_values "input_string" "item_type" "validation_function" "args..."
+        # Sets global array PARSED_ITEMS with trimmed values
+        parse_comma_separated_values() {
+            local input_string="$1"
+            local item_type="$2"
+            local validation_function="$3"
+            shift 3  # Remove first 3 args, remaining are passed to validation function
+
+            declare -ga PARSED_ITEMS=()
+
+            if [ -n "$input_string" ]; then
+                IFS=',' read -ra ITEMS_ARRAY <<< "$input_string"
+                for item in "${ITEMS_ARRAY[@]}"; do
+                    if [ -n "$item" ]; then
+                        # Remove leading/trailing whitespace using parameter expansion for portability
+                        item="${item#"${item%%[![:space:]]*}"}"
+                        item="${item%"${item##*[![:space:]]}"}"
+
+                        # Skip empty items after trimming
+                        if [ -n "$item" ]; then
+                            # Apply validation if function provided
+                            if [ -n "$validation_function" ] && declare -F "$validation_function" >/dev/null; then
+                                if ! "$validation_function" "$item" "$@"; then
+                                    # Validation function handles its own logging
+                                    continue
+                                fi
+                            fi
+
+                            PARSED_ITEMS+=("$item")
+                        fi
+                    fi
+                done
+            fi
+        }
+
+        # Validation function for context files
+        validate_context_file() {
+            local context_file="$1"
+
+            # Check for path traversal attempts first (most efficient)
+            case "$context_file" in
+                *../*|*../|../*|*/..|*/./*|*/./)
+                    log "Security: Blocked context file '$context_file' (contains path traversal patterns)"
+                    return 1
+                    ;;
+            esac
+
+            # Validate file exists
+            if [ ! -f "$context_file" ]; then
+                log "File: Context file '$context_file' not found, excluding from documentation"
+                return 1
+            fi
+
+            return 0
+        }
+
+        log "Initializing MCP Server Documentation Extraction"
 
         # Build the mcp-server-dump command arguments using array for safety
         declare -a CMD_ARGS=()
@@ -92,15 +149,9 @@ runs:
 
         # Add headers if specified
         if [ -n "${{ inputs.headers }}" ]; then
-            # Split headers by comma and add each one
-            IFS=',' read -ra HEADER_ARRAY <<< "${{ inputs.headers }}"
-            for header in "${HEADER_ARRAY[@]}"; do
-                if [ -n "$header" ]; then
-                    # Remove leading/trailing whitespace using parameter expansion
-                    header="${header#"${header%%[![:space:]]*}"}"
-                    header="${header%"${header##*[![:space:]]}"}"
-                    CMD_ARGS+=("-H" "$header")
-                fi
+            parse_comma_separated_values "${{ inputs.headers }}" "header"
+            for header in "${PARSED_ITEMS[@]}"; do
+                CMD_ARGS+=("-H" "$header")
             done
         fi
 
@@ -156,30 +207,9 @@ runs:
 
         # Add context files if specified
         if [ -n "${{ inputs.context-files }}" ]; then
-            # Split context files by comma and add each one
-            IFS=',' read -ra CONTEXT_ARRAY <<< "${{ inputs.context-files }}"
-            for context_file in "${CONTEXT_ARRAY[@]}"; do
-                if [ -n "$context_file" ]; then
-                    # Remove leading/trailing whitespace using parameter expansion for portability
-                    context_file="${context_file#"${context_file%%[![:space:]]*}"}"
-                    context_file="${context_file%"${context_file##*[![:space:]]}"}"
-
-                    # Validate context file exists and is within workspace for security
-                    if [ ! -f "$context_file" ]; then
-                        log "Warning: Context file '$context_file' not found, skipping"
-                        continue
-                    fi
-
-                    # Check for path traversal attempts
-                    case "$context_file" in
-                        *../*|*../|../*|*/..|*/./*|*/./)
-                            log "Warning: Context file '$context_file' contains suspicious path, skipping"
-                            continue
-                            ;;
-                    esac
-
-                    CMD_ARGS+=("--context-file" "$context_file")
-                fi
+            parse_comma_separated_values "${{ inputs.context-files }}" "context file" "validate_context_file"
+            for context_file in "${PARSED_ITEMS[@]}"; do
+                CMD_ARGS+=("--context-file" "$context_file")
             done
         fi
 
@@ -200,26 +230,26 @@ runs:
         # Combine with mcp-server-dump arguments
         FULL_CMD_ARRAY=("${DOCKER_CMD_ARRAY[@]}" "${CMD_ARGS[@]}")
 
-        log "Executing: docker run --rm -v \"$PWD:/workspace\" -w /workspace ghcr.io/spandigital/mcp-server-dump:latest ${CMD_ARGS[*]}"
+        log "Executing MCP Server Dump: docker run --rm -v \"$PWD:/workspace\" -w /workspace ghcr.io/spandigital/mcp-server-dump:latest ${CMD_ARGS[*]}"
 
         # Execute the command using array expansion for safety
         if "${FULL_CMD_ARRAY[@]}"; then
-            log "MCP Server Dump completed successfully"
-            
+            log "Success: MCP Server documentation extraction completed"
+
             # Set outputs
             set_output "output-file" "$OUTPUT_FILE"
-            
+
             # If the output file exists, try to extract server info for the output
             if [ -f "$OUTPUT_FILE" ] && [ "${{ inputs.format }}" = "json" ]; then
                 SERVER_INFO=$(cat "$OUTPUT_FILE")
                 set_output "server-info" "$SERVER_INFO"
+                log "Output: Generated ${{ inputs.format }} documentation with server metadata at '$OUTPUT_FILE'"
             elif [ -f "$OUTPUT_FILE" ]; then
                 # For non-JSON formats, create a simple server info
                 SERVER_INFO="{\"output_file\":\"$OUTPUT_FILE\",\"format\":\"${{ inputs.format }}\"}"
                 set_output "server-info" "$SERVER_INFO"
+                log "Output: Generated ${{ inputs.format }} documentation at '$OUTPUT_FILE'"
             fi
-            
-            log "Output file: $OUTPUT_FILE"
         else
-            error_exit "MCP Server Dump failed"
+            error_exit "Failed: MCP Server documentation extraction encountered an error"
         fi

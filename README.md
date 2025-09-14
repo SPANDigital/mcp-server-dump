@@ -453,6 +453,22 @@ jobs:
 - Non-existent files are skipped with a warning
 - See the [Rich Structured Context](#rich-structured-context) section for detailed configuration format
 
+**Path Handling for Context Files:**
+- **Relative paths** (recommended): `docs/context.yaml`, `config/server-context.json`
+  - Resolved relative to the GitHub Action workspace (repository root)
+  - More portable and secure for CI/CD environments
+  - Example: `context-files: 'docs/context.yaml,config/overrides.json'`
+
+- **Absolute paths**: Only if context files are outside the repository
+  - Must be within the workspace directory for security
+  - Not recommended for most use cases
+  - Example: `context-files: '/workspace/external-config.yaml'`
+
+- **Security restrictions**:
+  - Path traversal attempts (`../`, `../../`) are blocked automatically
+  - Files outside the workspace directory are inaccessible
+  - Suspicious path patterns are logged and skipped
+
 ### HTTP Transport Usage
 
 ```yaml
