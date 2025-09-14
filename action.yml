@@ -77,23 +77,17 @@ runs:
 
         log "Starting MCP Server Dump Action"
 
-        # Build the docker run command
-        DOCKER_CMD="docker run --rm"
-        
-        # Mount current directory
-        DOCKER_CMD="$DOCKER_CMD -v \"$PWD:/workspace\" -w /workspace"
-
-        # Build the mcp-server-dump command arguments
-        ARGS=""
+        # Build the mcp-server-dump command arguments using array for safety
+        declare -a CMD_ARGS=()
 
         # Add transport if specified
         if [ -n "${{ inputs.transport }}" ] && [ "${{ inputs.transport }}" != "stdio" ]; then
-            ARGS="$ARGS -t ${{ inputs.transport }}"
+            CMD_ARGS+=("-t" "${{ inputs.transport }}")
         fi
 
         # Add endpoint if specified
         if [ -n "${{ inputs.endpoint }}" ]; then
-            ARGS="$ARGS --endpoint ${{ inputs.endpoint }}"
+            CMD_ARGS+=("--endpoint" "${{ inputs.endpoint }}")
         fi
 
         # Add headers if specified
@@ -102,59 +96,62 @@ runs:
             IFS=',' read -ra HEADER_ARRAY <<< "${{ inputs.headers }}"
             for header in "${HEADER_ARRAY[@]}"; do
                 if [ -n "$header" ]; then
-                    ARGS="$ARGS -H \"$header\""
+                    # Remove leading/trailing whitespace using parameter expansion
+                    header="${header#"${header%%[![:space:]]*}"}"
+                    header="${header%"${header##*[![:space:]]}"}"
+                    CMD_ARGS+=("-H" "$header")
                 fi
             done
         fi
 
         # Add format if not default
         if [ "${{ inputs.format }}" != "markdown" ]; then
-            ARGS="$ARGS -f ${{ inputs.format }}"
+            CMD_ARGS+=("-f" "${{ inputs.format }}")
         fi
 
         # Add output file if specified
         if [ -n "${{ inputs.output-file }}" ]; then
-            ARGS="$ARGS -o ${{ inputs.output-file }}"
+            CMD_ARGS+=("-o" "${{ inputs.output-file }}")
             OUTPUT_FILE="${{ inputs.output-file }}"
         else
             # Generate default output filename based on format
             case "${{ inputs.format }}" in
                 "html")
                     OUTPUT_FILE="mcp-server-dump.html"
-                    ARGS="$ARGS -o $OUTPUT_FILE"
+                    CMD_ARGS+=("-o" "$OUTPUT_FILE")
                     ;;
                 "json")
                     OUTPUT_FILE="mcp-server-dump.json"
-                    ARGS="$ARGS -o $OUTPUT_FILE"
+                    CMD_ARGS+=("-o" "$OUTPUT_FILE")
                     ;;
                 "pdf")
                     error_exit "PDF format requires output-file to be specified"
                     ;;
                 *)
                     OUTPUT_FILE="mcp-server-dump.md"
-                    ARGS="$ARGS -o $OUTPUT_FILE"
+                    CMD_ARGS+=("-o" "$OUTPUT_FILE")
                     ;;
             esac
         fi
 
         # Add no-toc flag if specified
         if [ "${{ inputs.no-toc }}" = "true" ]; then
-            ARGS="$ARGS --no-toc"
+            CMD_ARGS+=("--no-toc")
         fi
 
         # Add frontmatter if specified
         if [ -n "${{ inputs.frontmatter }}" ]; then
-            ARGS="$ARGS --frontmatter ${{ inputs.frontmatter }}"
+            CMD_ARGS+=("--frontmatter" "${{ inputs.frontmatter }}")
         fi
 
         # Add timeout if not default
         if [ "${{ inputs.timeout }}" != "30" ]; then
-            ARGS="$ARGS --timeout ${{ inputs.timeout }}s"
+            CMD_ARGS+=("--timeout" "${{ inputs.timeout }}s")
         fi
 
         # Add verbose flag if specified
         if [ "${{ inputs.verbose }}" = "true" ]; then
-            ARGS="$ARGS -v"
+            CMD_ARGS+=("-v")
         fi
 
         # Add context files if specified
@@ -163,25 +160,50 @@ runs:
             IFS=',' read -ra CONTEXT_ARRAY <<< "${{ inputs.context-files }}"
             for context_file in "${CONTEXT_ARRAY[@]}"; do
                 if [ -n "$context_file" ]; then
-                    # Remove leading/trailing whitespace
-                    context_file=$(echo "$context_file" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-                    ARGS="$ARGS --context-file \"$context_file\""
+                    # Remove leading/trailing whitespace using parameter expansion for portability
+                    context_file="${context_file#"${context_file%%[![:space:]]*}"}"
+                    context_file="${context_file%"${context_file##*[![:space:]]}"}"
+
+                    # Validate context file exists and is within workspace for security
+                    if [ ! -f "$context_file" ]; then
+                        log "Warning: Context file '$context_file' not found, skipping"
+                        continue
+                    fi
+
+                    # Check for path traversal attempts
+                    case "$context_file" in
+                        *../*|*../|../*|*/..|*/./*|*/./)
+                            log "Warning: Context file '$context_file' contains suspicious path, skipping"
+                            continue
+                            ;;
+                    esac
+
+                    CMD_ARGS+=("--context-file" "$context_file")
                 fi
             done
         fi
 
         # Add server command (this should be the last argument)
         if [ -n "${{ inputs.server-command }}" ]; then
-            ARGS="$ARGS ${{ inputs.server-command }}"
+            # Split server command into separate arguments for proper handling
+            read -ra SERVER_CMD <<< "${{ inputs.server-command }}"
+            CMD_ARGS+=("${SERVER_CMD[@]}")
         fi
 
-        # Complete docker command
-        FULL_CMD="$DOCKER_CMD ghcr.io/spandigital/mcp-server-dump:latest $ARGS"
+        # Build complete docker command array
+        declare -a DOCKER_CMD_ARRAY=(
+            "docker" "run" "--rm"
+            "-v" "$PWD:/workspace" "-w" "/workspace"
+            "ghcr.io/spandigital/mcp-server-dump:latest"
+        )
 
-        log "Executing: $FULL_CMD"
+        # Combine with mcp-server-dump arguments
+        FULL_CMD_ARRAY=("${DOCKER_CMD_ARRAY[@]}" "${CMD_ARGS[@]}")
 
-        # Execute the command
-        if eval "$FULL_CMD"; then
+        log "Executing: docker run --rm -v \"$PWD:/workspace\" -w /workspace ghcr.io/spandigital/mcp-server-dump:latest ${CMD_ARGS[*]}"
+
+        # Execute the command using array expansion for safety
+        if "${FULL_CMD_ARRAY[@]}"; then
             log "MCP Server Dump completed successfully"
             
             # Set outputs

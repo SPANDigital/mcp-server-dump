@@ -445,6 +445,14 @@ jobs:
           path: docs/enhanced-server-docs.html
 ```
 
+**Context Files Configuration:**
+- Context files are merged in the order specified (left to right)
+- Later files override keys from earlier files
+- Supports both YAML and JSON formats
+- Files must be within the workspace directory for security
+- Non-existent files are skipped with a warning
+- See the [Rich Structured Context](#rich-structured-context) section for detailed configuration format
+
 ### HTTP Transport Usage
 
 ```yaml
@@ -491,7 +499,7 @@ jobs:
 | `frontmatter` | Add frontmatter to output (yaml, toml, json) | No | - |
 | `timeout` | Connection timeout in seconds | No | `30` |
 | `verbose` | Enable verbose output | No | `false` |
-| `context-files` | Context configuration files (YAML/JSON) for rich documentation (comma-separated) | No | - |
+| `context-files` | Context configuration files (YAML/JSON) for rich documentation (comma-separated). Files are merged in order, with later files overriding earlier ones. | No | - |
 
 ### Action Outputs
 
