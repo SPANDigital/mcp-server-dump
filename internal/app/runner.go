@@ -15,7 +15,35 @@ import (
 
 // Run executes the main application logic
 func Run(cli *CLI) error {
-	// Create transport
+	ctx := context.Background()
+	session, err := createMCPSession(ctx, cli)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := session.Close(); closeErr != nil {
+			log.Printf("Warning: failed to close session: %v", closeErr)
+		}
+	}()
+
+	info := collectServerInfo(session)
+
+	if contextErr := applyContextConfig(info, cli.ContextFile); contextErr != nil {
+		return contextErr
+	}
+
+	output, err := formatOutput(info, cli)
+	if err != nil {
+		return err
+	}
+
+	return writeOutput(output, cli.Output)
+}
+
+// createMCPSession establishes a connection to the MCP server using the configured transport.
+// It returns a client session for communicating with the server, or an error if connection fails.
+// The provided context allows for connection timeout and cancellation control.
+func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error) {
 	transportConfig := transport.Config{
 		Transport:     cli.Transport,
 		Endpoint:      cli.Endpoint,
@@ -27,10 +55,9 @@ func Run(cli *CLI) error {
 
 	mcpTransport, err := transport.Create(&transportConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create transport: %w", err)
+		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}
 
-	// Create MCP client
 	mcpClient := mcp.NewClient(
 		&mcp.Implementation{
 			Name:    "mcp-server-dump",
@@ -39,22 +66,20 @@ func Run(cli *CLI) error {
 		nil,
 	)
 
-	// Connect to the server
-	ctx := context.Background()
 	session, err := mcpClient.Connect(ctx, mcpTransport, nil)
 	if err != nil {
-		return fmt.Errorf("failed to connect to MCP server: %w", err)
+		return nil, fmt.Errorf("failed to connect to MCP server: %w", err)
 	}
-	defer func() {
-		if closeErr := session.Close(); closeErr != nil {
-			log.Printf("Warning: failed to close session: %v", closeErr)
-		}
-	}()
 
-	// Get server info from the initialization result
+	return session, nil
+}
+
+// collectServerInfo gathers basic server information and capabilities from the MCP server.
+// It initializes the server info structure with name, version, and capability flags.
+func collectServerInfo(session *mcp.ClientSession) *model.ServerInfo {
+	ctx := context.Background()
 	initResult := session.InitializeResult()
 
-	// Build our ServerInfo structure
 	info := &model.ServerInfo{
 		Name:    initResult.ServerInfo.Name,
 		Version: initResult.ServerInfo.Version,
@@ -65,117 +90,142 @@ func Run(cli *CLI) error {
 		},
 	}
 
-	// Get tools if supported
-	if initResult.Capabilities.Tools != nil {
-		toolsList, toolsErr := session.ListTools(ctx, &mcp.ListToolsParams{})
-		if toolsErr != nil {
-			log.Printf("Warning: Failed to list tools: %v", toolsErr)
-		} else {
-			for _, tool := range toolsList.Tools {
-				info.Tools = append(info.Tools, model.Tool{
-					Name:        tool.Name,
-					Description: tool.Description,
-					InputSchema: tool.InputSchema,
-				})
-			}
-		}
+	collectTools(session, ctx, initResult, info)
+	collectResources(session, ctx, initResult, info)
+	collectPrompts(session, ctx, initResult, info)
+
+	return info
+}
+
+// collectTools retrieves and processes tools from the MCP server
+func collectTools(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) {
+	if initResult.Capabilities.Tools == nil {
+		return
 	}
 
-	// Get resources if supported
-	if initResult.Capabilities.Resources != nil {
-		resourcesList, resourcesErr := session.ListResources(ctx, &mcp.ListResourcesParams{})
-		if resourcesErr != nil {
-			log.Printf("Warning: Failed to list resources: %v", resourcesErr)
-		} else {
-			for _, resource := range resourcesList.Resources {
-				info.Resources = append(info.Resources, model.Resource{
-					URI:         resource.URI,
-					Name:        resource.Name,
-					Description: resource.Description,
-					MimeType:    resource.MIMEType,
-				})
-			}
-		}
+	toolsList, err := session.ListTools(ctx, &mcp.ListToolsParams{})
+	if err != nil {
+		log.Printf("Warning: Failed to list tools: %v", err)
+		return
 	}
 
-	// Get prompts if supported
-	if initResult.Capabilities.Prompts != nil {
-		promptsList, promptsErr := session.ListPrompts(ctx, &mcp.ListPromptsParams{})
-		if promptsErr != nil {
-			log.Printf("Warning: Failed to list prompts: %v", promptsErr)
-		} else {
-			for _, prompt := range promptsList.Prompts {
-				// Convert prompt arguments to []any
-				var args []any
-				for _, arg := range prompt.Arguments {
-					args = append(args, arg)
-				}
-				info.Prompts = append(info.Prompts, model.Prompt{
-					Name:        prompt.Name,
-					Description: prompt.Description,
-					Arguments:   args,
-				})
-			}
-		}
+	for _, tool := range toolsList.Tools {
+		info.Tools = append(info.Tools, model.Tool{
+			Name:        tool.Name,
+			Description: tool.Description,
+			InputSchema: tool.InputSchema,
+		})
+	}
+}
+
+// collectResources retrieves and processes resources from the MCP server
+func collectResources(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) {
+	if initResult.Capabilities.Resources == nil {
+		return
 	}
 
-	// Apply contexts if context files are provided
-	if len(cli.ContextFile) > 0 {
-		contextConfig, contextErr := model.LoadContextConfig(cli.ContextFile)
-		if contextErr != nil {
-			return fmt.Errorf("failed to load context configuration: %w", contextErr)
-		}
-
-		// Apply contexts to tools, resources, and prompts
-		for i := range info.Tools {
-			contextConfig.ApplyToTool(&info.Tools[i])
-		}
-		for i := range info.Resources {
-			contextConfig.ApplyToResource(&info.Resources[i])
-		}
-		for i := range info.Prompts {
-			contextConfig.ApplyToPrompt(&info.Prompts[i])
-		}
+	resourcesList, err := session.ListResources(ctx, &mcp.ListResourcesParams{})
+	if err != nil {
+		log.Printf("Warning: Failed to list resources: %v", err)
+		return
 	}
 
-	// Format output
-	var output []byte
+	for _, resource := range resourcesList.Resources {
+		info.Resources = append(info.Resources, model.Resource{
+			URI:         resource.URI,
+			Name:        resource.Name,
+			Description: resource.Description,
+			MimeType:    resource.MIMEType,
+		})
+	}
+}
+
+// collectPrompts retrieves and processes prompts from the MCP server
+func collectPrompts(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) {
+	if initResult.Capabilities.Prompts == nil {
+		return
+	}
+
+	promptsList, err := session.ListPrompts(ctx, &mcp.ListPromptsParams{})
+	if err != nil {
+		log.Printf("Warning: Failed to list prompts: %v", err)
+		return
+	}
+
+	for _, prompt := range promptsList.Prompts {
+		var args []any
+		for _, arg := range prompt.Arguments {
+			args = append(args, arg)
+		}
+		info.Prompts = append(info.Prompts, model.Prompt{
+			Name:        prompt.Name,
+			Description: prompt.Description,
+			Arguments:   args,
+		})
+	}
+}
+
+// applyContextConfig applies context enhancement configuration from external YAML/JSON files.
+// It merges context data to enrich tool, resource, and prompt descriptions with additional content.
+func applyContextConfig(info *model.ServerInfo, contextFiles []string) error {
+	if len(contextFiles) == 0 {
+		return nil
+	}
+
+	contextConfig, err := model.LoadContextConfig(contextFiles)
+	if err != nil {
+		return fmt.Errorf("failed to load context configuration: %w", err)
+	}
+
+	for i := range info.Tools {
+		contextConfig.ApplyToTool(&info.Tools[i])
+	}
+	for i := range info.Resources {
+		contextConfig.ApplyToResource(&info.Resources[i])
+	}
+	for i := range info.Prompts {
+		contextConfig.ApplyToPrompt(&info.Prompts[i])
+	}
+
+	return nil
+}
+
+// formatOutput converts the server information into the requested output format (markdown, HTML, JSON, or PDF).
+// It uses the appropriate formatter based on the CLI format specification and configuration options.
+func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 	switch cli.Format {
 	case "json":
-		output, err = formatter.FormatJSON(info)
+		return formatter.FormatJSON(info)
 	case "html":
-		htmlStr, htmlErr := formatter.FormatHTML(info, !cli.NoTOC, TemplateFS)
-		if htmlErr != nil {
-			err = htmlErr
-		} else {
-			output = []byte(htmlStr)
+		htmlStr, err := formatter.FormatHTML(info, !cli.NoTOC, TemplateFS)
+		if err != nil {
+			return nil, err
 		}
+		return []byte(htmlStr), nil
 	case "pdf":
 		if cli.Output == "" {
-			return fmt.Errorf("PDF format requires --output flag")
+			return nil, fmt.Errorf("PDF format requires --output flag")
 		}
-		output, err = formatter.FormatPDF(info, !cli.NoTOC)
+		return formatter.FormatPDF(info, !cli.NoTOC)
 	case "markdown":
 		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
-		markdownStr, markdownErr := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, TemplateFS)
-		if markdownErr != nil {
-			err = markdownErr
-		} else {
-			output = []byte(markdownStr)
+		markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, TemplateFS)
+		if err != nil {
+			return nil, err
 		}
+		return []byte(markdownStr), nil
 	default:
-		return fmt.Errorf("unsupported output format: %s", cli.Format)
+		return nil, fmt.Errorf("unsupported output format: %s", cli.Format)
+	}
+}
+
+// writeOutput writes the formatted content to the specified output destination.
+// If outputPath is empty, content is written to stdout; otherwise to the specified file.
+func writeOutput(output []byte, outputPath string) error {
+	if outputPath != "" {
+		return os.WriteFile(outputPath, output, 0o600)
 	}
 
-	if err != nil {
-		return fmt.Errorf("failed to format output: %w", err)
-	}
-
-	// Write output
-	if cli.Output != "" {
-		return os.WriteFile(cli.Output, output, 0o600)
-	}
-
-	_, err = os.Stdout.Write(output)
+	_, err := os.Stdout.Write(output)
 	return err
 }

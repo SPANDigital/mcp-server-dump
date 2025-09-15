@@ -17,6 +17,7 @@ linters:
     - forcetypeassert
     - goconst
     - gocritic
+    - gocyclo
     - gosec
     - govet
     - ineffassign
@@ -38,6 +39,12 @@ linters:
     govet:
       enable:
         - shadow
+    gocyclo:
+      # Set to 25 to catch the worst complexity offenders while avoiding noise.
+      # This threshold addresses the specific high-complexity functions (28-33)
+      # reported by Go Report Card while allowing moderately complex code.
+      # Consider gradually lowering this as codebase evolves.
+      min-complexity: 25
     gocritic:
       enabled-tags:
         - diagnostic
