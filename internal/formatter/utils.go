@@ -145,8 +145,8 @@ func formatBool(b bool) string {
 	return "❌ Not supported"
 }
 
-// isAlphaNumeric reports whether the character is alphanumeric.
-// Used for word boundary checking in JSON parsing.
+// isAlphaNumeric reports whether the character is alphanumeric or underscore.
+// Used for word boundary checking in JSON parsing to handle identifiers like "true_value".
 func isAlphaNumeric(char byte) bool {
-	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9')
+	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_'
 }

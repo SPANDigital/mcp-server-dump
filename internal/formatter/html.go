@@ -144,6 +144,10 @@ func isNumberStart(char byte) bool {
 // isBooleanOrNull reports whether the current position starts a boolean or null value.
 // It checks for "true", "false", and "null" at the given position with word boundary validation.
 func isBooleanOrNull(jsonStr string, i int) bool {
+	// Check bounds
+	if i < 0 || i >= len(jsonStr) {
+		return false
+	}
 	if strings.HasPrefix(jsonStr[i:], boolTrue) {
 		// Check that "true" is not part of a longer word
 		end := i + len(boolTrue)

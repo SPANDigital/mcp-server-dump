@@ -88,9 +88,12 @@ func TestIsBooleanOrNull(t *testing.T) {
 		{"  true", 2, true},
 		{"  false", 2, true},
 		{"  null", 2, true},
-		{"truthy", 0, false},    // not a valid JSON boolean
-		{"falsehood", 0, false}, // not a valid JSON boolean
-		{"nullable", 0, false},  // not a valid JSON boolean
+		{"truthy", 0, false},     // not a valid JSON boolean
+		{"falsehood", 0, false},  // not a valid JSON boolean
+		{"nullable", 0, false},   // not a valid JSON boolean
+		{"true_value", 0, false}, // underscore makes it not a boolean
+		{"false_flag", 0, false}, // underscore makes it not a boolean
+		{"null_check", 0, false}, // underscore makes it not a boolean
 		{"string", 0, false},
 		{"123", 0, false},
 		{"", 0, false},
@@ -102,4 +105,72 @@ func TestIsBooleanOrNull(t *testing.T) {
 			t.Errorf("isBooleanOrNull(%q, %d) = %v, expected %v", test.jsonStr, test.pos, result, test.expected)
 		}
 	}
+}
+
+func TestEdgeCases(t *testing.T) {
+	// Test empty strings
+	t.Run("EmptyStrings", func(t *testing.T) {
+		if isWhitespace(0) {
+			t.Error("isWhitespace(0) should be false")
+		}
+		if isPunctuation(0) {
+			t.Error("isPunctuation(0) should be false")
+		}
+		if isNumberStart(0) {
+			t.Error("isNumberStart(0) should be false")
+		}
+		if isBooleanOrNull("", 0) {
+			t.Error("isBooleanOrNull('', 0) should be false")
+		}
+	})
+
+	// Test Unicode characters (should not match JSON tokens)
+	t.Run("UnicodeCharacters", func(t *testing.T) {
+		unicodeChars := []byte{0xC2, 0xA0, 0xE2, 0x80, 0x8A} // non-breaking space, hair space
+		for _, char := range unicodeChars {
+			if isWhitespace(char) {
+				t.Errorf("isWhitespace(%d) should be false for unicode char", char)
+			}
+			if isPunctuation(char) {
+				t.Errorf("isPunctuation(%d) should be false for unicode char", char)
+			}
+		}
+	})
+
+	// Test malformed JSON handling
+	t.Run("MalformedJSON", func(t *testing.T) {
+		malformedCases := []struct {
+			input string
+			pos   int
+		}{
+			{"tru", 0},   // incomplete "true"
+			{"fals", 0},  // incomplete "false"
+			{"nul", 0},   // incomplete "null"
+			{"TRUE", 0},  // wrong case
+			{"FALSE", 0}, // wrong case
+			{"NULL", 0},  // wrong case
+		}
+
+		for _, tc := range malformedCases {
+			if isBooleanOrNull(tc.input, tc.pos) {
+				t.Errorf("isBooleanOrNull(%q, %d) should be false for malformed input", tc.input, tc.pos)
+			}
+		}
+	})
+
+	// Test boundary conditions
+	t.Run("BoundaryConditions", func(t *testing.T) {
+		// Test at string boundaries
+		if isBooleanOrNull("true", 4) {
+			t.Error("isBooleanOrNull('true', 4) should be false (out of bounds)")
+		}
+		if isBooleanOrNull("false", 5) {
+			t.Error("isBooleanOrNull('false', 5) should be false (out of bounds)")
+		}
+
+		// Test negative position (should not panic)
+		if isBooleanOrNull("true", -1) {
+			t.Error("isBooleanOrNull('true', -1) should be false")
+		}
+	})
 }

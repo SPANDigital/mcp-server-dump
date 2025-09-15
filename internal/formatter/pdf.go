@@ -30,6 +30,14 @@ const (
 
 	// Layout constants
 	maxJSONLineLength = 100 // maximum characters per line in JSON rendering
+	defaultLineHeight = 4.0 // default line height for text rendering
+	jsonLineHeight    = 4.0 // line height for JSON syntax highlighting
+
+	// Spacing constants (in mm)
+	sectionSpacing    = 10 // spacing between major sections
+	subsectionSpacing = 8  // spacing between subsections
+	itemSpacing       = 6  // spacing between items
+	smallSpacing      = 5  // small spacing for minor elements
 )
 
 // Color constants (RGB values)
@@ -90,7 +98,7 @@ func addPDFTitle(pdf *fpdf.Fpdf, info *model.ServerInfo) {
 	pdf.SetDrawColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 	pdf.SetLineWidth(0.8)
 	pdf.Line(10, pdf.GetY()-5, 200, pdf.GetY()-5)
-	pdf.Ln(5)
+	pdf.Ln(smallSpacing)
 }
 
 // addTableOfContents adds the table of contents section
@@ -102,30 +110,30 @@ func addTableOfContents(pdf *fpdf.Fpdf, info *model.ServerInfo) {
 
 	pdf.SetFillColor(lightGray[0], lightGray[1], lightGray[2])
 	pdf.Rect(10, pdf.GetY(), 190, 40, "F")
-	pdf.Ln(5)
+	pdf.Ln(smallSpacing)
 
 	pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
 	pdf.SetFont("DejaVuSans", "", 12)
 
 	pdf.Cell(0, 8, "  "+bulletPoint+" Capabilities")
-	pdf.Ln(6)
+	pdf.Ln(itemSpacing)
 
 	if info.Capabilities.Tools && len(info.Tools) > 0 {
 		pdf.Cell(0, 8, "  "+bulletPoint+" Tools")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 	}
 
 	if info.Capabilities.Resources && len(info.Resources) > 0 {
 		pdf.Cell(0, 8, "  "+bulletPoint+" Resources")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 	}
 
 	if info.Capabilities.Prompts && len(info.Prompts) > 0 {
 		pdf.Cell(0, 8, "  "+bulletPoint+" Prompts")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 	}
 
-	pdf.Ln(10)
+	pdf.Ln(sectionSpacing)
 }
 
 // addCapabilitiesSection adds the capabilities section to the PDF
@@ -139,7 +147,7 @@ func addCapabilitiesSection(pdf *fpdf.Fpdf, info *model.ServerInfo) {
 	pdf.SetDrawColor(lightGray[0], lightGray[1], lightGray[2])
 	pdf.SetLineWidth(0.5)
 	pdf.Line(10, pdf.GetY()-5, 200, pdf.GetY()-5)
-	pdf.Ln(5)
+	pdf.Ln(smallSpacing)
 
 	pdf.SetFont("DejaVuSans", "", 12)
 
@@ -163,7 +171,7 @@ func addCapabilityLine(pdf *fpdf.Fpdf, name string, supported bool) {
 		pdf.SetTextColor(warningRed[0], warningRed[1], warningRed[2])
 	}
 	pdf.Cell(0, 8, fmt.Sprintf("%s %s: %s", icon, name, status))
-	pdf.Ln(8)
+	pdf.Ln(subsectionSpacing)
 }
 
 // addToolsSection adds the tools section to the PDF
@@ -176,7 +184,7 @@ func addToolsSection(pdf *fpdf.Fpdf, info *model.ServerInfo) {
 	pdf.SetFont("DejaVuSans", "", 14)
 	pdf.Bookmark("Tools", 0, -1)
 	pdf.Cell(0, 10, "Tools")
-	pdf.Ln(10)
+	pdf.Ln(sectionSpacing)
 
 	for _, tool := range info.Tools {
 		renderTool(pdf, tool)
@@ -189,29 +197,29 @@ func renderTool(pdf *fpdf.Fpdf, tool model.Tool) {
 	pdf.SetFont("DejaVuSans", "", 12)
 	pdf.Bookmark(tool.Name, 1, -1)
 	pdf.Cell(0, 8, tool.Name)
-	pdf.Ln(8)
+	pdf.Ln(subsectionSpacing)
 
 	pdf.SetTextColor(64, 64, 64)
 	pdf.SetFont("DejaVuSans", "", 10)
 
 	if tool.Description != "" {
 		pdf.Cell(0, 6, tool.Description)
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 	}
 
 	if tool.InputSchema != nil {
 		pdf.Cell(0, 6, "Input Schema:")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 		renderJSONSchema(pdf, tool.InputSchema)
 	}
 
 	if len(tool.Context) > 0 {
 		pdf.Cell(0, 6, "Context:")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 		renderContext(pdf, tool.Context)
 	}
 
-	pdf.Ln(8)
+	pdf.Ln(subsectionSpacing)
 }
 
 // addResourcesSection adds the resources section to the PDF
@@ -224,7 +232,7 @@ func addResourcesSection(pdf *fpdf.Fpdf, info *model.ServerInfo) {
 	pdf.SetFont("DejaVuSans", "", 14)
 	pdf.Bookmark("Resources", 0, 0)
 	pdf.Cell(0, 10, "Resources")
-	pdf.Ln(10)
+	pdf.Ln(sectionSpacing)
 
 	for _, resource := range info.Resources {
 		renderResource(pdf, resource)
@@ -236,30 +244,30 @@ func renderResource(pdf *fpdf.Fpdf, resource model.Resource) {
 	pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
 	pdf.SetFont("DejaVuSans", "", 12)
 	pdf.Cell(0, 8, resource.Name)
-	pdf.Ln(8)
+	pdf.Ln(subsectionSpacing)
 
 	pdf.SetTextColor(64, 64, 64)
 	pdf.SetFont("DejaVuSans", "", 10)
 	pdf.Cell(0, 6, fmt.Sprintf("URI: %s", resource.URI))
-	pdf.Ln(6)
+	pdf.Ln(itemSpacing)
 
 	if resource.Description != "" {
 		pdf.Cell(0, 6, resource.Description)
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 	}
 
 	if resource.MimeType != "" {
 		pdf.Cell(0, 6, fmt.Sprintf("MIME Type: %s", resource.MimeType))
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 	}
 
 	if len(resource.Context) > 0 {
 		pdf.Cell(0, 6, "Context:")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 		renderContext(pdf, resource.Context)
 	}
 
-	pdf.Ln(8)
+	pdf.Ln(subsectionSpacing)
 }
 
 // addPromptsSection adds the prompts section to the PDF
@@ -272,7 +280,7 @@ func addPromptsSection(pdf *fpdf.Fpdf, info *model.ServerInfo) {
 	pdf.SetFont("DejaVuSans", "", 14)
 	pdf.Bookmark("Prompts", 0, 0)
 	pdf.Cell(0, 10, "Prompts")
-	pdf.Ln(10)
+	pdf.Ln(sectionSpacing)
 
 	for _, prompt := range info.Prompts {
 		renderPrompt(pdf, prompt)
@@ -284,19 +292,19 @@ func renderPrompt(pdf *fpdf.Fpdf, prompt model.Prompt) {
 	pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
 	pdf.SetFont("DejaVuSans", "", 12)
 	pdf.Cell(0, 8, prompt.Name)
-	pdf.Ln(8)
+	pdf.Ln(subsectionSpacing)
 
 	pdf.SetTextColor(64, 64, 64)
 	pdf.SetFont("DejaVuSans", "", 10)
 
 	if prompt.Description != "" {
 		pdf.Cell(0, 6, prompt.Description)
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 	}
 
 	if len(prompt.Arguments) > 0 {
 		pdf.Cell(0, 6, "Arguments:")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 		for _, arg := range prompt.Arguments {
 			renderJSONSchema(pdf, arg)
 		}
@@ -304,11 +312,11 @@ func renderPrompt(pdf *fpdf.Fpdf, prompt model.Prompt) {
 
 	if len(prompt.Context) > 0 {
 		pdf.Cell(0, 6, "Context:")
-		pdf.Ln(6)
+		pdf.Ln(itemSpacing)
 		renderContext(pdf, prompt.Context)
 	}
 
-	pdf.Ln(8)
+	pdf.Ln(subsectionSpacing)
 }
 
 // finalizePDF completes the PDF generation and returns the bytes
@@ -334,7 +342,7 @@ func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 	schemaJSON, err := json.MarshalIndent(schema, "", "  ")
 	if err != nil {
 		pdf.Cell(0, 5, fmt.Sprintf("Error formatting schema: %v", err))
-		pdf.Ln(5)
+		pdf.Ln(smallSpacing)
 		return
 	}
 
@@ -368,7 +376,7 @@ func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
 			// Render as block with key header
 			pdf.SetTextColor(primaryBlue[0], primaryBlue[1], primaryBlue[2])
 			pdf.Cell(0, 5, key+":")
-			pdf.Ln(5)
+			pdf.Ln(smallSpacing)
 
 			// Render block content with indentation
 			pdf.SetTextColor(64, 64, 64)
@@ -433,7 +441,7 @@ func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
 			pdf.SetTextColor(textGray[0], textGray[1], textGray[2])
 			pdf.SetFont("DejaVuSans", "", 9)
 			pdf.Cell(0, 5, fmt.Sprintf("  %s %s: %s", bulletPoint, key, value))
-			pdf.Ln(5)
+			pdf.Ln(smallSpacing)
 		}
 	}
 }
@@ -450,7 +458,7 @@ func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
 // The function maintains proper character-by-character parsing to handle edge cases
 // like escaped quotes and ensures accurate token boundary detection.
 func renderJSONLine(pdf *fpdf.Fpdf, line string) {
-	const lineHeight = 4.0
+	const lineHeight = jsonLineHeight
 	i := 0
 
 	for i < len(line) {
@@ -460,7 +468,7 @@ func renderJSONLine(pdf *fpdf.Fpdf, line string) {
 		case char == ' ' || char == '\t':
 			i = renderWhitespace(pdf, line, i, lineHeight)
 		case isJSONStructuralChar(char):
-			i = renderStructuralChar(pdf, char, lineHeight)
+			i = renderStructuralChar(pdf, line, i, lineHeight)
 		case char == '"':
 			i = renderQuotedStringPDF(pdf, line, i, lineHeight)
 		case isJSONNumber(char):
@@ -495,11 +503,12 @@ func isJSONStructuralChar(char byte) bool {
 }
 
 // renderStructuralChar renders JSON structural characters
-func renderStructuralChar(pdf *fpdf.Fpdf, char byte, lineHeight float64) int {
+func renderStructuralChar(pdf *fpdf.Fpdf, line string, i int, lineHeight float64) int {
+	char := line[i]
 	pdf.SetTextColor(jsonBrace[0], jsonBrace[1], jsonBrace[2])
 	width := pdf.GetStringWidth(string(char))
 	pdf.CellFormat(width, lineHeight, string(char), "", 0, "L", false, 0, "")
-	return 1
+	return i + 1
 }
 
 // renderQuotedStringPDF renders quoted strings with appropriate coloring
@@ -549,6 +558,10 @@ func renderNumberPDF(pdf *fpdf.Fpdf, line string, i int, lineHeight float64) int
 // startsWithBoolean reports whether the current position starts with a boolean value.
 // It checks for "true" and "false" at the given position with word boundary validation.
 func startsWithBoolean(line string, i int) bool {
+	// Check bounds
+	if i < 0 || i >= len(line) {
+		return false
+	}
 	if strings.HasPrefix(line[i:], "true") {
 		// Check that "true" is not part of a longer word
 		end := i + 4
