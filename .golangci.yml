@@ -40,11 +40,10 @@ linters:
       enable:
         - shadow
     gocyclo:
-      # Set to 25 to catch the worst complexity offenders while avoiding noise.
-      # This threshold addresses the specific high-complexity functions (28-33)
-      # reported by Go Report Card while allowing moderately complex code.
-      # Consider gradually lowering this as codebase evolves.
-      min-complexity: 25
+      # Set to 15 to enforce better code maintainability and readability.
+      # This stricter threshold encourages breaking down complex functions
+      # into smaller, more focused helper functions following best practices.
+      min-complexity: 15
     gocritic:
       enabled-tags:
         - diagnostic

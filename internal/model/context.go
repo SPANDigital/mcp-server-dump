@@ -44,60 +44,98 @@ func LoadContextConfig(files []string) (*ContextConfig, error) {
 
 // mergeFile loads a single context file and merges it with existing configuration
 func (c *ContextConfig) mergeFile(filename string) error {
-	// Validate file path to prevent directory traversal
-	cleanPath := filepath.Clean(filename)
-	if strings.Contains(cleanPath, "..") {
-		return errors.New("invalid file path: directory traversal not allowed")
-	}
-
-	// Check file info before opening
-	fileInfo, err := os.Stat(cleanPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat file: %w", err)
-	}
-
-	// Validate file size to prevent YAML/JSON bombs
-	if fileInfo.Size() > maxContextFileSize {
-		return fmt.Errorf("file size exceeds maximum allowed size of %d bytes: %d", maxContextFileSize, fileInfo.Size())
-	}
-
-	file, err := os.Open(cleanPath) // #nosec G304 - path is validated and cleaned
+	cleanPath, err := validateFilePath(filename)
 	if err != nil {
 		return err
 	}
+
+	fileInfo, err := validateFileSize(cleanPath)
+	if err != nil {
+		return err
+	}
+
+	data, err := readContextFile(cleanPath, fileInfo.Size())
+	if err != nil {
+		return err
+	}
+
+	tempConfig, err := parseContextFile(data, cleanPath)
+	if err != nil {
+		return err
+	}
+
+	c.mergeContextData(&tempConfig)
+	return nil
+}
+
+// validateFilePath validates the file path to prevent directory traversal attacks
+func validateFilePath(filename string) (string, error) {
+	cleanPath := filepath.Clean(filename)
+	if strings.Contains(cleanPath, "..") {
+		return "", errors.New("invalid file path: directory traversal not allowed")
+	}
+	return cleanPath, nil
+}
+
+// validateFileSize checks the file size to prevent processing overly large files
+func validateFileSize(cleanPath string) (os.FileInfo, error) {
+	fileInfo, err := os.Stat(cleanPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	if fileInfo.Size() > maxContextFileSize {
+		return nil, fmt.Errorf("file size exceeds maximum allowed size of %d bytes: %d", maxContextFileSize, fileInfo.Size())
+	}
+	return fileInfo, nil
+}
+
+// readContextFile safely reads the context file content with size limits
+func readContextFile(cleanPath string, _ int64) ([]byte, error) {
+	file, err := os.Open(cleanPath) // #nosec G304 - path is validated and cleaned
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		if closeErr := file.Close(); closeErr != nil {
-			// Log close error but don't override the main error
 			fmt.Fprintf(os.Stderr, "Warning: failed to close context file: %v\n", closeErr)
 		}
 	}()
 
-	// Use LimitReader to ensure we don't read beyond the expected size
 	limitedReader := io.LimitReader(file, maxContextFileSize)
-	data, err := io.ReadAll(limitedReader)
-	if err != nil {
-		return err
-	}
+	return io.ReadAll(limitedReader)
+}
 
-	// Determine file format by extension
+// parseContextFile parses the context file based on its extension
+func parseContextFile(data []byte, cleanPath string) (ContextConfig, error) {
 	ext := strings.ToLower(filepath.Ext(cleanPath))
-
 	var tempConfig ContextConfig
+
 	switch ext {
 	case ".yaml", ".yml":
 		if err := yaml.Unmarshal(data, &tempConfig); err != nil {
-			return fmt.Errorf("failed to parse YAML: %w", err)
+			return tempConfig, fmt.Errorf("failed to parse YAML: %w", err)
 		}
 	case ".json":
 		if err := json.Unmarshal(data, &tempConfig); err != nil {
-			return fmt.Errorf("failed to parse JSON: %w", err)
+			return tempConfig, fmt.Errorf("failed to parse JSON: %w", err)
 		}
 	default:
-		return fmt.Errorf("unsupported file format: %s (supported: .yaml, .yml, .json)", ext)
+		return tempConfig, fmt.Errorf("unsupported file format: %s (supported: .yaml, .yml, .json)", ext)
 	}
+	return tempConfig, nil
+}
 
-	// Merge tools
-	for toolName, contexts := range tempConfig.Contexts.Tools {
+// mergeContextData merges the parsed context data into the current configuration
+func (c *ContextConfig) mergeContextData(tempConfig *ContextConfig) {
+	c.mergeTools(tempConfig.Contexts.Tools)
+	c.mergeResources(tempConfig.Contexts.Resources)
+	c.mergePrompts(tempConfig.Contexts.Prompts)
+}
+
+// mergeTools merges tool contexts from the temporary config
+func (c *ContextConfig) mergeTools(tools map[string]map[string]string) {
+	for toolName, contexts := range tools {
 		if c.Contexts.Tools[toolName] == nil {
 			c.Contexts.Tools[toolName] = make(map[string]string)
 		}
@@ -105,9 +143,11 @@ func (c *ContextConfig) mergeFile(filename string) error {
 			c.Contexts.Tools[toolName][key] = value
 		}
 	}
+}
 
-	// Merge resources
-	for resourcePattern, contexts := range tempConfig.Contexts.Resources {
+// mergeResources merges resource contexts from the temporary config
+func (c *ContextConfig) mergeResources(resources map[string]map[string]string) {
+	for resourcePattern, contexts := range resources {
 		if c.Contexts.Resources[resourcePattern] == nil {
 			c.Contexts.Resources[resourcePattern] = make(map[string]string)
 		}
@@ -115,9 +155,11 @@ func (c *ContextConfig) mergeFile(filename string) error {
 			c.Contexts.Resources[resourcePattern][key] = value
 		}
 	}
+}
 
-	// Merge prompts
-	for promptName, contexts := range tempConfig.Contexts.Prompts {
+// mergePrompts merges prompt contexts from the temporary config
+func (c *ContextConfig) mergePrompts(prompts map[string]map[string]string) {
+	for promptName, contexts := range prompts {
 		if c.Contexts.Prompts[promptName] == nil {
 			c.Contexts.Prompts[promptName] = make(map[string]string)
 		}
@@ -125,8 +167,6 @@ func (c *ContextConfig) mergeFile(filename string) error {
 			c.Contexts.Prompts[promptName][key] = value
 		}
 	}
-
-	return nil
 }
 
 // ApplyToTool applies matching context to a tool
