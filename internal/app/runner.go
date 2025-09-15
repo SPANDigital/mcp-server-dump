@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -13,11 +14,16 @@ import (
 	"github.com/spandigital/mcp-server-dump/internal/transport"
 )
 
+// Error messages
+const (
+	ErrAllScanTypesDisabled = "cannot disable all scan types: at least one of tools, resources, or prompts must be enabled"
+)
+
 // Run executes the main application logic
 func Run(cli *CLI) error {
 	// Validate that at least one scan type is enabled
 	if cli.NoTools && cli.NoResources && cli.NoPrompts {
-		return fmt.Errorf("cannot disable all scan types: at least one of tools, resources, or prompts must be enabled")
+		return errors.New(ErrAllScanTypesDisabled)
 	}
 
 	ctx := context.Background()
@@ -99,12 +105,18 @@ func collectServerInfo(session *mcp.ClientSession, cli *CLI) *model.ServerInfo {
 	// Conditionally collect data based on CLI flags
 	if !cli.NoTools {
 		collectTools(session, ctx, initResult, info)
+	} else {
+		log.Printf("Skipping tools collection")
 	}
 	if !cli.NoResources {
 		collectResources(session, ctx, initResult, info)
+	} else {
+		log.Printf("Skipping resources collection")
 	}
 	if !cli.NoPrompts {
 		collectPrompts(session, ctx, initResult, info)
+	} else {
+		log.Printf("Skipping prompts collection")
 	}
 
 	return info

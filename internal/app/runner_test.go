@@ -1,7 +1,7 @@
 package app
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 )
 
@@ -65,7 +65,7 @@ func TestRunValidation_ScanControls(t *testing.T) {
 				NoPrompts:   true,
 			},
 			expectError: true,
-			errorMsg:    "cannot disable all scan types: at least one of tools, resources, or prompts must be enabled",
+			errorMsg:    ErrAllScanTypesDisabled,
 		},
 	}
 
@@ -74,7 +74,7 @@ func TestRunValidation_ScanControls(t *testing.T) {
 			// Test the validation logic that Run() uses
 			var err error
 			if tt.cli.NoTools && tt.cli.NoResources && tt.cli.NoPrompts {
-				err = fmt.Errorf("cannot disable all scan types: at least one of tools, resources, or prompts must be enabled")
+				err = errors.New(ErrAllScanTypesDisabled)
 			}
 
 			if tt.expectError {
