@@ -17,6 +17,7 @@ linters:
     - forcetypeassert
     - goconst
     - gocritic
+    - gocyclo
     - gosec
     - govet
     - ineffassign
@@ -38,6 +39,8 @@ linters:
     govet:
       enable:
         - shadow
+    gocyclo:
+      min-complexity: 25
     gocritic:
       enabled-tags:
         - diagnostic

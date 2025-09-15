@@ -94,83 +94,104 @@ func addJSONSyntaxHighlighting(htmlContent string) string {
 // highlightJSONHTML applies syntax highlighting to JSON string for HTML output
 func highlightJSONHTML(jsonStr string) string {
 	var result strings.Builder
-
 	i := 0
+
 	for i < len(jsonStr) {
 		char := jsonStr[i]
 
-		// Handle whitespace - preserve formatting
-		if char == ' ' || char == '\t' || char == '\n' || char == '\r' {
+		switch {
+		case isWhitespace(char):
 			result.WriteByte(char)
 			i++
-			continue
-		}
-
-		// Handle structural characters
-		if char == '{' || char == '}' || char == '[' || char == ']' || char == ',' || char == ':' {
+		case isPunctuation(char):
 			result.WriteString(fmt.Sprintf(`<span class="json-punctuation">%c</span>`, char))
 			i++
-			continue
+		case char == '"':
+			i = processQuotedString(jsonStr, i, &result)
+		case isNumberStart(char):
+			i = processNumber(jsonStr, i, &result)
+		case isBooleanOrNull(jsonStr, i):
+			i = processBooleanOrNull(jsonStr, i, &result)
+		default:
+			result.WriteByte(char)
+			i++
 		}
-
-		// Handle quoted strings (keys and string values)
-		if char == '"' {
-			quote, nextIndex := extractJSONQuotedString(jsonStr, i)
-
-			// Determine if this is a key or value
-			isKey := false
-			for j := nextIndex; j < len(jsonStr); j++ {
-				if jsonStr[j] == ':' {
-					isKey = true
-					break
-				}
-				if jsonStr[j] != ' ' && jsonStr[j] != '\t' && jsonStr[j] != '\n' && jsonStr[j] != '\r' {
-					break
-				}
-			}
-
-			if isKey {
-				result.WriteString(fmt.Sprintf(`<span class="json-key">%s</span>`, quote))
-			} else {
-				result.WriteString(fmt.Sprintf(`<span class="json-string">%s</span>`, quote))
-			}
-			i = nextIndex
-			continue
-		}
-
-		// Handle numbers
-		if (char >= '0' && char <= '9') || char == '-' || char == '.' {
-			number, nextIndex := extractJSONNumber(jsonStr, i)
-			result.WriteString(fmt.Sprintf(`<span class="json-number">%s</span>`, number))
-			i = nextIndex
-			continue
-		}
-
-		// Handle booleans and null
-		if strings.HasPrefix(jsonStr[i:], boolTrue) || strings.HasPrefix(jsonStr[i:], boolFalse) {
-			var word string
-			if strings.HasPrefix(jsonStr[i:], boolTrue) {
-				word = boolTrue
-			} else {
-				word = boolFalse
-			}
-			result.WriteString(fmt.Sprintf(`<span class="json-boolean">%s</span>`, word))
-			i += len(word)
-			continue
-		}
-
-		if strings.HasPrefix(jsonStr[i:], "null") {
-			result.WriteString(`<span class="json-null">null</span>`)
-			i += 4
-			continue
-		}
-
-		// Default: output character as-is
-		result.WriteByte(char)
-		i++
 	}
 
 	return result.String()
+}
+
+// isWhitespace checks if character is whitespace
+func isWhitespace(char byte) bool {
+	return char == ' ' || char == '\t' || char == '\n' || char == '\r'
+}
+
+// isPunctuation checks if character is JSON punctuation
+func isPunctuation(char byte) bool {
+	return char == '{' || char == '}' || char == '[' || char == ']' || char == ',' || char == ':'
+}
+
+// isNumberStart checks if character can start a number
+func isNumberStart(char byte) bool {
+	return (char >= '0' && char <= '9') || char == '-' || char == '.'
+}
+
+// isBooleanOrNull checks if the current position starts a boolean or null value
+func isBooleanOrNull(jsonStr string, i int) bool {
+	return strings.HasPrefix(jsonStr[i:], boolTrue) ||
+		strings.HasPrefix(jsonStr[i:], boolFalse) ||
+		strings.HasPrefix(jsonStr[i:], "null")
+}
+
+// processQuotedString processes a quoted string and determines if it's a key or value
+func processQuotedString(jsonStr string, i int, result *strings.Builder) int {
+	quote, nextIndex := extractJSONQuotedString(jsonStr, i)
+	isKey := isJSONKey(jsonStr, nextIndex)
+
+	if isKey {
+		result.WriteString(fmt.Sprintf(`<span class="json-key">%s</span>`, quote))
+	} else {
+		result.WriteString(fmt.Sprintf(`<span class="json-string">%s</span>`, quote))
+	}
+
+	return nextIndex
+}
+
+// isJSONKey determines if a quoted string is a JSON key by looking for a colon after it
+func isJSONKey(jsonStr string, startIndex int) bool {
+	for j := startIndex; j < len(jsonStr); j++ {
+		if jsonStr[j] == ':' {
+			return true
+		}
+		if !isWhitespace(jsonStr[j]) {
+			break
+		}
+	}
+	return false
+}
+
+// processNumber processes a JSON number
+func processNumber(jsonStr string, i int, result *strings.Builder) int {
+	number, nextIndex := extractJSONNumber(jsonStr, i)
+	result.WriteString(fmt.Sprintf(`<span class="json-number">%s</span>`, number))
+	return nextIndex
+}
+
+// processBooleanOrNull processes boolean or null values
+func processBooleanOrNull(jsonStr string, i int, result *strings.Builder) int {
+	if strings.HasPrefix(jsonStr[i:], boolTrue) {
+		result.WriteString(fmt.Sprintf(`<span class="json-boolean">%s</span>`, boolTrue))
+		return i + len(boolTrue)
+	}
+	if strings.HasPrefix(jsonStr[i:], boolFalse) {
+		result.WriteString(fmt.Sprintf(`<span class="json-boolean">%s</span>`, boolFalse))
+		return i + len(boolFalse)
+	}
+	if strings.HasPrefix(jsonStr[i:], "null") {
+		result.WriteString(`<span class="json-null">null</span>`)
+		return i + 4
+	}
+	return i + 1
 }
 
 // wrapWithCSS wraps HTML content with professional styling
