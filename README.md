@@ -608,6 +608,8 @@ jobs:
 | `scan-resources` | Include resources in the documentation output | No | `true` |
 | `scan-prompts` | Include prompts in the documentation output | No | `true` |
 
+**Parameter Naming Convention**: The GitHub Action uses positive naming (`scan-tools: true/false`) while the CLI uses negative flags (`--no-tools`). This is intentional - GitHub Actions typically use positive boolean parameters for better UX, while CLI tools often use negative flags to disable default behavior.
+
 ### Action Outputs
 
 | Output | Description |

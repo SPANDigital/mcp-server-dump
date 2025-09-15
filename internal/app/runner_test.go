@@ -1,7 +1,6 @@
 package app
 
 import (
-	"errors"
 	"testing"
 )
 
@@ -71,11 +70,8 @@ func TestRunValidation_ScanControls(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Test the validation logic that Run() uses
-			var err error
-			if tt.cli.NoTools && tt.cli.NoResources && tt.cli.NoPrompts {
-				err = errors.New(ErrAllScanTypesDisabled)
-			}
+			// Test the validation logic using the CLI method
+			err := tt.cli.ValidateScanOptions()
 
 			if tt.expectError {
 				if err == nil {

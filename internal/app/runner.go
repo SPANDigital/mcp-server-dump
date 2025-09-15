@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -22,8 +21,8 @@ const (
 // Run executes the main application logic
 func Run(cli *CLI) error {
 	// Validate that at least one scan type is enabled
-	if cli.NoTools && cli.NoResources && cli.NoPrompts {
-		return errors.New(ErrAllScanTypesDisabled)
+	if err := cli.ValidateScanOptions(); err != nil {
+		return err
 	}
 
 	ctx := context.Background()

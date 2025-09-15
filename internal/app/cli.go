@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -40,4 +41,12 @@ type CLI struct {
 
 	// Legacy command format (backward compatibility)
 	Args []string `kong:"arg,optional,help='Command and arguments (legacy format for backward compatibility)'"`
+}
+
+// ValidateScanOptions validates that at least one scan type is enabled
+func (cli *CLI) ValidateScanOptions() error {
+	if cli.NoTools && cli.NoResources && cli.NoPrompts {
+		return errors.New(ErrAllScanTypesDisabled)
+	}
+	return nil
 }
