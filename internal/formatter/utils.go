@@ -42,7 +42,7 @@ func parseIntegerPart(jsonStr string, i int) int {
 func parseDecimalPart(jsonStr string, i int) int {
 	if i < len(jsonStr) && jsonStr[i] == '.' {
 		i++                              // Skip the decimal point
-		i = parseIntegerPart(jsonStr, i) // Reuse integer parsing for decimal digits
+		i = parseIntegerPart(jsonStr, i) // Parse decimal digits after decimal point
 	}
 	return i
 }
