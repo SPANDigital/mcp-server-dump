@@ -25,13 +25,10 @@ func Run(cli *CLI) error {
 		}
 	}()
 
-	info, err := collectServerInfo(session)
-	if err != nil {
-		return err
-	}
+	info := collectServerInfo(session)
 
-	if err := applyContextConfig(info, cli.ContextFile); err != nil {
-		return err
+	if contextErr := applyContextConfig(info, cli.ContextFile); contextErr != nil {
+		return contextErr
 	}
 
 	output, err := formatOutput(info, cli)
@@ -76,7 +73,7 @@ func createMCPSession(cli *CLI) (*mcp.ClientSession, error) {
 }
 
 // collectServerInfo gathers server information including tools, resources, and prompts
-func collectServerInfo(session *mcp.ClientSession) (*model.ServerInfo, error) {
+func collectServerInfo(session *mcp.ClientSession) *model.ServerInfo {
 	ctx := context.Background()
 	initResult := session.InitializeResult()
 
@@ -90,31 +87,23 @@ func collectServerInfo(session *mcp.ClientSession) (*model.ServerInfo, error) {
 		},
 	}
 
-	if err := collectTools(session, ctx, initResult, info); err != nil {
-		return nil, err
-	}
+	collectTools(session, ctx, initResult, info)
+	collectResources(session, ctx, initResult, info)
+	collectPrompts(session, ctx, initResult, info)
 
-	if err := collectResources(session, ctx, initResult, info); err != nil {
-		return nil, err
-	}
-
-	if err := collectPrompts(session, ctx, initResult, info); err != nil {
-		return nil, err
-	}
-
-	return info, nil
+	return info
 }
 
 // collectTools retrieves and processes tools from the MCP server
-func collectTools(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) error {
+func collectTools(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) {
 	if initResult.Capabilities.Tools == nil {
-		return nil
+		return
 	}
 
 	toolsList, err := session.ListTools(ctx, &mcp.ListToolsParams{})
 	if err != nil {
 		log.Printf("Warning: Failed to list tools: %v", err)
-		return nil
+		return
 	}
 
 	for _, tool := range toolsList.Tools {
@@ -124,20 +113,18 @@ func collectTools(session *mcp.ClientSession, ctx context.Context, initResult *m
 			InputSchema: tool.InputSchema,
 		})
 	}
-
-	return nil
 }
 
 // collectResources retrieves and processes resources from the MCP server
-func collectResources(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) error {
+func collectResources(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) {
 	if initResult.Capabilities.Resources == nil {
-		return nil
+		return
 	}
 
 	resourcesList, err := session.ListResources(ctx, &mcp.ListResourcesParams{})
 	if err != nil {
 		log.Printf("Warning: Failed to list resources: %v", err)
-		return nil
+		return
 	}
 
 	for _, resource := range resourcesList.Resources {
@@ -148,20 +135,18 @@ func collectResources(session *mcp.ClientSession, ctx context.Context, initResul
 			MimeType:    resource.MIMEType,
 		})
 	}
-
-	return nil
 }
 
 // collectPrompts retrieves and processes prompts from the MCP server
-func collectPrompts(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) error {
+func collectPrompts(session *mcp.ClientSession, ctx context.Context, initResult *mcp.InitializeResult, info *model.ServerInfo) {
 	if initResult.Capabilities.Prompts == nil {
-		return nil
+		return
 	}
 
 	promptsList, err := session.ListPrompts(ctx, &mcp.ListPromptsParams{})
 	if err != nil {
 		log.Printf("Warning: Failed to list prompts: %v", err)
-		return nil
+		return
 	}
 
 	for _, prompt := range promptsList.Prompts {
@@ -175,8 +160,6 @@ func collectPrompts(session *mcp.ClientSession, ctx context.Context, initResult 
 			Arguments:   args,
 		})
 	}
-
-	return nil
 }
 
 // applyContextConfig applies context configuration to server info if context files are provided

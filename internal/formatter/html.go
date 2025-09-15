@@ -149,9 +149,9 @@ func processQuotedString(jsonStr string, i int, result *strings.Builder) int {
 	isKey := isJSONKey(jsonStr, nextIndex)
 
 	if isKey {
-		result.WriteString(fmt.Sprintf(`<span class="json-key">%s</span>`, quote))
+		fmt.Fprintf(result, `<span class="json-key">%s</span>`, quote)
 	} else {
-		result.WriteString(fmt.Sprintf(`<span class="json-string">%s</span>`, quote))
+		fmt.Fprintf(result, `<span class="json-string">%s</span>`, quote)
 	}
 
 	return nextIndex
@@ -173,18 +173,18 @@ func isJSONKey(jsonStr string, startIndex int) bool {
 // processNumber processes a JSON number
 func processNumber(jsonStr string, i int, result *strings.Builder) int {
 	number, nextIndex := extractJSONNumber(jsonStr, i)
-	result.WriteString(fmt.Sprintf(`<span class="json-number">%s</span>`, number))
+	fmt.Fprintf(result, `<span class="json-number">%s</span>`, number)
 	return nextIndex
 }
 
 // processBooleanOrNull processes boolean or null values
 func processBooleanOrNull(jsonStr string, i int, result *strings.Builder) int {
 	if strings.HasPrefix(jsonStr[i:], boolTrue) {
-		result.WriteString(fmt.Sprintf(`<span class="json-boolean">%s</span>`, boolTrue))
+		fmt.Fprintf(result, `<span class="json-boolean">%s</span>`, boolTrue)
 		return i + len(boolTrue)
 	}
 	if strings.HasPrefix(jsonStr[i:], boolFalse) {
-		result.WriteString(fmt.Sprintf(`<span class="json-boolean">%s</span>`, boolFalse))
+		fmt.Fprintf(result, `<span class="json-boolean">%s</span>`, boolFalse)
 		return i + len(boolFalse)
 	}
 	if strings.HasPrefix(jsonStr[i:], "null") {
