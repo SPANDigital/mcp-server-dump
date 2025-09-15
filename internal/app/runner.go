@@ -15,7 +15,8 @@ import (
 
 // Run executes the main application logic
 func Run(cli *CLI) error {
-	session, err := createMCPSession(cli)
+	ctx := context.Background()
+	session, err := createMCPSession(ctx, cli)
 	if err != nil {
 		return err
 	}
@@ -41,7 +42,8 @@ func Run(cli *CLI) error {
 
 // createMCPSession establishes a connection to the MCP server using the configured transport.
 // It returns a client session for communicating with the server, or an error if connection fails.
-func createMCPSession(cli *CLI) (*mcp.ClientSession, error) {
+// The provided context allows for connection timeout and cancellation control.
+func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error) {
 	transportConfig := transport.Config{
 		Transport:     cli.Transport,
 		Endpoint:      cli.Endpoint,
@@ -64,7 +66,6 @@ func createMCPSession(cli *CLI) (*mcp.ClientSession, error) {
 		nil,
 	)
 
-	ctx := context.Background()
 	session, err := mcpClient.Connect(ctx, mcpTransport, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to MCP server: %w", err)

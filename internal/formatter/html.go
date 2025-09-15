@@ -121,8 +121,10 @@ func highlightJSONHTML(jsonStr string) string {
 	return result.String()
 }
 
-// isWhitespace reports whether the character is a whitespace character.
-// It returns true for space, tab, newline, and carriage return.
+// isWhitespace reports whether the character is a JSON whitespace character.
+// It returns true for space, tab, newline, and carriage return per JSON specification.
+// Note: This intentionally uses byte-level comparisons for JSON parsing performance
+// and correctness, rather than unicode.IsSpace which includes non-JSON whitespace.
 func isWhitespace(char byte) bool {
 	return char == ' ' || char == '\t' || char == '\n' || char == '\r'
 }

@@ -27,6 +27,9 @@ const (
 	bulletPoint = "•" // bullet U+2022
 	checkMark   = "✓" // checkmark U+2713
 	crossMark   = "✗" // cross mark U+2717
+
+	// Layout constants
+	maxJSONLineLength = 100 // maximum characters per line in JSON rendering
 )
 
 // Color constants (RGB values)
@@ -339,8 +342,8 @@ func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 	lines := strings.Split(string(schemaJSON), "\n")
 	for _, line := range lines {
 		// Limit line length to prevent overflow
-		if len(line) > 100 {
-			line = line[:97] + "..."
+		if len(line) > maxJSONLineLength {
+			line = line[:maxJSONLineLength-3] + "..."
 		}
 		renderJSONLine(pdf, line)
 		pdf.Ln(4)
@@ -435,7 +438,17 @@ func renderContext(pdf *fpdf.Fpdf, context map[string]string) {
 	}
 }
 
-// renderJSONLine renders a single line of JSON with syntax highlighting
+// renderJSONLine renders a single line of JSON text with syntax highlighting in the PDF.
+// It processes each character and applies appropriate colors based on JSON token types.
+//
+// Examples of input and their highlighting:
+//   - `{"name": "value"}` - keys in purple, strings in green, punctuation in gray
+//   - `[1, 2.5, -3]` - numbers in red, brackets and commas in gray
+//   - `{"enabled": true, "count": null}` - booleans in blue, null in gray italic
+//   - `"escaped \"string\" here"` - properly handles escaped quotes in strings
+//
+// The function maintains proper character-by-character parsing to handle edge cases
+// like escaped quotes and ensures accurate token boundary detection.
 func renderJSONLine(pdf *fpdf.Fpdf, line string) {
 	const lineHeight = 4.0
 	i := 0
