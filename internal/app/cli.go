@@ -33,6 +33,11 @@ type CLI struct {
 	ContextFile   []string `kong:"help='Path to context configuration files (YAML/JSON), can be used multiple times'"`
 	ServerCommand string   `kong:"help='Server command for explicit command transport'"`
 
+	// Scanning options
+	NoTools     bool `kong:"help='Skip scanning tools from the MCP server'"`
+	NoResources bool `kong:"help='Skip scanning resources from the MCP server'"`
+	NoPrompts   bool `kong:"help='Skip scanning prompts from the MCP server'"`
+
 	// Legacy command format (backward compatibility)
 	Args []string `kong:"arg,optional,help='Command and arguments (legacy format for backward compatibility)'"`
 }

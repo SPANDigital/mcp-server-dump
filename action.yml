@@ -44,6 +44,18 @@ inputs:
   context-files:
     description: 'Context configuration files (YAML/JSON) for rich documentation context (comma-separated). Use relative paths from workspace root (e.g., "docs/context.yaml,config/overrides.json"). Path traversal attempts are blocked for security.'
     required: false
+  scan-tools:
+    description: 'Include tools in the documentation output'
+    required: false
+    default: 'true'
+  scan-resources:
+    description: 'Include resources in the documentation output'
+    required: false
+    default: 'true'
+  scan-prompts:
+    description: 'Include prompts in the documentation output'
+    required: false
+    default: 'true'
 
 outputs:
   output-file:
@@ -211,6 +223,19 @@ runs:
             for context_file in "${PARSED_ITEMS[@]}"; do
                 CMD_ARGS+=("--context-file" "$context_file")
             done
+        fi
+
+        # Add scanning control flags if disabled
+        if [ "${{ inputs.scan-tools }}" = "false" ]; then
+            CMD_ARGS+=("--no-tools")
+        fi
+
+        if [ "${{ inputs.scan-resources }}" = "false" ]; then
+            CMD_ARGS+=("--no-resources")
+        fi
+
+        if [ "${{ inputs.scan-prompts }}" = "false" ]; then
+            CMD_ARGS+=("--no-prompts")
         fi
 
         # Add server command (this should be the last argument)

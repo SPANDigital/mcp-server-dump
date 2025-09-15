@@ -10,10 +10,11 @@ A command-line tool to extract and document MCP (Model Context Protocol) server 
 ## Features
 
 - **Multiple Transport Support**: Connect to MCP servers via various transports:
-  - STDIO/Command transport (subprocess execution)  
+  - STDIO/Command transport (subprocess execution)
   - Streamable HTTP transport
   - Server-Sent Events (SSE) over HTTP *(deprecated)*
 - Extract server information, capabilities, tools, resources, and prompts
+- **Selective Scanning**: Skip specific capability types (tools, resources, prompts) for performance optimization
 - Output documentation in Markdown, JSON, HTML, or PDF format *(PDF format is WIP)*
 - **Enhanced Markdown output with clickable Table of Contents**
 - **Rich structured context support** via external YAML/JSON configuration files
@@ -136,6 +137,14 @@ mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream"
 
 # Disable table of contents in markdown output
 mcp-server-dump --no-toc node server.js
+
+# Skip scanning specific types (performance optimization)
+mcp-server-dump --no-tools node server.js     # Skip tools
+mcp-server-dump --no-resources node server.js # Skip resources
+mcp-server-dump --no-prompts node server.js   # Skip prompts
+
+# Combine scan flags (at least one type must remain enabled)
+mcp-server-dump --no-tools --no-resources node server.js  # Only prompts
 
 # Generate HTML output from markdown
 mcp-server-dump -f html node server.js
@@ -318,6 +327,37 @@ contexts:
 - **InputSchema first**: Context always appears after InputSchema in output
 - **Fully optional**: No breaking changes, completely backward compatible
 
+### Selective Scanning Control
+
+Control which types of MCP server capabilities are scanned and included in the documentation for performance optimization and focused documentation:
+
+```bash
+# Skip tools entirely (useful for resource-only servers)
+mcp-server-dump --no-tools npx @modelcontextprotocol/server-filesystem /docs
+
+# Skip resources entirely (useful for tool-only servers)
+mcp-server-dump --no-resources node tool-server.js
+
+# Skip prompts entirely (useful for tool/resource servers)
+mcp-server-dump --no-prompts python server.py
+
+# Combine multiple flags (at least one type must remain enabled)
+mcp-server-dump --no-tools --no-resources python prompt-server.py  # Only prompts
+mcp-server-dump --no-resources --no-prompts node tool-server.js    # Only tools
+
+# Works with all output formats and options
+mcp-server-dump --no-tools -f json -o output.json node server.js
+mcp-server-dump --no-prompts -f pdf -o docs.pdf python server.py
+```
+
+**Key benefits:**
+- **Performance**: Skip unnecessary scanning for faster execution
+- **Focused documentation**: Generate documentation only for relevant capabilities
+- **Bandwidth optimization**: Reduce data transfer for network transports
+- **Error isolation**: Continue documentation generation even if specific capability types fail
+
+**Validation**: At least one scan type must remain enabled. The tool will error if all scan types are disabled (`--no-tools --no-resources --no-prompts`).
+
 ### Command Line Options
 
 ```
@@ -343,6 +383,9 @@ Flags:
       --context-file=CONTEXT-FILE,...
                              Path to context configuration files (YAML/JSON), can be used multiple times
       --server-command=STRING Server command for explicit command transport
+      --no-tools             Skip scanning tools from the MCP server
+      --no-resources         Skip scanning resources from the MCP server
+      --no-prompts           Skip scanning prompts from the MCP server
 ```
 
 ## GitHub Action
@@ -437,6 +480,9 @@ jobs:
           output-file: 'docs/enhanced-server-docs.html'
           context-files: 'docs/server-context.yaml,docs/security-context.json'
           frontmatter: 'yaml'
+          scan-tools: true      # Include tools (default)
+          scan-resources: true  # Include resources (default)
+          scan-prompts: false   # Skip prompts for faster generation
 
       - name: Upload enhanced documentation
         uses: actions/upload-artifact@v4
@@ -468,6 +514,48 @@ jobs:
   - Path traversal attempts (`../`, `../../`) are blocked automatically
   - Files outside the workspace directory are inaccessible
   - Suspicious path patterns are logged and skipped
+
+### Selective Scanning Usage
+
+```yaml
+name: Generate Focused MCP Documentation
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  tools-only-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Tools-Only Documentation
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'node tool-server.js'
+          format: 'markdown'
+          output-file: 'docs/tools-only.md'
+          scan-tools: true      # Include tools
+          scan-resources: false # Skip resources for performance
+          scan-prompts: false   # Skip prompts for performance
+
+      - name: Generate Resources-Only Documentation
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'python resource-server.py'
+          format: 'html'
+          output-file: 'docs/resources-only.html'
+          scan-tools: false     # Skip tools
+          scan-resources: true  # Include resources
+          scan-prompts: false   # Skip prompts
+
+      - name: Upload focused documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: focused-docs
+          path: docs/
+```
 
 ### HTTP Transport Usage
 
@@ -516,6 +604,9 @@ jobs:
 | `timeout` | Connection timeout in seconds | No | `30` |
 | `verbose` | Enable verbose output | No | `false` |
 | `context-files` | Context configuration files (YAML/JSON) for rich documentation (comma-separated). Files are merged in order, with later files overriding earlier ones. | No | - |
+| `scan-tools` | Include tools in the documentation output | No | `true` |
+| `scan-resources` | Include resources in the documentation output | No | `true` |
+| `scan-prompts` | Include prompts in the documentation output | No | `true` |
 
 ### Action Outputs
 

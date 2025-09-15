@@ -15,6 +15,11 @@ import (
 
 // Run executes the main application logic
 func Run(cli *CLI) error {
+	// Validate that at least one scan type is enabled
+	if cli.NoTools && cli.NoResources && cli.NoPrompts {
+		return fmt.Errorf("cannot disable all scan types: at least one of tools, resources, or prompts must be enabled")
+	}
+
 	ctx := context.Background()
 	session, err := createMCPSession(ctx, cli)
 	if err != nil {
@@ -26,7 +31,7 @@ func Run(cli *CLI) error {
 		}
 	}()
 
-	info := collectServerInfo(session)
+	info := collectServerInfo(session, cli)
 
 	if contextErr := applyContextConfig(info, cli.ContextFile); contextErr != nil {
 		return contextErr
@@ -76,7 +81,8 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 
 // collectServerInfo gathers basic server information and capabilities from the MCP server.
 // It initializes the server info structure with name, version, and capability flags.
-func collectServerInfo(session *mcp.ClientSession) *model.ServerInfo {
+// The CLI flags control which types of data are actually collected.
+func collectServerInfo(session *mcp.ClientSession, cli *CLI) *model.ServerInfo {
 	ctx := context.Background()
 	initResult := session.InitializeResult()
 
@@ -90,9 +96,16 @@ func collectServerInfo(session *mcp.ClientSession) *model.ServerInfo {
 		},
 	}
 
-	collectTools(session, ctx, initResult, info)
-	collectResources(session, ctx, initResult, info)
-	collectPrompts(session, ctx, initResult, info)
+	// Conditionally collect data based on CLI flags
+	if !cli.NoTools {
+		collectTools(session, ctx, initResult, info)
+	}
+	if !cli.NoResources {
+		collectResources(session, ctx, initResult, info)
+	}
+	if !cli.NoPrompts {
+		collectPrompts(session, ctx, initResult, info)
+	}
 
 	return info
 }
