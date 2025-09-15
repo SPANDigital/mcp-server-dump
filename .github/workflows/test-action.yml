@@ -211,6 +211,82 @@ jobs:
 
           echo "=== Context Files Integration Tests Completed ==="
 
+      - name: Test Scan Control - Skip Tools Only
+        id: test-skip-tools
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"resources":{"listChanged":true},"prompts":{"listChanged":true}},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          scan-tools: false
+          format: 'json'
+          output-file: 'no-tools-test.json'
+
+      - name: Test Scan Control - Skip Resources Only
+        id: test-skip-resources
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"resources":{"listChanged":true},"prompts":{"listChanged":true}},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          scan-resources: false
+          format: 'markdown'
+          output-file: 'no-resources-test.md'
+
+      - name: Test Scan Control - Skip Prompts Only
+        id: test-skip-prompts
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"resources":{"listChanged":true},"prompts":{"listChanged":true}},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          scan-prompts: false
+          format: 'json'
+          output-file: 'no-prompts-test.json'
+
+      - name: Test Scan Control - Skip All (Should Fail)
+        id: test-skip-all
+        continue-on-error: true
+        uses: ./
+        with:
+          server-command: 'echo {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}'
+          scan-tools: false
+          scan-resources: false
+          scan-prompts: false
+          format: 'json'
+          output-file: 'no-scan-test.json'
+
+      - name: Verify Scan Control Tests
+        run: |
+          echo "=== Verifying Scan Control Tests ==="
+
+          echo "Test 1: Skip tools only"
+          if [ "${{ steps.test-skip-tools.outcome }}" = "success" ]; then
+            echo "✅ Skip tools test passed"
+          else
+            echo "⚠️ Skip tools test failed"
+          fi
+
+          echo "Test 2: Skip resources only"
+          if [ "${{ steps.test-skip-resources.outcome }}" = "success" ]; then
+            echo "✅ Skip resources test passed"
+          else
+            echo "⚠️ Skip resources test failed"
+          fi
+
+          echo "Test 3: Skip prompts only"
+          if [ "${{ steps.test-skip-prompts.outcome }}" = "success" ]; then
+            echo "✅ Skip prompts test passed"
+          else
+            echo "⚠️ Skip prompts test failed"
+          fi
+
+          echo "Test 4: Skip all (should fail)"
+          if [ "${{ steps.test-skip-all.outcome }}" = "failure" ]; then
+            echo "✅ Skip all test correctly failed (validation working)"
+          else
+            echo "⚠️ Skip all test should have failed but didn't"
+          fi
+
+          echo "=== Scan Control Tests Completed ==="
+
       - name: Upload Test Results
         uses: actions/upload-artifact@v4
         if: always()
@@ -224,5 +300,9 @@ jobs:
             nonexistent-context-test.json
             path-traversal-test.json
             whitespace-context-test.json
+            no-tools-test.json
+            no-resources-test.md
+            no-prompts-test.json
+            no-scan-test.json
             test-context.yaml
             test-context2.json
