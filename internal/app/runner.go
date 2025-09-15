@@ -39,7 +39,8 @@ func Run(cli *CLI) error {
 	return writeOutput(output, cli.Output)
 }
 
-// createMCPSession creates and connects an MCP session
+// createMCPSession establishes a connection to the MCP server using the configured transport.
+// It returns a client session for communicating with the server, or an error if connection fails.
 func createMCPSession(cli *CLI) (*mcp.ClientSession, error) {
 	transportConfig := transport.Config{
 		Transport:     cli.Transport,
@@ -72,7 +73,8 @@ func createMCPSession(cli *CLI) (*mcp.ClientSession, error) {
 	return session, nil
 }
 
-// collectServerInfo gathers server information including tools, resources, and prompts
+// collectServerInfo gathers basic server information and capabilities from the MCP server.
+// It initializes the server info structure with name, version, and capability flags.
 func collectServerInfo(session *mcp.ClientSession) *model.ServerInfo {
 	ctx := context.Background()
 	initResult := session.InitializeResult()
@@ -162,7 +164,8 @@ func collectPrompts(session *mcp.ClientSession, ctx context.Context, initResult 
 	}
 }
 
-// applyContextConfig applies context configuration to server info if context files are provided
+// applyContextConfig applies context enhancement configuration from external YAML/JSON files.
+// It merges context data to enrich tool, resource, and prompt descriptions with additional content.
 func applyContextConfig(info *model.ServerInfo, contextFiles []string) error {
 	if len(contextFiles) == 0 {
 		return nil
@@ -186,7 +189,8 @@ func applyContextConfig(info *model.ServerInfo, contextFiles []string) error {
 	return nil
 }
 
-// formatOutput formats the server info according to the specified format
+// formatOutput converts the server information into the requested output format (markdown, HTML, JSON, or PDF).
+// It uses the appropriate formatter based on the CLI format specification and configuration options.
 func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 	switch cli.Format {
 	case "json":
@@ -214,7 +218,8 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 	}
 }
 
-// writeOutput writes the formatted output to file or stdout
+// writeOutput writes the formatted content to the specified output destination.
+// If outputPath is empty, content is written to stdout; otherwise to the specified file.
 func writeOutput(output []byte, outputPath string) error {
 	if outputPath != "" {
 		return os.WriteFile(outputPath, output, 0o600)
