@@ -15,37 +15,55 @@ const (
 // extractJSONNumber extracts a complete number from a JSON string starting at index i
 func extractJSONNumber(jsonStr string, i int) (numberStr string, nextIndex int) {
 	start := i
+	i = parseNumberSign(jsonStr, i)
+	i = parseIntegerPart(jsonStr, i)
+	i = parseDecimalPart(jsonStr, i)
+	i = parseScientificNotation(jsonStr, i)
+	return jsonStr[start:i], i
+}
 
-	// Handle negative sign
+// parseNumberSign handles the optional negative sign at the beginning of a number
+func parseNumberSign(jsonStr string, i int) int {
 	if i < len(jsonStr) && jsonStr[i] == '-' {
-		i++
+		return i + 1
 	}
+	return i
+}
 
-	// Handle integer part
+// parseIntegerPart parses the integer portion of a JSON number
+func parseIntegerPart(jsonStr string, i int) int {
 	for i < len(jsonStr) && jsonStr[i] >= '0' && jsonStr[i] <= '9' {
 		i++
 	}
+	return i
+}
 
-	// Handle decimal part
+// parseDecimalPart parses the optional decimal portion of a JSON number
+func parseDecimalPart(jsonStr string, i int) int {
 	if i < len(jsonStr) && jsonStr[i] == '.' {
-		i++
-		for i < len(jsonStr) && jsonStr[i] >= '0' && jsonStr[i] <= '9' {
-			i++
-		}
+		i++                              // Skip the decimal point
+		i = parseIntegerPart(jsonStr, i) // Parse decimal digits after decimal point
 	}
+	return i
+}
 
-	// Handle scientific notation
+// parseScientificNotation parses the optional scientific notation portion of a JSON number.
+// Examples: "1.23e10", "5E-3", "2.5e+7" - handles 'e'/'E' followed by optional sign and digits
+func parseScientificNotation(jsonStr string, i int) int {
 	if i < len(jsonStr) && (jsonStr[i] == 'e' || jsonStr[i] == 'E') {
-		i++
-		if i < len(jsonStr) && (jsonStr[i] == '+' || jsonStr[i] == '-') {
-			i++
-		}
-		for i < len(jsonStr) && jsonStr[i] >= '0' && jsonStr[i] <= '9' {
-			i++
-		}
+		i++ // Skip the 'e' or 'E'
+		i = parseExponentSign(jsonStr, i)
+		i = parseIntegerPart(jsonStr, i) // Reuse integer parsing for exponent digits
 	}
+	return i
+}
 
-	return jsonStr[start:i], i
+// parseExponentSign handles the optional sign in scientific notation exponent
+func parseExponentSign(jsonStr string, i int) int {
+	if i < len(jsonStr) && (jsonStr[i] == '+' || jsonStr[i] == '-') {
+		return i + 1
+	}
+	return i
 }
 
 // extractJSONQuotedString extracts a complete quoted string from JSON starting at index i

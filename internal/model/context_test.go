@@ -15,11 +15,37 @@ const (
 )
 
 func TestLoadContextConfig(t *testing.T) {
-	// Create a temporary directory for test files
 	tempDir := t.TempDir()
 
 	t.Run("valid_yaml_file", func(t *testing.T) {
-		yamlContent := `
+		testValidYAMLFile(t, tempDir)
+	})
+
+	t.Run("valid_json_file", func(t *testing.T) {
+		testValidJSONFile(t, tempDir)
+	})
+
+	t.Run("multiple_files_merge", func(t *testing.T) {
+		testMultipleFilesMerge(t, tempDir)
+	})
+
+	t.Run("invalid_yaml", func(t *testing.T) {
+		testInvalidYAML(t, tempDir)
+	})
+
+	t.Run("unsupported_format", func(t *testing.T) {
+		testUnsupportedFormat(t, tempDir)
+	})
+
+	t.Run("directory_traversal_attempt", func(t *testing.T) {
+		testDirectoryTraversalAttempt(t)
+	})
+}
+
+// testValidYAMLFile tests loading a valid YAML context file
+func testValidYAMLFile(t *testing.T, tempDir string) {
+	t.Helper()
+	yamlContent := `
 contexts:
   tools:
     read_file:
@@ -32,37 +58,45 @@ contexts:
     analyze:
       purpose: "Code analysis"
 `
-		yamlPath := filepath.Join(tempDir, "context.yaml")
-		if err := os.WriteFile(yamlPath, []byte(yamlContent), testFilePermissions); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
+	yamlPath := filepath.Join(tempDir, "context.yaml")
+	if err := os.WriteFile(yamlPath, []byte(yamlContent), testFilePermissions); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
 
-		result, err := LoadContextConfig([]string{yamlPath})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
+	result, err := LoadContextConfig([]string{yamlPath})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 
-		// Check tools
-		if result.Contexts.Tools["read_file"]["usage"] != testReadFileUsage {
-			t.Errorf("Expected usage '%s', got '%s'", testReadFileUsage, result.Contexts.Tools["read_file"]["usage"])
-		}
-		if result.Contexts.Tools["read_file"]["security"] != testReadOnlyAccess {
-			t.Errorf("Expected security '%s', got '%s'", testReadOnlyAccess, result.Contexts.Tools["read_file"]["security"])
-		}
+	validateYAMLResults(t, result)
+}
 
-		// Check resources
-		if result.Contexts.Resources["file://*"]["access"] != "File system access" {
-			t.Errorf("Expected access 'File system access', got '%s'", result.Contexts.Resources["file://*"]["access"])
-		}
+// validateYAMLResults validates the results from loading a YAML context file
+func validateYAMLResults(t *testing.T, result *ContextConfig) {
+	t.Helper()
+	// Check tools
+	if result.Contexts.Tools["read_file"]["usage"] != testReadFileUsage {
+		t.Errorf("Expected usage '%s', got '%s'", testReadFileUsage, result.Contexts.Tools["read_file"]["usage"])
+	}
+	if result.Contexts.Tools["read_file"]["security"] != testReadOnlyAccess {
+		t.Errorf("Expected security '%s', got '%s'", testReadOnlyAccess, result.Contexts.Tools["read_file"]["security"])
+	}
 
-		// Check prompts
-		if result.Contexts.Prompts["analyze"]["purpose"] != "Code analysis" {
-			t.Errorf("Expected purpose 'Code analysis', got '%s'", result.Contexts.Prompts["analyze"]["purpose"])
-		}
-	})
+	// Check resources
+	if result.Contexts.Resources["file://*"]["access"] != "File system access" {
+		t.Errorf("Expected access 'File system access', got '%s'", result.Contexts.Resources["file://*"]["access"])
+	}
 
-	t.Run("valid_json_file", func(t *testing.T) {
-		jsonContent := `{
+	// Check prompts
+	if result.Contexts.Prompts["analyze"]["purpose"] != "Code analysis" {
+		t.Errorf("Expected purpose 'Code analysis', got '%s'", result.Contexts.Prompts["analyze"]["purpose"])
+	}
+}
+
+// testValidJSONFile tests loading a valid JSON context file
+func testValidJSONFile(t *testing.T, tempDir string) {
+	t.Helper()
+	jsonContent := `{
   "contexts": {
     "tools": {
       "write_file": {
@@ -73,34 +107,49 @@ contexts:
     "prompts": {}
   }
 }`
-		jsonPath := filepath.Join(tempDir, "context.json")
-		if err := os.WriteFile(jsonPath, []byte(jsonContent), testFilePermissions); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
+	jsonPath := filepath.Join(tempDir, "context.json")
+	if err := os.WriteFile(jsonPath, []byte(jsonContent), testFilePermissions); err != nil {
+		t.Fatalf("Failed to create test file: %v", err)
+	}
 
-		result, err := LoadContextConfig([]string{jsonPath})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
+	result, err := LoadContextConfig([]string{jsonPath})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 
-		if result.Contexts.Tools["write_file"]["usage"] != "Write file contents" {
-			t.Errorf("Expected usage 'Write file contents', got '%s'", result.Contexts.Tools["write_file"]["usage"])
-		}
-	})
+	if result.Contexts.Tools["write_file"]["usage"] != "Write file contents" {
+		t.Errorf("Expected usage 'Write file contents', got '%s'", result.Contexts.Tools["write_file"]["usage"])
+	}
+}
 
-	t.Run("multiple_files_merge", func(t *testing.T) {
-		baseContent := `
+// testMultipleFilesMerge tests merging multiple context files
+func testMultipleFilesMerge(t *testing.T, tempDir string) {
+	t.Helper()
+	basePath, overridePath := createMergeTestFiles(t, tempDir)
+
+	result, err := LoadContextConfig([]string{basePath, overridePath})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	validateMergeResults(t, result)
+}
+
+// createMergeTestFiles creates test files for merge testing
+func createMergeTestFiles(t *testing.T, tempDir string) (basePath, overridePath string) {
+	t.Helper()
+	baseContent := `
 contexts:
   tools:
     read_file:
       usage: "Read file contents"
 `
-		basePath := filepath.Join(tempDir, "base.yaml")
-		if err := os.WriteFile(basePath, []byte(baseContent), testFilePermissions); err != nil {
-			t.Fatalf("Failed to create base file: %v", err)
-		}
+	basePath = filepath.Join(tempDir, "base.yaml")
+	if err := os.WriteFile(basePath, []byte(baseContent), testFilePermissions); err != nil {
+		t.Fatalf("Failed to create base file: %v", err)
+	}
 
-		overrideContent := `
+	overrideContent := `
 contexts:
   tools:
     read_file:
@@ -108,68 +157,74 @@ contexts:
     write_file:
       usage: "Write file contents"
 `
-		overridePath := filepath.Join(tempDir, "override.yaml")
-		if err := os.WriteFile(overridePath, []byte(overrideContent), testFilePermissions); err != nil {
-			t.Fatalf("Failed to create override file: %v", err)
-		}
+	overridePath = filepath.Join(tempDir, "override.yaml")
+	if err := os.WriteFile(overridePath, []byte(overrideContent), testFilePermissions); err != nil {
+		t.Fatalf("Failed to create override file: %v", err)
+	}
 
-		result, err := LoadContextConfig([]string{basePath, overridePath})
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
+	return basePath, overridePath
+}
 
-		// Check merged read_file tool
-		if result.Contexts.Tools["read_file"]["usage"] != testReadFileUsage {
-			t.Errorf("Expected usage '%s', got '%s'", testReadFileUsage, result.Contexts.Tools["read_file"]["usage"])
-		}
-		if result.Contexts.Tools["read_file"]["security"] != testReadOnlyAccess {
-			t.Errorf("Expected security '%s', got '%s'", testReadOnlyAccess, result.Contexts.Tools["read_file"]["security"])
-		}
+// validateMergeResults validates the results from merging multiple context files
+func validateMergeResults(t *testing.T, result *ContextConfig) {
+	t.Helper()
+	// Check merged read_file tool
+	if result.Contexts.Tools["read_file"]["usage"] != testReadFileUsage {
+		t.Errorf("Expected usage '%s', got '%s'", testReadFileUsage, result.Contexts.Tools["read_file"]["usage"])
+	}
+	if result.Contexts.Tools["read_file"]["security"] != testReadOnlyAccess {
+		t.Errorf("Expected security '%s', got '%s'", testReadOnlyAccess, result.Contexts.Tools["read_file"]["security"])
+	}
 
-		// Check write_file tool
-		if result.Contexts.Tools["write_file"]["usage"] != "Write file contents" {
-			t.Errorf("Expected usage 'Write file contents', got '%s'", result.Contexts.Tools["write_file"]["usage"])
-		}
-	})
+	// Check write_file tool
+	if result.Contexts.Tools["write_file"]["usage"] != "Write file contents" {
+		t.Errorf("Expected usage 'Write file contents', got '%s'", result.Contexts.Tools["write_file"]["usage"])
+	}
+}
 
-	t.Run("invalid_yaml", func(t *testing.T) {
-		invalidContent := `invalid: yaml: content: [`
-		invalidPath := filepath.Join(tempDir, "invalid.yaml")
-		if err := os.WriteFile(invalidPath, []byte(invalidContent), testFilePermissions); err != nil {
-			t.Fatalf("Failed to create invalid file: %v", err)
-		}
+// testInvalidYAML tests handling of invalid YAML content
+func testInvalidYAML(t *testing.T, tempDir string) {
+	t.Helper()
+	invalidContent := `invalid: yaml: content: [`
+	invalidPath := filepath.Join(tempDir, "invalid.yaml")
+	if err := os.WriteFile(invalidPath, []byte(invalidContent), testFilePermissions); err != nil {
+		t.Fatalf("Failed to create invalid file: %v", err)
+	}
 
-		_, err := LoadContextConfig([]string{invalidPath})
-		if err == nil {
-			t.Error("Expected error for invalid YAML but got none")
-		}
-	})
+	_, err := LoadContextConfig([]string{invalidPath})
+	if err == nil {
+		t.Error("Expected error for invalid YAML but got none")
+	}
+}
 
-	t.Run("unsupported_format", func(t *testing.T) {
-		txtContent := `some content`
-		txtPath := filepath.Join(tempDir, "config.txt")
-		if err := os.WriteFile(txtPath, []byte(txtContent), testFilePermissions); err != nil {
-			t.Fatalf("Failed to create txt file: %v", err)
-		}
+// testUnsupportedFormat tests handling of unsupported file formats
+func testUnsupportedFormat(t *testing.T, tempDir string) {
+	t.Helper()
+	txtContent := `some content`
+	txtPath := filepath.Join(tempDir, "config.txt")
+	if err := os.WriteFile(txtPath, []byte(txtContent), testFilePermissions); err != nil {
+		t.Fatalf("Failed to create txt file: %v", err)
+	}
 
-		_, err := LoadContextConfig([]string{txtPath})
-		if err == nil {
-			t.Error("Expected error for unsupported format but got none")
-		}
-		if !strings.Contains(err.Error(), "unsupported file format") {
-			t.Errorf("Expected unsupported format error, got: %v", err)
-		}
-	})
+	_, err := LoadContextConfig([]string{txtPath})
+	if err == nil {
+		t.Error("Expected error for unsupported format but got none")
+	}
+	if !strings.Contains(err.Error(), "unsupported file format") {
+		t.Errorf("Expected unsupported format error, got: %v", err)
+	}
+}
 
-	t.Run("directory_traversal_attempt", func(t *testing.T) {
-		_, err := LoadContextConfig([]string{"../malicious.yaml"})
-		if err == nil {
-			t.Error("Expected error for directory traversal but got none")
-		}
-		if !strings.Contains(err.Error(), "directory traversal not allowed") {
-			t.Errorf("Expected directory traversal error, got: %v", err)
-		}
-	})
+// testDirectoryTraversalAttempt tests protection against directory traversal attacks
+func testDirectoryTraversalAttempt(t *testing.T) {
+	t.Helper()
+	_, err := LoadContextConfig([]string{"../malicious.yaml"})
+	if err == nil {
+		t.Error("Expected error for directory traversal but got none")
+	}
+	if !strings.Contains(err.Error(), "directory traversal not allowed") {
+		t.Errorf("Expected directory traversal error, got: %v", err)
+	}
 }
 
 func TestContextConfig_ApplyToTool(t *testing.T) {
