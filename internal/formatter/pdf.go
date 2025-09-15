@@ -475,7 +475,8 @@ func renderWhitespace(pdf *fpdf.Fpdf, line string, i int, lineHeight float64) in
 	return i
 }
 
-// isJSONStructuralChar checks if character is a JSON structural character
+// isJSONStructuralChar reports whether the character is a JSON structural character.
+// It returns true for braces, brackets, comma, and colon.
 func isJSONStructuralChar(char byte) bool {
 	return char == '{' || char == '}' || char == '[' || char == ']' || char == ',' || char == ':'
 }
@@ -517,7 +518,8 @@ func isPDFJSONKey(line string, startIndex int) bool {
 	return false
 }
 
-// isJSONNumber checks if character can start a JSON number
+// isJSONNumber reports whether the character can begin a JSON number.
+// It returns true for digits, minus sign, and decimal point.
 func isJSONNumber(char byte) bool {
 	return (char >= '0' && char <= '9') || char == '-' || char == '.'
 }
@@ -531,9 +533,24 @@ func renderNumberPDF(pdf *fpdf.Fpdf, line string, i int, lineHeight float64) int
 	return nextIndex
 }
 
-// startsWithBoolean checks if the current position starts with a boolean
+// startsWithBoolean reports whether the current position starts with a boolean value.
+// It checks for "true" and "false" at the given position with word boundary validation.
 func startsWithBoolean(line string, i int) bool {
-	return strings.HasPrefix(line[i:], "true") || strings.HasPrefix(line[i:], "false")
+	if strings.HasPrefix(line[i:], "true") {
+		// Check that "true" is not part of a longer word
+		end := i + 4
+		if end >= len(line) || !isAlphaNumeric(line[end]) {
+			return true
+		}
+	}
+	if strings.HasPrefix(line[i:], "false") {
+		// Check that "false" is not part of a longer word
+		end := i + 5
+		if end >= len(line) || !isAlphaNumeric(line[end]) {
+			return true
+		}
+	}
+	return false
 }
 
 // renderBooleanPDF renders boolean values

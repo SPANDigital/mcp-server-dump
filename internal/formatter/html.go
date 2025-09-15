@@ -121,26 +121,49 @@ func highlightJSONHTML(jsonStr string) string {
 	return result.String()
 }
 
-// isWhitespace checks if character is whitespace
+// isWhitespace reports whether the character is a whitespace character.
+// It returns true for space, tab, newline, and carriage return.
 func isWhitespace(char byte) bool {
 	return char == ' ' || char == '\t' || char == '\n' || char == '\r'
 }
 
-// isPunctuation checks if character is JSON punctuation
+// isPunctuation reports whether the character is a JSON structural character.
+// It returns true for braces, brackets, comma, and colon.
 func isPunctuation(char byte) bool {
 	return char == '{' || char == '}' || char == '[' || char == ']' || char == ',' || char == ':'
 }
 
-// isNumberStart checks if character can start a number
+// isNumberStart reports whether the character can begin a JSON number.
+// It returns true for digits, minus sign, and decimal point.
 func isNumberStart(char byte) bool {
 	return (char >= '0' && char <= '9') || char == '-' || char == '.'
 }
 
-// isBooleanOrNull checks if the current position starts a boolean or null value
+// isBooleanOrNull reports whether the current position starts a boolean or null value.
+// It checks for "true", "false", and "null" at the given position with word boundary validation.
 func isBooleanOrNull(jsonStr string, i int) bool {
-	return strings.HasPrefix(jsonStr[i:], boolTrue) ||
-		strings.HasPrefix(jsonStr[i:], boolFalse) ||
-		strings.HasPrefix(jsonStr[i:], "null")
+	if strings.HasPrefix(jsonStr[i:], boolTrue) {
+		// Check that "true" is not part of a longer word
+		end := i + len(boolTrue)
+		if end >= len(jsonStr) || !isAlphaNumeric(jsonStr[end]) {
+			return true
+		}
+	}
+	if strings.HasPrefix(jsonStr[i:], boolFalse) {
+		// Check that "false" is not part of a longer word
+		end := i + len(boolFalse)
+		if end >= len(jsonStr) || !isAlphaNumeric(jsonStr[end]) {
+			return true
+		}
+	}
+	if strings.HasPrefix(jsonStr[i:], "null") {
+		// Check that "null" is not part of a longer word
+		end := i + 4
+		if end >= len(jsonStr) || !isAlphaNumeric(jsonStr[end]) {
+			return true
+		}
+	}
+	return false
 }
 
 // processQuotedString processes a quoted string and determines if it's a key or value
