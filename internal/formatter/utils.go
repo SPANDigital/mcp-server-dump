@@ -47,7 +47,8 @@ func parseDecimalPart(jsonStr string, i int) int {
 	return i
 }
 
-// parseScientificNotation parses the optional scientific notation portion of a JSON number
+// parseScientificNotation parses the optional scientific notation portion of a JSON number.
+// Examples: "1.23e10", "5E-3", "2.5e+7" - handles 'e'/'E' followed by optional sign and digits
 func parseScientificNotation(jsonStr string, i int) int {
 	if i < len(jsonStr) && (jsonStr[i] == 'e' || jsonStr[i] == 'E') {
 		i++ // Skip the 'e' or 'E'

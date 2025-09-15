@@ -49,12 +49,12 @@ func (c *ContextConfig) mergeFile(filename string) error {
 		return err
 	}
 
-	fileInfo, err := validateFileSize(cleanPath)
+	_, err = validateFileSize(cleanPath)
 	if err != nil {
 		return err
 	}
 
-	data, err := readContextFile(cleanPath, fileInfo.Size())
+	data, err := readContextFile(cleanPath)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func validateFileSize(cleanPath string) (os.FileInfo, error) {
 }
 
 // readContextFile safely reads the context file content with size limits
-func readContextFile(cleanPath string, _ int64) ([]byte, error) {
+func readContextFile(cleanPath string) ([]byte, error) {
 	file, err := os.Open(cleanPath) // #nosec G304 - path is validated and cleaned
 	if err != nil {
 		return nil, err
@@ -107,23 +107,22 @@ func readContextFile(cleanPath string, _ int64) ([]byte, error) {
 }
 
 // parseContextFile parses the context file based on its extension
-func parseContextFile(data []byte, cleanPath string) (ContextConfig, error) {
+func parseContextFile(data []byte, cleanPath string) (config ContextConfig, err error) {
 	ext := strings.ToLower(filepath.Ext(cleanPath))
-	var tempConfig ContextConfig
 
 	switch ext {
 	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(data, &tempConfig); err != nil {
-			return tempConfig, fmt.Errorf("failed to parse YAML: %w", err)
+		if err = yaml.Unmarshal(data, &config); err != nil {
+			err = fmt.Errorf("failed to parse YAML: %w", err)
 		}
 	case ".json":
-		if err := json.Unmarshal(data, &tempConfig); err != nil {
-			return tempConfig, fmt.Errorf("failed to parse JSON: %w", err)
+		if err = json.Unmarshal(data, &config); err != nil {
+			err = fmt.Errorf("failed to parse JSON: %w", err)
 		}
 	default:
-		return tempConfig, fmt.Errorf("unsupported file format: %s (supported: .yaml, .yml, .json)", ext)
+		err = fmt.Errorf("unsupported file format: %s (supported: .yaml, .yml, .json)", ext)
 	}
-	return tempConfig, nil
+	return
 }
 
 // mergeContextData merges the parsed context data into the current configuration
