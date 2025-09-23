@@ -122,7 +122,7 @@ func parseContextFile(data []byte, cleanPath string) (config ContextConfig, err 
 	default:
 		err = fmt.Errorf("unsupported file format: %s (supported: .yaml, .yml, .json)", ext)
 	}
-	return
+	return config, err
 }
 
 // mergeContextData merges the parsed context data into the current configuration
