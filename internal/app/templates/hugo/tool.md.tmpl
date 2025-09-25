@@ -1,0 +1,13 @@
+# {{ .Name }}
+
+{{ if .Description }}{{ .Description }}{{ else }}*No description available*{{ end }}
+
+## Input Schema
+
+{{ if .InputSchema }}```json
+{{ json .InputSchema }}
+```{{ else }}This tool accepts no input parameters.{{ end }}
+
+{{ if .Context }}{{ if .Context.content }}## Additional Documentation
+
+{{ .Context.content }}{{ end }}{{ end }}

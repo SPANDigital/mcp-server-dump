@@ -20,11 +20,11 @@ inputs:
     description: 'HTTP headers in Key:Value format (comma-separated for multiple)'
     required: false
   format:
-    description: 'Output format (markdown, html, json, pdf)'
+    description: 'Output format (markdown, html, json, pdf, hugo)'
     required: false
     default: 'markdown'
   output-file:
-    description: 'Output file path (required for pdf format)'
+    description: 'Output file path (required for pdf format) or directory path (for hugo format)'
     required: false
   no-toc:
     description: 'Disable table of contents in markdown output'
@@ -190,6 +190,10 @@ runs:
                 "pdf")
                     error_exit "PDF format requires output-file to be specified"
                     ;;
+                "hugo")
+                    OUTPUT_FILE="hugo-docs"
+                    CMD_ARGS+=("-o" "$OUTPUT_FILE")
+                    ;;
                 *)
                     OUTPUT_FILE="mcp-server-dump.md"
                     CMD_ARGS+=("-o" "$OUTPUT_FILE")
@@ -264,16 +268,28 @@ runs:
             # Set outputs
             set_output "output-file" "$OUTPUT_FILE"
 
-            # If the output file exists, try to extract server info for the output
-            if [ -f "$OUTPUT_FILE" ] && [ "${{ inputs.format }}" = "json" ]; then
+            # Handle output verification and server info based on format
+            if [ "${{ inputs.format }}" = "hugo" ]; then
+                # Hugo format creates a directory, not a file
+                if [ -d "$OUTPUT_FILE" ]; then
+                    SERVER_INFO="{\"output_directory\":\"$OUTPUT_FILE\",\"format\":\"${{ inputs.format }}\"}"
+                    set_output "server-info" "$SERVER_INFO"
+                    log "Output: Generated Hugo documentation site at directory '$OUTPUT_FILE'"
+                else
+                    error_exit "Failed: Hugo format should have created directory '$OUTPUT_FILE'"
+                fi
+            elif [ -f "$OUTPUT_FILE" ] && [ "${{ inputs.format }}" = "json" ]; then
+                # JSON format - extract server info from the JSON file
                 SERVER_INFO=$(cat "$OUTPUT_FILE")
                 set_output "server-info" "$SERVER_INFO"
                 log "Output: Generated ${{ inputs.format }} documentation with server metadata at '$OUTPUT_FILE'"
             elif [ -f "$OUTPUT_FILE" ]; then
-                # For non-JSON formats, create a simple server info
+                # Other file formats (markdown, html, pdf)
                 SERVER_INFO="{\"output_file\":\"$OUTPUT_FILE\",\"format\":\"${{ inputs.format }}\"}"
                 set_output "server-info" "$SERVER_INFO"
                 log "Output: Generated ${{ inputs.format }} documentation at '$OUTPUT_FILE'"
+            else
+                error_exit "Failed: Expected output was not created"
             fi
         else
             error_exit "Failed: MCP Server documentation extraction encountered an error"

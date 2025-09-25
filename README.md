@@ -15,7 +15,8 @@ A command-line tool to extract and document MCP (Model Context Protocol) server 
   - Server-Sent Events (SSE) over HTTP *(deprecated)*
 - Extract server information, capabilities, tools, resources, and prompts
 - **Selective Scanning**: Skip specific capability types (tools, resources, prompts) for performance optimization
-- Output documentation in Markdown, JSON, HTML, or PDF format *(PDF format is WIP)*
+- Output documentation in Markdown, JSON, HTML, PDF, or **Hugo** format
+- **Hugo format**: Generate a complete Hugo documentation site structure with hierarchical content organization
 - **Enhanced Markdown output with clickable Table of Contents**
 - **Rich structured context support** via external YAML/JSON configuration files
 - **Frontmatter support** for static site generator integration (Hugo, Jekyll, etc.)
@@ -174,11 +175,59 @@ mcp-server-dump -f html node server.js
 # PDF output (requires output file)
 mcp-server-dump -f pdf -o server-docs.pdf node server.js
 
+# Hugo documentation site (requires output directory)
+mcp-server-dump -f hugo -o hugo-docs node server.js
+
+# Hugo with frontmatter and custom fields
+mcp-server-dump -f hugo -o hugo-docs --frontmatter \
+  -M "author:MCP Team" \
+  -M "category:documentation" \
+  node server.js
+
 # Output to file (any format)
 mcp-server-dump -f json -o server-info.json python server.py
 mcp-server-dump -f html -o server-docs.html python server.py
 mcp-server-dump -f pdf -o server-docs.pdf python server.py
 ```
+
+### Hugo Documentation Site
+
+The Hugo format generates a complete content directory structure suitable for [Hugo](https://gohugo.io/) static site generator:
+
+```bash
+# Generate Hugo documentation site
+mcp-server-dump -f hugo -o my-docs node server.js
+
+# Directory structure created:
+my-docs/
+└── content/
+    ├── _index.md           # Root index with server info
+    ├── tools/
+    │   ├── _index.md      # Tools section index
+    │   ├── tool1.md       # Individual tool page
+    │   └── tool2.md
+    ├── resources/
+    │   ├── _index.md      # Resources section index
+    │   ├── resource1.md   # Individual resource page
+    │   └── resource2.md
+    └── prompts/
+        ├── _index.md      # Prompts section index
+        ├── prompt1.md     # Individual prompt page
+        └── prompt2.md
+
+# Build with Hugo
+cd my-docs
+hugo new site . --force
+hugo serve
+```
+
+**Hugo format features:**
+- Hierarchical content organization with `_index.md` files for sections
+- Individual markdown files for each tool, resource, and prompt
+- SEO-friendly URLs with slug-safe filenames
+- Automatic weight assignment for proper ordering
+- Full frontmatter support with custom fields
+- Compatible with all Hugo themes
 
 ### Frontmatter Support
 
