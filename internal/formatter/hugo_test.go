@@ -137,6 +137,69 @@ func TestFormatHugo(t *testing.T) {
 	})
 }
 
+func TestFormatHugoErrorPaths(t *testing.T) {
+	info := &model.ServerInfo{
+		Name:    "Test Server",
+		Version: "1.0.0",
+		Capabilities: model.Capabilities{
+			Tools:     true,
+			Resources: true,
+			Prompts:   true,
+		},
+	}
+
+	t.Run("path traversal protection", func(t *testing.T) {
+		err := FormatHugo(info, "../malicious", false, "", nil, testHugoTemplateFS)
+		if err == nil {
+			t.Error("Expected error for path traversal attempt")
+		}
+		if !strings.Contains(err.Error(), "path traversal") {
+			t.Errorf("Expected path traversal error, got: %v", err)
+		}
+	})
+
+	t.Run("system directory protection", func(t *testing.T) {
+		err := FormatHugo(info, "/etc", false, "", nil, testHugoTemplateFS)
+		if err == nil {
+			t.Error("Expected error for system directory")
+		}
+		if !strings.Contains(err.Error(), "critical system directory") {
+			t.Errorf("Expected system directory error, got: %v", err)
+		}
+	})
+
+	t.Run("invalid output directory", func(t *testing.T) {
+		err := FormatHugo(info, "/nonexistent/readonly/path", false, "", nil, testHugoTemplateFS)
+		if err == nil {
+			t.Error("Expected error for invalid directory")
+		}
+	})
+}
+
+func TestSlugifyEdgeCases(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"unicode characters", "测试文档", ""},
+		{"only special chars", "@#$%^&*()", ""},
+		{"very long name", strings.Repeat("a", 200), strings.Repeat("a", 200)},
+		{"mixed unicode and ascii", "test-测试-doc", "test-doc"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := slugify(tt.input)
+			if tt.expected == "" && result != "unnamed" {
+				t.Errorf("slugify(%q) = %q, want %q", tt.input, result, "unnamed")
+			} else if tt.expected != "" && result != tt.expected {
+				t.Errorf("slugify(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestSlugify(t *testing.T) {
 	tests := []struct {
 		input    string
