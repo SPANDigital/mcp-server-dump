@@ -1,0 +1,13 @@
+# {{ .Name }}
+
+**URI:** `{{ .URI }}`
+
+{{ if .MimeType }}**MIME Type:** {{ .MimeType }}
+
+{{ end }}## Description
+
+{{ if .Description }}{{ .Description }}{{ else }}*No description available*{{ end }}
+
+{{ if .Context }}{{ if .Context.content }}## Additional Documentation
+
+{{ .Context.content }}{{ end }}{{ end }}

@@ -214,7 +214,7 @@ func applyContextConfig(info *model.ServerInfo, contextFiles []string) error {
 	return nil
 }
 
-// formatOutput converts the server information into the requested output format (markdown, HTML, JSON, or PDF).
+// formatOutput converts the server information into the requested output format (markdown, HTML, JSON, PDF, or Hugo).
 // It uses the appropriate formatter based on the CLI format specification and configuration options.
 func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 	switch cli.Format {
@@ -231,6 +231,17 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 			return nil, fmt.Errorf("PDF format requires --output flag")
 		}
 		return formatter.FormatPDF(info, !cli.NoTOC)
+	case "hugo":
+		if cli.Output == "" {
+			return nil, fmt.Errorf("hugo format requires --output flag (directory path)")
+		}
+		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
+		err := formatter.FormatHugo(info, cli.Output, cli.Frontmatter, cli.FrontmatterFormat, customFields, HugoTemplateFS)
+		if err != nil {
+			return nil, err
+		}
+		// Return empty bytes since Hugo writes directly to files
+		return []byte{}, nil
 	case "markdown":
 		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
 		markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, TemplateFS)
@@ -245,7 +256,13 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 
 // writeOutput writes the formatted content to the specified output destination.
 // If outputPath is empty, content is written to stdout; otherwise to the specified file.
+// For Hugo format, the output is already written to files, so this function does nothing.
 func writeOutput(output []byte, outputPath string) error {
+	// Hugo format writes directly to files, so skip if output is empty
+	if len(output) == 0 {
+		return nil
+	}
+
 	if outputPath != "" {
 		return os.WriteFile(outputPath, output, 0o600)
 	}

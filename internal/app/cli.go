@@ -13,8 +13,8 @@ type CLI struct {
 	Version kong.VersionFlag `kong:"short='v',help='Show version information'"`
 
 	// Output options
-	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout)'"`
-	Format string `kong:"short='f',default='markdown',enum='markdown,json,html,pdf',help='Output format'"`
+	Output string `kong:"short='o',help='Output file for documentation (defaults to stdout, required for hugo format as directory)'"`
+	Format string `kong:"short='f',default='markdown',enum='markdown,json,html,pdf,hugo',help='Output format'"`
 	NoTOC  bool   `kong:"help='Disable table of contents in markdown output'"`
 
 	// Frontmatter options

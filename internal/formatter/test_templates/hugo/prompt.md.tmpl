@@ -1,0 +1,14 @@
+# {{ .Name }}
+
+{{ if .Description }}{{ .Description }}{{ else }}*No description available*{{ end }}
+
+{{ if .Arguments }}## Arguments
+
+{{ range .Arguments }}```json
+{{ json . }}
+```
+{{ end }}{{ end }}
+
+{{ if .Context }}{{ if .Context.content }}## Additional Documentation
+
+{{ .Context.content }}{{ end }}{{ end }}
