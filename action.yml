@@ -264,23 +264,40 @@ runs:
 
         # Add Hugo-specific configuration if format is hugo
         if [ "${{ inputs.format }}" = "hugo" ]; then
-            if [ -n "${{ inputs.hugo-base-url }}" ]; then
-                CMD_ARGS+=("--hugo-base-url" "${{ inputs.hugo-base-url }}")
+            # Hugo base URL
+            HUGO_BASE_URL="${{ inputs.hugo-base-url }}"
+            if [ -n "${HUGO_BASE_URL}" ]; then
+                CMD_ARGS+=("--hugo-base-url" "${HUGO_BASE_URL}")
             fi
-            if [ -n "${{ inputs.hugo-language-code }}" ] && [ "${{ inputs.hugo-language-code }}" != "en-us" ]; then
-                CMD_ARGS+=("--hugo-language-code" "${{ inputs.hugo-language-code }}")
+
+            # Hugo language code (with defensive default handling)
+            HUGO_LANG_CODE="${{ inputs.hugo-language-code }}"
+            if [ -n "${HUGO_LANG_CODE}" ] && [ "${HUGO_LANG_CODE}" != "en-us" ]; then
+                CMD_ARGS+=("--hugo-language-code" "${HUGO_LANG_CODE}")
             fi
-            if [ -n "${{ inputs.hugo-theme }}" ] && [ "${{ inputs.hugo-theme }}" != "ananke" ]; then
-                CMD_ARGS+=("--hugo-theme" "${{ inputs.hugo-theme }}")
+
+            # Hugo theme (with defensive default handling)
+            HUGO_THEME="${{ inputs.hugo-theme }}"
+            if [ -n "${HUGO_THEME}" ] && [ "${HUGO_THEME}" != "ananke" ]; then
+                CMD_ARGS+=("--hugo-theme" "${HUGO_THEME}")
             fi
-            if [ -n "${{ inputs.hugo-github }}" ]; then
-                CMD_ARGS+=("--hugo-github" "${{ inputs.hugo-github }}")
+
+            # Hugo GitHub username
+            HUGO_GITHUB="${{ inputs.hugo-github }}"
+            if [ -n "${HUGO_GITHUB}" ]; then
+                CMD_ARGS+=("--hugo-github" "${HUGO_GITHUB}")
             fi
-            if [ -n "${{ inputs.hugo-twitter }}" ]; then
-                CMD_ARGS+=("--hugo-twitter" "${{ inputs.hugo-twitter }}")
+
+            # Hugo Twitter handle
+            HUGO_TWITTER="${{ inputs.hugo-twitter }}"
+            if [ -n "${HUGO_TWITTER}" ]; then
+                CMD_ARGS+=("--hugo-twitter" "${HUGO_TWITTER}")
             fi
-            if [ -n "${{ inputs.hugo-site-logo }}" ]; then
-                CMD_ARGS+=("--hugo-site-logo" "${{ inputs.hugo-site-logo }}")
+
+            # Hugo site logo
+            HUGO_SITE_LOGO="${{ inputs.hugo-site-logo }}"
+            if [ -n "${HUGO_SITE_LOGO}" ]; then
+                CMD_ARGS+=("--hugo-site-logo" "${HUGO_SITE_LOGO}")
             fi
         fi
 

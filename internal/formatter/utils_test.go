@@ -56,6 +56,7 @@ func TestHumanizeKey(t *testing.T) {
 
 		// Additional acronym test cases (single words should be uppercase)
 		{"api", "api", "API"},
+		{"cdn", "cdn", "CDN"},
 		{"http", "http", "HTTP"},
 		{"jwt", "jwt", "JWT"},
 		{"ssl", "ssl", "SSL"},
@@ -70,6 +71,7 @@ func TestHumanizeKey(t *testing.T) {
 
 		// Multi-word with acronyms (all acronyms should be uppercase)
 		{"user api key", "user_api_key", "User API Key"},
+		{"cdn endpoint url", "cdn_endpoint_url", "CDN Endpoint URL"},
 		{"server http port", "server_http_port", "Server HTTP Port"},
 		{"auth jwt token", "auth_jwt_token", "Auth JWT Token"},
 		{"database sql query", "database_sql_query", "Database SQL Query"},

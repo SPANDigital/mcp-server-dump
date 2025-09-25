@@ -186,6 +186,7 @@ var (
 		"ACL":   true,
 		"API":   true,
 		"ASCII": true,
+		"CDN":   true, // Addition: Content Delivery Network
 		"CPU":   true,
 		"CSS":   true,
 		"DNS":   true,
