@@ -61,6 +61,11 @@ linters:
         linters:
           - dupl
           - gosec
+      # Hugo documentation generator needs more permissive permissions for accessibility
+      - path: internal/formatter/hugo\.go
+        linters:
+          - gosec
+        text: "G301|G306"
 
 formatters:
   enable:
