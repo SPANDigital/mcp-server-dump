@@ -105,8 +105,8 @@ func TestFormatHugo(t *testing.T) {
 			t.Fatalf("Failed to create temp dir: %v", err)
 		}
 		defer func() {
-			if err := os.RemoveAll(tempDir2); err != nil {
-				t.Logf("Failed to clean up temp dir: %v", err)
+			if cleanupErr := os.RemoveAll(tempDir2); cleanupErr != nil {
+				t.Logf("Failed to clean up temp dir: %v", cleanupErr)
 			}
 		}()
 

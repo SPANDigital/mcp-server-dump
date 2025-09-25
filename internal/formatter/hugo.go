@@ -110,7 +110,7 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 
 	// Write to file
 	indexPath := filepath.Join(contentDir, "_index.md")
-	return os.WriteFile(indexPath, content.Bytes(), 0600)
+	return os.WriteFile(indexPath, content.Bytes(), 0o600)
 }
 
 // generateToolsSection creates the tools directory and all tool markdown files
@@ -211,7 +211,7 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 
 	// Write to file
 	indexPath := filepath.Join(dir, "_index.md")
-	return os.WriteFile(indexPath, content.Bytes(), 0600)
+	return os.WriteFile(indexPath, content.Bytes(), 0o600)
 }
 
 // generateContentFile creates an individual content markdown file with the given template
@@ -271,7 +271,7 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	filename := slugify(name) + ".md"
 	filePath := filepath.Join(dir, filename)
 
-	return os.WriteFile(filePath, content.Bytes(), 0600)
+	return os.WriteFile(filePath, content.Bytes(), 0o600)
 }
 
 // generateToolFile creates an individual tool markdown file
