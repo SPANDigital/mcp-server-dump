@@ -20,7 +20,7 @@ import (
 func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) error {
 	// Create the content directory structure
 	contentDir := filepath.Join(outputDir, "content")
-	if err := os.MkdirAll(contentDir, 0o750); err != nil {
+	if err := os.MkdirAll(contentDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create content directory: %w", err)
 	}
 
@@ -110,13 +110,13 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 
 	// Write to file
 	indexPath := filepath.Join(contentDir, "_index.md")
-	return os.WriteFile(indexPath, content.Bytes(), 0o600)
+	return os.WriteFile(indexPath, content.Bytes(), 0o644)
 }
 
 // generateToolsSection creates the tools directory and all tool markdown files
 func generateToolsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) error {
 	toolsDir := filepath.Join(contentDir, "tools")
-	if err := os.MkdirAll(toolsDir, 0o750); err != nil {
+	if err := os.MkdirAll(toolsDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create tools directory: %w", err)
 	}
 
@@ -138,7 +138,7 @@ func generateToolsSection(info *model.ServerInfo, contentDir string, includeFron
 // generateResourcesSection creates the resources directory and all resource markdown files
 func generateResourcesSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) error {
 	resourcesDir := filepath.Join(contentDir, "resources")
-	if err := os.MkdirAll(resourcesDir, 0o750); err != nil {
+	if err := os.MkdirAll(resourcesDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create resources directory: %w", err)
 	}
 
@@ -160,7 +160,7 @@ func generateResourcesSection(info *model.ServerInfo, contentDir string, include
 // generatePromptsSection creates the prompts directory and all prompt markdown files
 func generatePromptsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) error {
 	promptsDir := filepath.Join(contentDir, "prompts")
-	if err := os.MkdirAll(promptsDir, 0o750); err != nil {
+	if err := os.MkdirAll(promptsDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create prompts directory: %w", err)
 	}
 
@@ -211,7 +211,7 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 
 	// Write to file
 	indexPath := filepath.Join(dir, "_index.md")
-	return os.WriteFile(indexPath, content.Bytes(), 0o600)
+	return os.WriteFile(indexPath, content.Bytes(), 0o644)
 }
 
 // generateContentFile creates an individual content markdown file with the given template
@@ -271,7 +271,7 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	filename := slugify(name) + ".md"
 	filePath := filepath.Join(dir, filename)
 
-	return os.WriteFile(filePath, content.Bytes(), 0o600)
+	return os.WriteFile(filePath, content.Bytes(), 0o644)
 }
 
 // generateToolFile creates an individual tool markdown file
