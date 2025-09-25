@@ -9,6 +9,17 @@
 ```
 {{ end }}{{ end }}
 
-{{ if .Context }}{{ if .Context.content }}## Additional Documentation
+{{ if .Context }}## Additional Documentation
 
-{{ .Context.content }}{{ end }}{{ end }}
+{{ range $key, $value := .Context -}}
+{{ if contains $value "\n" -}}
+### {{ $key }}
+
+{{ $value }}
+
+{{ else -}}
+**{{ $key }}:** {{ $value }}
+
+{{ end -}}
+{{ end -}}
+{{ end }}

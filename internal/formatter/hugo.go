@@ -267,7 +267,8 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	// Create template with functions
 	templateName := itemType + ".md.tmpl"
 	tmpl := template.New(templateName).Funcs(template.FuncMap{
-		"json": jsonIndent,
+		"json":     jsonIndent,
+		"contains": strings.Contains,
 	})
 
 	// Parse template from embedded filesystem - try test path first, then production path
@@ -278,7 +279,8 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	if err != nil {
 		// Reset template for production path
 		tmpl = template.New(templateName).Funcs(template.FuncMap{
-			"json": jsonIndent,
+			"json":     jsonIndent,
+			"contains": strings.Contains,
 		})
 		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
 	}
