@@ -24,7 +24,7 @@ func TestHumanizeKey(t *testing.T) {
 
 		// Mixed underscore and space cases
 		{"mixed underscore and space", "user_name test", "User Name Test"},
-		{"complex mixed", "api_key test_value", "Api Key Test Value"},
+		{"complex mixed", "api_key test_value", "API Key Test Value"},
 
 		// Edge cases
 		{"empty string", "", ""},
@@ -38,21 +38,43 @@ func TestHumanizeKey(t *testing.T) {
 		{"mixed case", "userNAME", "Username"},
 
 		// Special characters (should be preserved after underscores/spaces)
-		{"with numbers", "user_id_123", "User Id 123"},
+		{"with numbers", "user_id_123", "User ID 123"},
 		{"with hyphen", "api-key_value", "Api-Key Value"},
 		{"with dots", "file.ext_name", "File.ext Name"},
 
-		// Common API/config key patterns
-		{"database url", "database_url", "Database Url"},
-		{"api key", "api_key", "Api Key"},
+		// Common API/config key patterns (with proper acronym handling)
+		{"database url", "database_url", "Database URL"},
+		{"api key", "api_key", "API Key"},
 		{"max connections", "max_connections", "Max Connections"},
 		{"timeout seconds", "timeout_seconds", "Timeout Seconds"},
 		{"enable feature", "enable_feature_flag", "Enable Feature Flag"},
 
-		// Technical terms that should remain readable
-		{"ssl cert", "ssl_certificate_path", "Ssl Certificate Path"},
-		{"http port", "http_server_port", "Http Server Port"},
-		{"jwt token", "jwt_access_token", "Jwt Access Token"},
+		// Technical terms with proper acronym handling
+		{"ssl cert", "ssl_certificate_path", "SSL Certificate Path"},
+		{"http port", "http_server_port", "HTTP Server Port"},
+		{"jwt token", "jwt_access_token", "JWT Access Token"},
+
+		// Additional acronym test cases (single words should be uppercase)
+		{"api", "api", "API"},
+		{"http", "http", "HTTP"},
+		{"jwt", "jwt", "JWT"},
+		{"ssl", "ssl", "SSL"},
+		{"url", "url", "URL"},
+		{"json", "json", "JSON"},
+		{"xml", "xml", "XML"},
+		{"sql", "sql", "SQL"},
+		{"tcp", "tcp", "TCP"},
+		{"udp", "udp", "UDP"},
+		{"html", "html", "HTML"},
+		{"css", "css", "CSS"},
+
+		// Multi-word with acronyms (all acronyms should be uppercase)
+		{"user api key", "user_api_key", "User API Key"},
+		{"server http port", "server_http_port", "Server HTTP Port"},
+		{"auth jwt token", "auth_jwt_token", "Auth JWT Token"},
+		{"database sql query", "database_sql_query", "Database SQL Query"},
+		{"web html content", "web_html_content", "Web HTML Content"},
+		{"api json response", "api_json_response", "API JSON Response"},
 	}
 
 	for _, tt := range tests {

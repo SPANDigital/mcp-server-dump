@@ -172,15 +172,96 @@ func isAlphaNumeric(char byte) bool {
 	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_'
 }
 
+// Package-level variables for performance optimization
+var (
+	// Pre-compiled regex for performance
+	spacingRegex = regexp.MustCompile(`[_\s]+`)
+
+	// English title case converter (reused across calls)
+	titleCaser = cases.Title(language.English)
+
+	// Common technical initialisms that should be uppercase (based on Go's golint)
+	// Only add entries that are highly unlikely to be non-initialisms
+	commonInitialisms = map[string]bool{
+		"ACL":   true,
+		"API":   true,
+		"ASCII": true,
+		"CPU":   true,
+		"CSS":   true,
+		"DNS":   true,
+		"EOF":   true,
+		"GUID":  true,
+		"HTML":  true,
+		"HTTP":  true,
+		"HTTPS": true,
+		"ID":    true,
+		"IP":    true,
+		"JSON":  true,
+		"JWT":   true, // Addition: JSON Web Token
+		"LHS":   true,
+		"QPS":   true,
+		"RAM":   true,
+		"RHS":   true,
+		"RPC":   true,
+		"SLA":   true,
+		"SMTP":  true,
+		"SQL":   true,
+		"SSH":   true,
+		"SSL":   true, // Addition: Secure Sockets Layer
+		"TCP":   true,
+		"TLS":   true,
+		"TTL":   true,
+		"UDP":   true,
+		"UI":    true,
+		"UID":   true,
+		"URI":   true,
+		"URL":   true,
+		"UTF8":  true,
+		"UUID":  true,
+		"VM":    true,
+		"XML":   true,
+		"XMPP":  true,
+		"XSRF":  true,
+		"XSS":   true,
+	}
+)
+
 // humanizeKey converts context keys with underscores or spaces to human-readable titles.
-// Examples: "user_name" → "User Name", "first_name" → "First Name", "some   spaces" → "Some Spaces"
+// It handles common technical acronyms properly and uses performance optimizations.
+// Examples:
+//   - "user_name" → "User Name"
+//   - "api_key" → "API Key"
+//   - "http_server_port" → "HTTP Server Port"
+//   - "jwt_access_token" → "JWT Access Token"
+//   - "database_url" → "Database URL"
+//   - "ssl" → "SSL"
 func humanizeKey(key string) string {
-	// Replace underscores and multiple spaces with single spaces
-	spaced := regexp.MustCompile(`[_\s]+`).ReplaceAllString(key, " ")
+	if key == "" {
+		return ""
+	}
 
-	// Create English title case converter
-	caser := cases.Title(language.English)
+	// Replace underscores and multiple spaces with single spaces using pre-compiled regex
+	spaced := spacingRegex.ReplaceAllString(key, " ")
 
-	// Convert to title case and trim spaces
-	return strings.TrimSpace(caser.String(spaced))
+	// Split into words for acronym processing
+	words := strings.Fields(spaced)
+	if len(words) == 0 {
+		return ""
+	}
+
+	// Process each word
+	for i, word := range words {
+		upperWord := strings.ToUpper(word)
+
+		// Check if this word is a known initialism/acronym
+		if commonInitialisms[upperWord] {
+			// Acronyms should always be uppercase
+			words[i] = upperWord
+		} else {
+			// Apply title case to non-acronym words
+			words[i] = titleCaser.String(strings.ToLower(word))
+		}
+	}
+
+	return strings.Join(words, " ")
 }

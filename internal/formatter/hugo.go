@@ -25,6 +25,95 @@ type HugoConfig struct {
 	SiteLogo     string
 }
 
+// Validate validates the Hugo configuration and returns any errors found
+func (hc *HugoConfig) Validate() error {
+	if hc == nil {
+		return nil // nil config is valid (uses defaults)
+	}
+
+	// Validate BaseURL if provided
+	if hc.BaseURL != "" {
+		if err := validateURL(hc.BaseURL); err != nil {
+			return fmt.Errorf("invalid BaseURL: %w", err)
+		}
+	}
+
+	// Validate LanguageCode format if provided
+	if hc.LanguageCode != "" {
+		if err := validateLanguageCode(hc.LanguageCode); err != nil {
+			return fmt.Errorf("invalid LanguageCode: %w", err)
+		}
+	}
+
+	// Validate SiteLogo path if provided
+	if hc.SiteLogo != "" {
+		if err := validateLogoPath(hc.SiteLogo); err != nil {
+			return fmt.Errorf("invalid SiteLogo: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// validateURL validates if the provided URL is well-formed
+func validateURL(urlStr string) error {
+	if urlStr == "" {
+		return nil
+	}
+
+	// Basic URL validation
+	if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") {
+		return fmt.Errorf("URL must start with http:// or https://")
+	}
+
+	// Additional basic checks for malformed URLs
+	if strings.Contains(urlStr, " ") {
+		return fmt.Errorf("URL cannot contain spaces")
+	}
+
+	return nil
+}
+
+// validateLanguageCode validates if the language code follows basic format
+func validateLanguageCode(langCode string) error {
+	if langCode == "" {
+		return nil
+	}
+
+	// Basic language code validation (e.g., "en", "en-us", "fr-ca")
+	// Allow lowercase letters, numbers, and hyphens
+	matched, _ := regexp.MatchString(`^[a-z]{2}(-[a-z]{2})?$`, strings.ToLower(langCode))
+	if !matched {
+		return fmt.Errorf("language code should follow format like 'en' or 'en-us'")
+	}
+
+	return nil
+}
+
+// validateLogoPath validates if the logo path is reasonable
+func validateLogoPath(logoPath string) error {
+	if logoPath == "" {
+		return nil
+	}
+
+	// Check for path traversal attempts
+	if strings.Contains(logoPath, "..") {
+		return fmt.Errorf("logo path cannot contain path traversal sequences")
+	}
+
+	// Check for absolute paths to system directories
+	if filepath.IsAbs(logoPath) {
+		criticalPaths := []string{"/bin", "/etc", "/usr", "/sys", "/proc", "/dev"}
+		for _, criticalPath := range criticalPaths {
+			if strings.HasPrefix(logoPath, criticalPath) {
+				return fmt.Errorf("logo path cannot reference system directories")
+			}
+		}
+	}
+
+	return nil
+}
+
 // Compile regex patterns once at package level for performance
 var (
 	nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9-]+`)
@@ -35,6 +124,11 @@ var (
 // It creates a content directory with subdirectories for tools, resources, and prompts,
 // each containing individual markdown files and section index files (_index.md).
 func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, hugoConfig *HugoConfig, templateFS embed.FS) error {
+	// Validate Hugo configuration first
+	if err := hugoConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid Hugo configuration: %w", err)
+	}
+
 	// Validate and sanitize output directory to prevent path traversal
 	outputDir = filepath.Clean(outputDir)
 	if strings.Contains(outputDir, "..") {
