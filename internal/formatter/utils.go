@@ -5,6 +5,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 const (
@@ -167,4 +170,17 @@ func formatBool(b bool) string {
 // Used for word boundary checking in JSON parsing to handle identifiers like "true_value".
 func isAlphaNumeric(char byte) bool {
 	return (char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '_'
+}
+
+// humanizeKey converts context keys with underscores or spaces to human-readable titles.
+// Examples: "user_name" → "User Name", "first_name" → "First Name", "some   spaces" → "Some Spaces"
+func humanizeKey(key string) string {
+	// Replace underscores and multiple spaces with single spaces
+	spaced := regexp.MustCompile(`[_\s]+`).ReplaceAllString(key, " ")
+
+	// Create English title case converter
+	caser := cases.Title(language.English)
+
+	// Convert to title case and trim spaces
+	return strings.TrimSpace(caser.String(spaced))
 }

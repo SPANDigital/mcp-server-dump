@@ -18,7 +18,7 @@ type CLI struct {
 	NoTOC  bool   `kong:"help='Disable table of contents in markdown output'"`
 
 	// Frontmatter options
-	Frontmatter       bool     `kong:"short='F',help='Include frontmatter in markdown output'"`
+	Frontmatter       bool     `kong:"short='F',help='Include frontmatter in markdown output (enabled by default for Hugo format)'"`
 	FrontmatterField  []string `kong:"short='M',help='Add custom frontmatter field (format: key:value), can be used multiple times'"`
 	FrontmatterFormat string   `kong:"default='yaml',enum='yaml,toml,json',help='Frontmatter format'"`
 
@@ -38,6 +38,14 @@ type CLI struct {
 	NoTools     bool `kong:"help='Skip scanning tools from the MCP server'"`
 	NoResources bool `kong:"help='Skip scanning resources from the MCP server'"`
 	NoPrompts   bool `kong:"help='Skip scanning prompts from the MCP server'"`
+
+	// Hugo-specific options (only used when format=hugo)
+	HugoBaseURL      string `kong:"help='Base URL for Hugo site (e.g., https://example.com)'"`
+	HugoLanguageCode string `kong:"help='Language code for Hugo site (default: en-us)'"`
+	HugoTheme        string `kong:"help='Hugo theme to use (default: ananke)'"`
+	HugoGithub       string `kong:"help='GitHub username for social links'"`
+	HugoTwitter      string `kong:"help='Twitter handle for social links'"`
+	HugoSiteLogo     string `kong:"help='Path to site logo'"`
 
 	// Legacy command format (backward compatibility)
 	Args []string `kong:"arg,optional,help='Command and arguments (legacy format for backward compatibility)'"`

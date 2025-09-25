@@ -15,6 +15,16 @@ import (
 	"github.com/spandigital/mcp-server-dump/internal/model"
 )
 
+// HugoConfig holds Hugo-specific configuration options
+type HugoConfig struct {
+	BaseURL      string
+	LanguageCode string
+	Theme        string
+	Github       string
+	Twitter      string
+	SiteLogo     string
+}
+
 // Compile regex patterns once at package level for performance
 var (
 	nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9-]+`)
@@ -24,7 +34,7 @@ var (
 // FormatHugo generates a Hugo documentation site structure with hierarchical content organization.
 // It creates a content directory with subdirectories for tools, resources, and prompts,
 // each containing individual markdown files and section index files (_index.md).
-func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) error {
+func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, hugoConfig *HugoConfig, templateFS embed.FS) error {
 	// Validate and sanitize output directory to prevent path traversal
 	outputDir = filepath.Clean(outputDir)
 	if strings.Contains(outputDir, "..") {
@@ -49,11 +59,22 @@ func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter boo
 		return fmt.Errorf("failed to create content directory: %w", err)
 	}
 
+	// Generate hugo.yml configuration file
+	if err := generateHugoConfig(info, outputDir, hugoConfig, templateFS); err != nil {
+		return fmt.Errorf("failed to generate hugo.yml: %w", err)
+	}
+
 	// Generate root _index.md
 	if err := generateRootIndex(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime); err != nil {
 		return fmt.Errorf("failed to generate root index: %w", err)
 	}
 
+	// Generate all content sections
+	return generateContentSections(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS)
+}
+
+// generateContentSections generates all content sections (tools, resources, prompts) if they exist
+func generateContentSections(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
 	// Generate tools section
 	if len(info.Tools) > 0 {
 		if err := generateToolsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS); err != nil {
@@ -96,7 +117,7 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields, true) // Root index is an index file
 		if err != nil {
 			return fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -222,7 +243,7 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields, true) // Section index is an index file
 		if err != nil {
 			return fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -258,7 +279,7 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields, false) // Individual content files are not index files
 		if err != nil {
 			return fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -268,9 +289,10 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	// Create template with functions
 	templateName := itemType + ".md.tmpl"
 	tmpl := template.New(templateName).Funcs(template.FuncMap{
-		"json":       jsonIndent,
-		"contains":   strings.Contains,
-		"sortedKeys": getSortedKeys,
+		"json":        jsonIndent,
+		"contains":    strings.Contains,
+		"sortedKeys":  getSortedKeys,
+		"humanizeKey": humanizeKey,
 	})
 
 	// Parse template from embedded filesystem - try test path first, then production path
@@ -281,9 +303,10 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	if err != nil {
 		// Reset template for production path
 		tmpl = template.New(templateName).Funcs(template.FuncMap{
-			"json":       jsonIndent,
-			"contains":   strings.Contains,
-			"sortedKeys": getSortedKeys,
+			"json":        jsonIndent,
+			"contains":    strings.Contains,
+			"sortedKeys":  getSortedKeys,
+			"humanizeKey": humanizeKey,
 		})
 		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
 	}
@@ -351,4 +374,41 @@ func getSortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// generateHugoConfig creates a hugo.yml configuration file with sensible defaults
+func generateHugoConfig(info *model.ServerInfo, outputDir string, hugoConfig *HugoConfig, templateFS embed.FS) error {
+	// Create template
+	tmpl := template.New("hugo.yml.tmpl")
+
+	// Parse template from embedded filesystem - try test path first, then production path
+	testPath := "test_templates/hugo/hugo.yml.tmpl"
+	prodPath := "templates/hugo/hugo.yml.tmpl"
+
+	tmpl, err := tmpl.ParseFS(templateFS, testPath)
+	if err != nil {
+		// Reset template for production path
+		tmpl = template.New("hugo.yml.tmpl")
+		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to parse hugo.yml template: %w", err)
+	}
+
+	// Execute template with combined data
+	var content bytes.Buffer
+	templateData := struct {
+		*model.ServerInfo
+		HugoConfig *HugoConfig
+	}{
+		ServerInfo: info,
+		HugoConfig: hugoConfig,
+	}
+	if err := tmpl.Execute(&content, templateData); err != nil {
+		return fmt.Errorf("failed to execute hugo.yml template: %w", err)
+	}
+
+	// Write to file
+	configPath := filepath.Join(outputDir, "hugo.yml")
+	return os.WriteFile(configPath, content.Bytes(), 0o644)
 }

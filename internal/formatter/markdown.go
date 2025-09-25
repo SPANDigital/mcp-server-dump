@@ -16,7 +16,7 @@ func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool,
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, customFields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, customFields, true) // Markdown format includes all server info like an index
 		if err != nil {
 			return "", fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -25,10 +25,11 @@ func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool,
 
 	// Create template with custom functions
 	tmpl := template.New("base.md.tmpl").Funcs(template.FuncMap{
-		"anchor":     anchorName,
-		"json":       jsonIndent,
-		"formatBool": formatBool,
-		"contains":   strings.Contains,
+		"anchor":      anchorName,
+		"json":        jsonIndent,
+		"formatBool":  formatBool,
+		"contains":    strings.Contains,
+		"humanizeKey": humanizeKey,
 	})
 
 	// Parse all templates
