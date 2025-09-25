@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -267,7 +268,9 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	// Create template with functions
 	templateName := itemType + ".md.tmpl"
 	tmpl := template.New(templateName).Funcs(template.FuncMap{
-		"json": jsonIndent,
+		"json":       jsonIndent,
+		"contains":   strings.Contains,
+		"sortedKeys": getSortedKeys,
 	})
 
 	// Parse template from embedded filesystem - try test path first, then production path
@@ -278,7 +281,9 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	if err != nil {
 		// Reset template for production path
 		tmpl = template.New(templateName).Funcs(template.FuncMap{
-			"json": jsonIndent,
+			"json":       jsonIndent,
+			"contains":   strings.Contains,
+			"sortedKeys": getSortedKeys,
 		})
 		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
 	}
@@ -336,4 +341,14 @@ func getSectionWeight(title string) int {
 	default:
 		return 100
 	}
+}
+
+// getSortedKeys returns sorted keys from a map[string]string for deterministic iteration
+func getSortedKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }

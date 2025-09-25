@@ -8,6 +8,18 @@
 {{ json .InputSchema }}
 ```{{ else }}This tool accepts no input parameters.{{ end }}
 
-{{ if .Context }}{{ if .Context.content }}## Additional Documentation
+{{ if and .Context (len .Context) }}## Additional Documentation
 
-{{ .Context.content }}{{ end }}{{ end }}
+{{ range $key := sortedKeys .Context -}}
+{{ $value := index $.Context $key -}}
+{{ if contains $value "\n" -}}
+### {{ $key }}
+
+{{ $value }}
+
+{{ else -}}
+**{{ $key }}:** {{ $value }}
+
+{{ end -}}
+{{ end -}}
+{{ end }}
