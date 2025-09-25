@@ -8,9 +8,10 @@
 
 {{ if .Description }}{{ .Description }}{{ else }}*No description available*{{ end }}
 
-{{ if .Context }}## Additional Documentation
+{{ if and .Context (len .Context) }}## Additional Documentation
 
-{{ range $key, $value := .Context -}}
+{{ range $key := sortedKeys .Context -}}
+{{ $value := index $.Context $key -}}
 {{ if contains $value "\n" -}}
 ### {{ $key }}
 

@@ -10,8 +10,41 @@ import (
 )
 
 func TestFormatHugoWithContext(t *testing.T) {
-	// Create test server info
-	info := &model.ServerInfo{
+	info := createTestServerInfo()
+
+	// Create temporary output directory
+	tempDir, err := os.MkdirTemp("", "hugo_context_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer func() {
+		if cleanupErr := os.RemoveAll(tempDir); cleanupErr != nil {
+			t.Logf("Failed to clean up temp dir: %v", cleanupErr)
+		}
+	}()
+
+	// Generate Hugo output
+	err = FormatHugo(info, tempDir, false, "", nil, testHugoTemplateFS)
+	if err != nil {
+		t.Fatalf("FormatHugo failed: %v", err)
+	}
+
+	// Test individual components
+	t.Run("tool context fields", func(t *testing.T) {
+		testToolContextRendering(t, tempDir)
+	})
+
+	t.Run("resource context fields", func(t *testing.T) {
+		testResourceContextRendering(t, tempDir)
+	})
+
+	t.Run("prompt context fields", func(t *testing.T) {
+		testPromptContextRendering(t, tempDir)
+	})
+}
+
+func createTestServerInfo() *model.ServerInfo {
+	return &model.ServerInfo{
 		Name:    "Test Server",
 		Version: "1.0.0",
 		Capabilities: model.Capabilities{
@@ -56,112 +89,99 @@ func TestFormatHugoWithContext(t *testing.T) {
 			},
 		},
 	}
+}
 
-	// Create temporary output directory
-	tempDir, err := os.MkdirTemp("", "hugo_context_test_*")
+func testToolContextRendering(t *testing.T, tempDir string) {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(tempDir, "content", "tools", "test-tool.md"))
 	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
-
-	// Generate Hugo output
-	err = FormatHugo(info, tempDir, false, "", nil, testHugoTemplateFS)
-	if err != nil {
-		t.Fatalf("FormatHugo failed: %v", err)
+		t.Fatalf("Failed to read tool file: %v", err)
 	}
 
-	// Test tool context rendering
-	t.Run("tool context fields", func(t *testing.T) {
-		content, err := os.ReadFile(filepath.Join(tempDir, "content", "tools", "test-tool.md"))
-		if err != nil {
-			t.Fatalf("Failed to read tool file: %v", err)
-		}
+	contentStr := string(content)
 
-		contentStr := string(content)
+	// Check that context section exists
+	if !strings.Contains(contentStr, "## Additional Documentation") {
+		t.Error("Additional Documentation section not found")
+	}
 
-		// Check that context section exists
-		if !strings.Contains(contentStr, "## Additional Documentation") {
-			t.Error("Additional Documentation section not found")
-		}
+	// Check individual context fields
+	if !strings.Contains(contentStr, "usage") {
+		t.Error("Context field 'usage' not rendered")
+	}
+	if !strings.Contains(contentStr, "Use this tool for testing") {
+		t.Error("Context value for 'usage' not rendered")
+	}
 
-		// Check individual context fields
-		if !strings.Contains(contentStr, "usage") {
-			t.Error("Context field 'usage' not rendered")
-		}
-		if !strings.Contains(contentStr, "Use this tool for testing") {
-			t.Error("Context value for 'usage' not rendered")
-		}
+	if !strings.Contains(contentStr, "security") {
+		t.Error("Context field 'security' not rendered")
+	}
+	if !strings.Contains(contentStr, "Only for authorized users") {
+		t.Error("Context value for 'security' not rendered")
+	}
 
-		if !strings.Contains(contentStr, "security") {
-			t.Error("Context field 'security' not rendered")
-		}
-		if !strings.Contains(contentStr, "Only for authorized users") {
-			t.Error("Context value for 'security' not rendered")
-		}
+	// Multi-line fields should be rendered as subsections
+	if !strings.Contains(contentStr, "### examples") {
+		t.Error("Multi-line context field 'examples' not rendered as subsection")
+	}
+}
 
-		// Multi-line fields should be rendered as subsections
-		if !strings.Contains(contentStr, "### examples") {
-			t.Error("Multi-line context field 'examples' not rendered as subsection")
-		}
-	})
+func testResourceContextRendering(t *testing.T, tempDir string) {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(tempDir, "content", "resources", "test-resource.md"))
+	if err != nil {
+		t.Fatalf("Failed to read resource file: %v", err)
+	}
 
-	// Test resource context rendering
-	t.Run("resource context fields", func(t *testing.T) {
-		content, err := os.ReadFile(filepath.Join(tempDir, "content", "resources", "test-resource.md"))
-		if err != nil {
-			t.Fatalf("Failed to read resource file: %v", err)
-		}
+	contentStr := string(content)
 
-		contentStr := string(content)
+	// Check that context section exists
+	if !strings.Contains(contentStr, "## Additional Documentation") {
+		t.Error("Additional Documentation section not found")
+	}
 
-		// Check that context section exists
-		if !strings.Contains(contentStr, "## Additional Documentation") {
-			t.Error("Additional Documentation section not found")
-		}
+	// Check individual context fields
+	if !strings.Contains(contentStr, "access") {
+		t.Error("Context field 'access' not rendered")
+	}
+	if !strings.Contains(contentStr, "Read-only access") {
+		t.Error("Context value for 'access' not rendered")
+	}
 
-		// Check individual context fields
-		if !strings.Contains(contentStr, "access") {
-			t.Error("Context field 'access' not rendered")
-		}
-		if !strings.Contains(contentStr, "Read-only access") {
-			t.Error("Context value for 'access' not rendered")
-		}
+	// Multi-line fields should be rendered as subsections
+	if !strings.Contains(contentStr, "### examples") {
+		t.Error("Multi-line context field 'examples' not rendered as subsection")
+	}
+}
 
-		// Multi-line fields should be rendered as subsections
-		if !strings.Contains(contentStr, "### examples") {
-			t.Error("Multi-line context field 'examples' not rendered as subsection")
-		}
-	})
+func testPromptContextRendering(t *testing.T, tempDir string) {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(tempDir, "content", "prompts", "test-prompt.md"))
+	if err != nil {
+		t.Fatalf("Failed to read prompt file: %v", err)
+	}
 
-	// Test prompt context rendering
-	t.Run("prompt context fields", func(t *testing.T) {
-		content, err := os.ReadFile(filepath.Join(tempDir, "content", "prompts", "test-prompt.md"))
-		if err != nil {
-			t.Fatalf("Failed to read prompt file: %v", err)
-		}
+	contentStr := string(content)
 
-		contentStr := string(content)
+	// Check that context section exists
+	if !strings.Contains(contentStr, "## Additional Documentation") {
+		t.Error("Additional Documentation section not found")
+	}
 
-		// Check that context section exists
-		if !strings.Contains(contentStr, "## Additional Documentation") {
-			t.Error("Additional Documentation section not found")
-		}
+	// Check individual context fields
+	if !strings.Contains(contentStr, "purpose") {
+		t.Error("Context field 'purpose' not rendered")
+	}
+	if !strings.Contains(contentStr, "Testing purposes") {
+		t.Error("Context value for 'purpose' not rendered")
+	}
 
-		// Check individual context fields
-		if !strings.Contains(contentStr, "purpose") {
-			t.Error("Context field 'purpose' not rendered")
-		}
-		if !strings.Contains(contentStr, "Testing purposes") {
-			t.Error("Context value for 'purpose' not rendered")
-		}
+	if !strings.Contains(contentStr, "output") {
+		t.Error("Context field 'output' not rendered")
+	}
 
-		if !strings.Contains(contentStr, "output") {
-			t.Error("Context field 'output' not rendered")
-		}
-
-		// Multi-line fields should be rendered as subsections
-		if !strings.Contains(contentStr, "### parameters") {
-			t.Error("Multi-line context field 'parameters' not rendered as subsection")
-		}
-	})
+	// Multi-line fields should be rendered as subsections
+	if !strings.Contains(contentStr, "### parameters") {
+		t.Error("Multi-line context field 'parameters' not rendered as subsection")
+	}
 }
