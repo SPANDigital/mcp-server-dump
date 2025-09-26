@@ -325,7 +325,7 @@ func TestHextraThemeFeatures(t *testing.T) {
 		BaseURL:         "https://hextra-test.com",
 		LanguageCode:    "en",
 		Github:          "hextrauser",
-		GoogleAnalytics: "G-HEXTRA12345",
+		GoogleAnalytics: "G-1234567890",
 	}
 
 	// Create temporary directory for test

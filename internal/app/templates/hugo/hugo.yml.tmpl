@@ -228,6 +228,11 @@ sitemap:
   changeFreq: "weekly"
   priority: 0.5
 
+# Google Analytics (GA4 format)
+{{- if .HugoConfig.GoogleAnalytics }}
+googleAnalytics: "{{ .HugoConfig.GoogleAnalytics }}"
+{{- end }}
+
 # Hugo Modules settings for development
 # Uncomment for offline development:
 # module:
