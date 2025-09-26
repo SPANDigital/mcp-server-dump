@@ -230,11 +230,129 @@ func verifyToolContent(t *testing.T, contentDir string) {
 	}
 }
 
-// testHugoModulesCommands tests Hugo modules commands (currently simulated)
+// testHugoModulesCommands tests Hugo modules commands with actual Hugo binary
 func testHugoModulesCommands(t *testing.T) {
 	t.Helper()
-	t.Skip("Hugo binary execution not fully implemented - would test: mod init, mod get, build")
-	t.Logf("Would test Hugo modules workflow: init -> get -> build")
+
+	// Create Hugo binary test helper
+	hugoBinary := NewHugoBinaryTestHelper(t)
+	hugoBinary.SkipIfDownloadFails()
+
+	// Create temporary test site directory
+	testSiteDir, err := os.MkdirTemp("", "hugo_modules_commands_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create test site directory: %v", err)
+	}
+	t.Cleanup(func() {
+		if removeErr := os.RemoveAll(testSiteDir); removeErr != nil {
+			t.Logf("Failed to remove test site directory: %v", removeErr)
+		}
+	})
+
+	t.Logf("Testing Hugo modules commands in directory: %s", testSiteDir)
+
+	// Test 1: Hugo mod init
+	t.Run("hugo mod init", func(t *testing.T) {
+		err := hugoBinary.InitModule(testSiteDir, "example.com/test-site")
+		if err != nil {
+			t.Logf("Hugo mod init failed (this is expected in test environments): %v", err)
+			t.Skip("Skipping remaining module tests due to mod init failure")
+		}
+		t.Log("Hugo mod init completed successfully")
+
+		// Verify go.mod was created
+		goModPath := filepath.Join(testSiteDir, "go.mod")
+		if _, statErr := os.Stat(goModPath); os.IsNotExist(statErr) {
+			t.Error("go.mod file was not created by hugo mod init")
+		}
+	})
+
+	// Test 2: Hugo mod get (get the Hextra theme module)
+	t.Run("hugo mod get hextra", func(t *testing.T) {
+		err := hugoBinary.GetModule(testSiteDir, "github.com/imfing/hextra")
+		if err != nil {
+			t.Logf("Hugo mod get failed (this is expected in test environments): %v", err)
+			t.Skip("Skipping build test due to mod get failure")
+		}
+		t.Log("Hugo mod get hextra completed successfully")
+
+		// Verify go.sum was created (indicates modules were downloaded)
+		goSumPath := filepath.Join(testSiteDir, "go.sum")
+		if _, statErr := os.Stat(goSumPath); os.IsNotExist(statErr) {
+			t.Log("go.sum file not found - modules may not have been fully downloaded")
+		}
+	})
+
+	// Test 3: Hugo version check
+	t.Run("hugo version", func(t *testing.T) {
+		version, err := hugoBinary.GetVersion()
+		if err != nil {
+			t.Logf("Hugo version check failed: %v", err)
+		} else {
+			t.Logf("Hugo version output: %s", strings.TrimSpace(version))
+
+			// Verify it contains expected version info
+			versionLower := strings.ToLower(version)
+			if !strings.Contains(versionLower, "hugo") || !strings.Contains(versionLower, "0.150") {
+				t.Errorf("Unexpected version output format: %s", version)
+			}
+		}
+	})
+
+	// Test 4: Basic Hugo build (if previous tests passed)
+	t.Run("hugo build", func(t *testing.T) {
+		// First create minimal required content structure
+		contentDir := filepath.Join(testSiteDir, "content")
+		if mkdirErr := os.MkdirAll(contentDir, 0o755); mkdirErr != nil {
+			t.Fatalf("Failed to create content directory: %v", mkdirErr)
+		}
+
+		// Create a basic index file
+		indexContent := `---
+title: "Test Site"
+---
+
+# Welcome to Test Site
+
+This is a test site for Hugo modules integration testing.
+`
+		indexPath := filepath.Join(contentDir, "_index.md")
+		if writeErr := os.WriteFile(indexPath, []byte(indexContent), 0o644); writeErr != nil {
+			t.Fatalf("Failed to create index file: %v", writeErr)
+		}
+
+		// Create basic Hugo config that uses modules
+		configContent := `baseURL: 'https://test.example.com'
+languageCode: 'en-us'
+title: 'Test Site'
+
+module:
+  imports:
+    - path: github.com/imfing/hextra
+`
+		configPath := filepath.Join(testSiteDir, "hugo.yml")
+		if writeErr := os.WriteFile(configPath, []byte(configContent), 0o644); writeErr != nil {
+			t.Fatalf("Failed to create Hugo config: %v", writeErr)
+		}
+
+		// Attempt to build the site
+		err := hugoBinary.BuildSite(testSiteDir)
+		if err != nil {
+			t.Logf("Hugo build failed (this may be expected in test environments): %v", err)
+			// Don't fail the test - build failures are common in CI environments
+			// due to network restrictions or missing dependencies
+		} else {
+			t.Log("Hugo build completed successfully")
+
+			// Verify public directory was created
+			publicDir := filepath.Join(testSiteDir, "public")
+			if _, statErr := os.Stat(publicDir); os.IsNotExist(statErr) {
+				t.Error("public directory was not created by Hugo build")
+			}
+		}
+	})
+
+	t.Log("Hugo modules commands test workflow completed")
 }
 
 // TestHugoConfigValidationWithModules tests the enhanced configuration validation

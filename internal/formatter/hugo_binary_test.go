@@ -30,41 +30,46 @@ type HugoBinaryTestHelper struct {
 func NewHugoBinaryTestHelper(t *testing.T) *HugoBinaryTestHelper {
 	t.Helper()
 
-	// Use Hugo v0.150.1 (as of January 2025 - consider updating periodically)
+	// Use Hugo v0.150.1 (latest as of January 2025 - consider updating periodically)
 	version := "0.150.1"
 
 	// Determine architecture and OS for download URL
 	goarch := runtime.GOARCH
 	goos := runtime.GOOS
 
-	// Map Go architecture names to Hugo release names
-	hugoBinaryArch := goarch
-	switch goarch {
-	case "amd64":
-		hugoBinaryArch = "64bit"
-	case "arm64":
-		hugoBinaryArch = "ARM64"
-	case "386":
-		hugoBinaryArch = "32bit"
-	}
-
-	// Map Go OS names to Hugo release names
-	var hugoBinaryOS string
+	// Map Go OS and arch to Hugo release names (using actual release naming)
+	var hugoBinaryPlatform string
 	switch goos {
 	case "darwin":
-		hugoBinaryOS = "macOS"
+		hugoBinaryPlatform = "darwin-universal" // Hugo uses universal binaries for macOS
 	case windowsOS:
-		hugoBinaryOS = "Windows"
+		if goarch == "amd64" {
+			hugoBinaryPlatform = "windows-amd64"
+		} else if goarch == "386" {
+			hugoBinaryPlatform = "windows-386"
+		} else {
+			hugoBinaryPlatform = fmt.Sprintf("windows-%s", goarch)
+		}
 	case "linux":
-		hugoBinaryOS = "Linux"
+		if goarch == "amd64" {
+			hugoBinaryPlatform = "linux-amd64"
+		} else if goarch == "arm64" {
+			hugoBinaryPlatform = "linux-arm64"
+		} else if goarch == "386" {
+			hugoBinaryPlatform = "linux-386"
+		} else {
+			hugoBinaryPlatform = fmt.Sprintf("linux-%s", goarch)
+		}
 	default:
-		hugoBinaryOS = strings.ToUpper(goos[:1]) + goos[1:]
+		hugoBinaryPlatform = fmt.Sprintf("%s-%s", goos, goarch)
 	}
 
 	// Construct download URL for Hugo extended (required for Sass/SCSS)
-	filename := fmt.Sprintf("hugo_extended_%s_%s-%s.tar.gz", version, hugoBinaryOS, hugoBinaryArch)
+	var filename string
 	if goos == windowsOS {
-		filename = strings.Replace(filename, ".tar.gz", ".zip", 1)
+		filename = fmt.Sprintf("hugo_extended_%s_%s.zip", version, hugoBinaryPlatform)
+	} else {
+		filename = fmt.Sprintf("hugo_extended_%s_%s.tar.gz", version, hugoBinaryPlatform)
 	}
 	downloadURL := fmt.Sprintf("https://github.com/gohugoio/hugo/releases/download/v%s/%s", version, filename)
 
