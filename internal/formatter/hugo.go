@@ -12,6 +12,8 @@ import (
 	"text/template"
 	"time"
 
+	"golang.org/x/text/language"
+
 	"github.com/spandigital/mcp-server-dump/internal/model"
 )
 
@@ -80,11 +82,14 @@ func validateLanguageCode(langCode string) error {
 		return nil
 	}
 
-	// Basic language code validation (e.g., "en", "en-us", "fr-ca")
-	// Allow lowercase letters, numbers, and hyphens
-	matched, _ := regexp.MatchString(`^[a-z]{2}(-[a-z]{2})?$`, strings.ToLower(langCode))
-	if !matched {
-		return fmt.Errorf("language code should follow format like 'en' or 'en-us'")
+	// Use golang.org/x/text/language for robust validation
+	// This properly handles:
+	// - 2 and 3 letter language codes (e.g., "en", "fil")
+	// - Script subtags (e.g., "zh-Hans" for Simplified Chinese)
+	// - Region codes (e.g., "en-US", "pt-BR", "fr-CA")
+	_, err := language.Parse(langCode)
+	if err != nil {
+		return fmt.Errorf("invalid language code %q: %w (examples: 'en', 'en-US', 'zh-Hans', 'pt-BR')", langCode, err)
 	}
 
 	return nil
@@ -497,10 +502,12 @@ func generateHugoConfig(info *model.ServerInfo, outputDir string, hugoConfig *Hu
 	var content bytes.Buffer
 	templateData := struct {
 		*model.ServerInfo
-		HugoConfig *HugoConfig
+		HugoConfig       *HugoConfig
+		GeneratorVersion string
 	}{
-		ServerInfo: info,
-		HugoConfig: hugoConfig,
+		ServerInfo:       info,
+		HugoConfig:       hugoConfig,
+		GeneratorVersion: "dev", // Version string for generated hugo.yml comment
 	}
 	if err := tmpl.Execute(&content, templateData); err != nil {
 		return fmt.Errorf("failed to execute hugo.yml template: %w", err)

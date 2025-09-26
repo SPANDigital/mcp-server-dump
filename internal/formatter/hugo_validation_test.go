@@ -59,12 +59,12 @@ func TestHugoConfigValidate(t *testing.T) {
 			errorMsg:    "invalid LanguageCode",
 		},
 		{
-			name: "invalid LanguageCode - too long",
+			name: "invalid LanguageCode - not well formed",
 			config: &HugoConfig{
 				LanguageCode: "en-us-ca",
 			},
 			expectError: true,
-			errorMsg:    "language code should follow format",
+			errorMsg:    "invalid language code",
 		},
 		{
 			name: "invalid SiteLogo - path traversal",
@@ -157,9 +157,12 @@ func TestValidateLanguageCode(t *testing.T) {
 		{"valid - en-us", "en-us", false},
 		{"valid - fr-ca", "fr-ca", false},
 		{"valid - uppercase converted", "EN-US", false},
-		{"invalid - too long", "english", true},
-		{"invalid - wrong format", "en-usa", true},
-		{"invalid - numbers", "e1", true},
+		{"valid - 3-letter code", "fil", false},
+		{"valid - script subtag", "zh-Hans", false},
+		{"valid - 3-letter region", "en-USA", false},
+		{"invalid - not well formed", "english", true},
+		{"invalid - not well formed tag", "en-us-ca", true},
+		{"invalid - numbers in language", "e1", true},
 		{"invalid - special chars", "en@us", true},
 	}
 

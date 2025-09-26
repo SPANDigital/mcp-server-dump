@@ -11,8 +11,21 @@ import (
 	"github.com/spandigital/mcp-server-dump/internal/model"
 )
 
-// GenerateFrontmatter generates frontmatter for markdown output
-// If isIndexFile is true, includes server-level metadata; if false, excludes it for cleaner individual articles
+// GenerateFrontmatter generates frontmatter for markdown output in YAML, TOML, or JSON format.
+//
+// The isIndexFile parameter controls which metadata fields are included in the generated frontmatter:
+//   - When true: Includes comprehensive server-level metadata such as title, version, capabilities,
+//     and item counts. Use this for main documentation index files (_index.md) or primary landing pages.
+//   - When false: Generates minimal frontmatter with only basic metadata (generated_at, generator).
+//     Use this for individual tool/resource/prompt pages to keep frontmatter clean and focused.
+//
+// Parameters:
+//   - info: The MCP server information containing name, version, capabilities, and items
+//   - format: The frontmatter format ("yaml", "toml", or "json")
+//   - customFields: Optional map of custom key-value pairs to add/override in frontmatter
+//   - isIndexFile: Controls metadata inclusion (see above)
+//
+// Returns the formatted frontmatter string with delimiters, ready to prepend to markdown content.
 func GenerateFrontmatter(info *model.ServerInfo, format string, customFields map[string]any, isIndexFile bool) (string, error) {
 	// Build frontmatter data
 	frontmatter := make(map[string]any)

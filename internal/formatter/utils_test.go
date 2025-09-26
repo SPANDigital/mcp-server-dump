@@ -138,6 +138,9 @@ func TestHumanizeKeyWithCustomInitialisms(t *testing.T) {
 
 		// Complex mixed scenarios
 		{"complex mixed scenario", "corp_XMLHttpRequest_api", []string{"CORP"}, "CORP XML HTTP Request API"},
+
+		// Edge case: CamelCase with custom initialism interaction
+		{"corpAPIHandler with custom CORP", "corpAPIHandler", []string{"CORP"}, "CORP API Handler"},
 	}
 
 	for _, tt := range tests {
