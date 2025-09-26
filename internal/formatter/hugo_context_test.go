@@ -24,7 +24,8 @@ func TestFormatHugoWithContext(t *testing.T) {
 	}()
 
 	// Generate Hugo output
-	err = FormatHugo(info, tempDir, false, "", nil, testHugoTemplateFS)
+	hugoConfig := &HugoConfig{} // Default empty config
+	err = FormatHugo(info, tempDir, false, "", nil, hugoConfig, nil, testHugoTemplateFS)
 	if err != nil {
 		t.Fatalf("FormatHugo failed: %v", err)
 	}
@@ -106,14 +107,14 @@ func testToolContextRendering(t *testing.T, tempDir string) {
 	}
 
 	// Check individual context fields
-	if !strings.Contains(contentStr, "usage") {
+	if !strings.Contains(contentStr, "Usage") {
 		t.Error("Context field 'usage' not rendered")
 	}
 	if !strings.Contains(contentStr, "Use this tool for testing") {
 		t.Error("Context value for 'usage' not rendered")
 	}
 
-	if !strings.Contains(contentStr, "security") {
+	if !strings.Contains(contentStr, "Security") {
 		t.Error("Context field 'security' not rendered")
 	}
 	if !strings.Contains(contentStr, "Only for authorized users") {
@@ -121,7 +122,7 @@ func testToolContextRendering(t *testing.T, tempDir string) {
 	}
 
 	// Multi-line fields should be rendered as subsections
-	if !strings.Contains(contentStr, "### examples") {
+	if !strings.Contains(contentStr, "### Examples") {
 		t.Error("Multi-line context field 'examples' not rendered as subsection")
 	}
 }
@@ -141,7 +142,7 @@ func testResourceContextRendering(t *testing.T, tempDir string) {
 	}
 
 	// Check individual context fields
-	if !strings.Contains(contentStr, "access") {
+	if !strings.Contains(contentStr, "Access") {
 		t.Error("Context field 'access' not rendered")
 	}
 	if !strings.Contains(contentStr, "Read-only access") {
@@ -149,7 +150,7 @@ func testResourceContextRendering(t *testing.T, tempDir string) {
 	}
 
 	// Multi-line fields should be rendered as subsections
-	if !strings.Contains(contentStr, "### examples") {
+	if !strings.Contains(contentStr, "### Examples") {
 		t.Error("Multi-line context field 'examples' not rendered as subsection")
 	}
 }
@@ -169,19 +170,19 @@ func testPromptContextRendering(t *testing.T, tempDir string) {
 	}
 
 	// Check individual context fields
-	if !strings.Contains(contentStr, "purpose") {
+	if !strings.Contains(contentStr, "Purpose") {
 		t.Error("Context field 'purpose' not rendered")
 	}
 	if !strings.Contains(contentStr, "Testing purposes") {
 		t.Error("Context value for 'purpose' not rendered")
 	}
 
-	if !strings.Contains(contentStr, "output") {
+	if !strings.Contains(contentStr, "Output") {
 		t.Error("Context field 'output' not rendered")
 	}
 
 	// Multi-line fields should be rendered as subsections
-	if !strings.Contains(contentStr, "### parameters") {
+	if !strings.Contains(contentStr, "### Parameters") {
 		t.Error("Multi-line context field 'parameters' not rendered as subsection")
 	}
 }

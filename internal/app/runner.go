@@ -236,7 +236,20 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 			return nil, fmt.Errorf("hugo format requires --output flag (directory path)")
 		}
 		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
-		err := formatter.FormatHugo(info, cli.Output, cli.Frontmatter, cli.FrontmatterFormat, customFields, HugoTemplateFS)
+		// Enable frontmatter by default for Hugo format
+		enableFrontmatter := cli.Frontmatter || cli.Format == "hugo"
+
+		// Create Hugo configuration from CLI parameters
+		hugoConfig := &formatter.HugoConfig{
+			BaseURL:      cli.HugoBaseURL,
+			LanguageCode: cli.HugoLanguageCode,
+			Theme:        cli.HugoTheme,
+			Github:       cli.HugoGithub,
+			Twitter:      cli.HugoTwitter,
+			SiteLogo:     cli.HugoSiteLogo,
+		}
+
+		err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, cli.CustomInitialisms, HugoTemplateFS)
 		if err != nil {
 			return nil, err
 		}
@@ -244,7 +257,7 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 		return []byte{}, nil
 	case "markdown":
 		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
-		markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, TemplateFS)
+		markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, cli.CustomInitialisms, TemplateFS)
 		if err != nil {
 			return nil, err
 		}

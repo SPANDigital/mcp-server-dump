@@ -11,12 +11,12 @@ import (
 )
 
 // FormatMarkdown formats server info as Markdown
-func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) (string, error) {
+func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, customInitialisms []string, templateFS embed.FS) (string, error) {
 	var result bytes.Buffer
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, customFields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, customFields, true) // Markdown format includes all server info like an index
 		if err != nil {
 			return "", fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -29,6 +29,9 @@ func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool,
 		"json":       jsonIndent,
 		"formatBool": formatBool,
 		"contains":   strings.Contains,
+		"humanizeKey": func(key string) string {
+			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+		},
 	})
 
 	// Parse all templates

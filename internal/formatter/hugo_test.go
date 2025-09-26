@@ -65,7 +65,8 @@ func TestFormatHugo(t *testing.T) {
 
 	// Test without frontmatter
 	t.Run("without frontmatter", func(t *testing.T) {
-		err := FormatHugo(info, tempDir, false, "", nil, testHugoTemplateFS)
+		hugoConfig := &HugoConfig{} // Default empty config
+		err := FormatHugo(info, tempDir, false, "", nil, hugoConfig, nil, testHugoTemplateFS)
 		if err != nil {
 			t.Fatalf("FormatHugo failed: %v", err)
 		}
@@ -115,7 +116,8 @@ func TestFormatHugo(t *testing.T) {
 			"tags":   []string{"test", "mcp"},
 		}
 
-		err = FormatHugo(info, tempDir2, true, "yaml", customFields, testHugoTemplateFS)
+		hugoConfig := &HugoConfig{} // Default empty config
+		err = FormatHugo(info, tempDir2, true, "yaml", customFields, hugoConfig, nil, testHugoTemplateFS)
 		if err != nil {
 			t.Fatalf("FormatHugo with frontmatter failed: %v", err)
 		}
@@ -149,7 +151,8 @@ func TestFormatHugoErrorPaths(t *testing.T) {
 	}
 
 	t.Run("path traversal protection", func(t *testing.T) {
-		err := FormatHugo(info, "../malicious", false, "", nil, testHugoTemplateFS)
+		hugoConfig := &HugoConfig{} // Default empty config
+		err := FormatHugo(info, "../malicious", false, "", nil, hugoConfig, nil, testHugoTemplateFS)
 		if err == nil {
 			t.Error("Expected error for path traversal attempt")
 		}
@@ -159,7 +162,8 @@ func TestFormatHugoErrorPaths(t *testing.T) {
 	})
 
 	t.Run("system directory protection", func(t *testing.T) {
-		err := FormatHugo(info, "/etc", false, "", nil, testHugoTemplateFS)
+		hugoConfig := &HugoConfig{} // Default empty config
+		err := FormatHugo(info, "/etc", false, "", nil, hugoConfig, nil, testHugoTemplateFS)
 		if err == nil {
 			t.Error("Expected error for system directory")
 		}
@@ -169,7 +173,8 @@ func TestFormatHugoErrorPaths(t *testing.T) {
 	})
 
 	t.Run("invalid output directory", func(t *testing.T) {
-		err := FormatHugo(info, "/nonexistent/readonly/path", false, "", nil, testHugoTemplateFS)
+		hugoConfig := &HugoConfig{} // Default empty config
+		err := FormatHugo(info, "/nonexistent/readonly/path", false, "", nil, hugoConfig, nil, testHugoTemplateFS)
 		if err == nil {
 			t.Error("Expected error for invalid directory")
 		}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -12,8 +13,147 @@ import (
 	"text/template"
 	"time"
 
+	"golang.org/x/text/language"
+
 	"github.com/spandigital/mcp-server-dump/internal/model"
 )
+
+// HugoConfig holds Hugo-specific configuration options
+type HugoConfig struct {
+	BaseURL      string
+	LanguageCode string
+	Theme        string
+	Github       string
+	Twitter      string
+	SiteLogo     string
+}
+
+// Validate validates the Hugo configuration and returns any errors found
+func (hc *HugoConfig) Validate() error {
+	if hc == nil {
+		return nil // nil config is valid (uses defaults)
+	}
+
+	// Validate BaseURL if provided
+	if hc.BaseURL != "" {
+		if err := validateURL(hc.BaseURL); err != nil {
+			return fmt.Errorf("invalid BaseURL: %w", err)
+		}
+	}
+
+	// Validate LanguageCode format if provided
+	if hc.LanguageCode != "" {
+		if err := validateLanguageCode(hc.LanguageCode); err != nil {
+			return fmt.Errorf("invalid LanguageCode: %w", err)
+		}
+	}
+
+	// Validate SiteLogo path if provided
+	if hc.SiteLogo != "" {
+		if err := validateLogoPath(hc.SiteLogo); err != nil {
+			return fmt.Errorf("invalid SiteLogo: %w", err)
+		}
+	}
+
+	// Validate GitHub handle if provided
+	if hc.Github != "" {
+		if err := validateSocialHandle(hc.Github); err != nil {
+			return fmt.Errorf("invalid Github handle: %w", err)
+		}
+	}
+
+	// Validate Twitter handle if provided
+	if hc.Twitter != "" {
+		if err := validateSocialHandle(hc.Twitter); err != nil {
+			return fmt.Errorf("invalid Twitter handle: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// validateURL validates if the provided URL is well-formed using the standard library
+func validateURL(urlStr string) error {
+	if urlStr == "" {
+		return nil
+	}
+
+	// Parse URL using standard library for robust validation
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("malformed URL: %w", err)
+	}
+
+	// Verify scheme is http or https
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("URL must use http or https scheme")
+	}
+
+	// Verify host is present
+	if parsed.Host == "" {
+		return fmt.Errorf("URL must include a host")
+	}
+
+	return nil
+}
+
+// validateLanguageCode validates if the language code follows basic format
+func validateLanguageCode(langCode string) error {
+	if langCode == "" {
+		return nil
+	}
+
+	// Use golang.org/x/text/language for robust validation
+	// This properly handles:
+	// - 2 and 3 letter language codes (e.g., "en", "fil")
+	// - Script subtags (e.g., "zh-Hans" for Simplified Chinese)
+	// - Region codes (e.g., "en-US", "pt-BR", "fr-CA")
+	_, err := language.Parse(langCode)
+	if err != nil {
+		return fmt.Errorf("invalid language code %q: %w (examples: 'en', 'en-US', 'zh-Hans', 'pt-BR')", langCode, err)
+	}
+
+	return nil
+}
+
+// validateLogoPath validates if the logo path is reasonable
+func validateLogoPath(logoPath string) error {
+	if logoPath == "" {
+		return nil
+	}
+
+	// Check for path traversal attempts
+	if strings.Contains(logoPath, "..") {
+		return fmt.Errorf("logo path cannot contain path traversal sequences")
+	}
+
+	// Check for absolute paths to system directories
+	if filepath.IsAbs(logoPath) {
+		criticalPaths := []string{"/bin", "/etc", "/usr", "/sys", "/proc", "/dev"}
+		for _, criticalPath := range criticalPaths {
+			if strings.HasPrefix(logoPath, criticalPath) {
+				return fmt.Errorf("logo path cannot reference system directories")
+			}
+		}
+	}
+
+	return nil
+}
+
+// validateSocialHandle validates social media handles (GitHub/Twitter) to prevent injection
+func validateSocialHandle(handle string) error {
+	if handle == "" {
+		return nil
+	}
+
+	// Social handles: alphanumeric, underscore, hyphen only (no special chars)
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, handle)
+	if !matched {
+		return fmt.Errorf("handle contains invalid characters (use only letters, numbers, underscore, hyphen)")
+	}
+
+	return nil
+}
 
 // Compile regex patterns once at package level for performance
 var (
@@ -24,7 +164,12 @@ var (
 // FormatHugo generates a Hugo documentation site structure with hierarchical content organization.
 // It creates a content directory with subdirectories for tools, resources, and prompts,
 // each containing individual markdown files and section index files (_index.md).
-func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) error {
+func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, hugoConfig *HugoConfig, customInitialisms []string, templateFS embed.FS) error {
+	// Validate Hugo configuration first
+	if err := hugoConfig.Validate(); err != nil {
+		return fmt.Errorf("invalid Hugo configuration: %w", err)
+	}
+
 	// Validate and sanitize output directory to prevent path traversal
 	outputDir = filepath.Clean(outputDir)
 	if strings.Contains(outputDir, "..") {
@@ -49,28 +194,39 @@ func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter boo
 		return fmt.Errorf("failed to create content directory: %w", err)
 	}
 
+	// Generate hugo.yml configuration file
+	if err := generateHugoConfig(info, outputDir, hugoConfig, templateFS); err != nil {
+		return fmt.Errorf("failed to generate hugo.yml: %w", err)
+	}
+
 	// Generate root _index.md
 	if err := generateRootIndex(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime); err != nil {
 		return fmt.Errorf("failed to generate root index: %w", err)
 	}
 
+	// Generate all content sections
+	return generateContentSections(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS)
+}
+
+// generateContentSections generates all content sections (tools, resources, prompts) if they exist
+func generateContentSections(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	// Generate tools section
 	if len(info.Tools) > 0 {
-		if err := generateToolsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS); err != nil {
+		if err := generateToolsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate tools section: %w", err)
 		}
 	}
 
 	// Generate resources section
 	if len(info.Resources) > 0 {
-		if err := generateResourcesSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS); err != nil {
+		if err := generateResourcesSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate resources section: %w", err)
 		}
 	}
 
 	// Generate prompts section
 	if len(info.Prompts) > 0 {
-		if err := generatePromptsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS); err != nil {
+		if err := generatePromptsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate prompts section: %w", err)
 		}
 	}
@@ -96,7 +252,7 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields, true) // Root index is an index file
 		if err != nil {
 			return fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -139,7 +295,7 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 }
 
 // generateToolsSection creates the tools directory and all tool markdown files
-func generateToolsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
+func generateToolsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	toolsDir := filepath.Join(contentDir, "tools")
 	if err := os.MkdirAll(toolsDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create tools directory: %w", err)
@@ -152,7 +308,7 @@ func generateToolsSection(info *model.ServerInfo, contentDir string, includeFron
 
 	// Generate individual tool files
 	for i, tool := range info.Tools {
-		if err := generateContentFile(toolsDir, &tool, tool.Name, "tool", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, templateFS); err != nil {
+		if err := generateContentFile(toolsDir, &tool, tool.Name, "tool", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate tool file for %s: %w", tool.Name, err)
 		}
 	}
@@ -161,7 +317,7 @@ func generateToolsSection(info *model.ServerInfo, contentDir string, includeFron
 }
 
 // generateResourcesSection creates the resources directory and all resource markdown files
-func generateResourcesSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
+func generateResourcesSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	resourcesDir := filepath.Join(contentDir, "resources")
 	if err := os.MkdirAll(resourcesDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create resources directory: %w", err)
@@ -174,7 +330,7 @@ func generateResourcesSection(info *model.ServerInfo, contentDir string, include
 
 	// Generate individual resource files
 	for i, resource := range info.Resources {
-		if err := generateContentFile(resourcesDir, &resource, resource.Name, "resource", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, templateFS); err != nil {
+		if err := generateContentFile(resourcesDir, &resource, resource.Name, "resource", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate resource file for %s: %w", resource.Name, err)
 		}
 	}
@@ -183,7 +339,7 @@ func generateResourcesSection(info *model.ServerInfo, contentDir string, include
 }
 
 // generatePromptsSection creates the prompts directory and all prompt markdown files
-func generatePromptsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
+func generatePromptsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	promptsDir := filepath.Join(contentDir, "prompts")
 	if err := os.MkdirAll(promptsDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create prompts directory: %w", err)
@@ -196,7 +352,7 @@ func generatePromptsSection(info *model.ServerInfo, contentDir string, includeFr
 
 	// Generate individual prompt files
 	for i, prompt := range info.Prompts {
-		if err := generateContentFile(promptsDir, &prompt, prompt.Name, "prompt", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, templateFS); err != nil {
+		if err := generateContentFile(promptsDir, &prompt, prompt.Name, "prompt", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate prompt file for %s: %w", prompt.Name, err)
 		}
 	}
@@ -222,7 +378,7 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields, true) // Section index is an index file
 		if err != nil {
 			return fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -240,7 +396,7 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 }
 
 // generateContentFile creates an individual content markdown file with the given template
-func generateContentFile(dir string, data any, name, itemType string, weight int, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, info *model.ServerInfo, generationTime time.Time, templateFS embed.FS) error {
+func generateContentFile(dir string, data any, name, itemType string, weight int, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, info *model.ServerInfo, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	var content bytes.Buffer
 
 	// Prepare frontmatter fields
@@ -258,7 +414,7 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
-		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields)
+		frontmatter, err := GenerateFrontmatter(info, frontmatterFormat, fields, false) // Individual content files are not index files
 		if err != nil {
 			return fmt.Errorf("failed to generate frontmatter: %w", err)
 		}
@@ -271,6 +427,9 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 		"json":       jsonIndent,
 		"contains":   strings.Contains,
 		"sortedKeys": getSortedKeys,
+		"humanizeKey": func(key string) string {
+			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+		},
 	})
 
 	// Parse template from embedded filesystem - try test path first, then production path
@@ -284,6 +443,9 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 			"json":       jsonIndent,
 			"contains":   strings.Contains,
 			"sortedKeys": getSortedKeys,
+			"humanizeKey": func(key string) string {
+				return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+			},
 		})
 		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
 	}
@@ -351,4 +513,43 @@ func getSortedKeys(m map[string]string) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+// generateHugoConfig creates a hugo.yml configuration file with sensible defaults
+func generateHugoConfig(info *model.ServerInfo, outputDir string, hugoConfig *HugoConfig, templateFS embed.FS) error {
+	// Create template
+	tmpl := template.New("hugo.yml.tmpl")
+
+	// Parse template from embedded filesystem - try test path first, then production path
+	testPath := "test_templates/hugo/hugo.yml.tmpl"
+	prodPath := "templates/hugo/hugo.yml.tmpl"
+
+	tmpl, err := tmpl.ParseFS(templateFS, testPath)
+	if err != nil {
+		// Reset template for production path
+		tmpl = template.New("hugo.yml.tmpl")
+		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to parse hugo.yml template: %w", err)
+	}
+
+	// Execute template with combined data
+	var content bytes.Buffer
+	templateData := struct {
+		*model.ServerInfo
+		HugoConfig       *HugoConfig
+		GeneratorVersion string
+	}{
+		ServerInfo:       info,
+		HugoConfig:       hugoConfig,
+		GeneratorVersion: "dev", // Version string for generated hugo.yml comment
+	}
+	if err := tmpl.Execute(&content, templateData); err != nil {
+		return fmt.Errorf("failed to execute hugo.yml template: %w", err)
+	}
+
+	// Write to file
+	configPath := filepath.Join(outputDir, "hugo.yml")
+	return os.WriteFile(configPath, content.Bytes(), 0o644)
 }

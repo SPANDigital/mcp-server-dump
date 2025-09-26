@@ -56,6 +56,29 @@ inputs:
     description: 'Include prompts in the documentation output'
     required: false
     default: 'true'
+  hugo-base-url:
+    description: 'Base URL for Hugo site (e.g., https://example.com or https://docs.mysite.com)'
+    required: false
+  hugo-language-code:
+    description: 'Language code for Hugo site (e.g., en, en-US, zh-Hans, pt-BR)'
+    required: false
+    default: 'en-us'
+  hugo-theme:
+    description: 'Hugo theme to use (default: ananke)'
+    required: false
+    default: 'ananke'
+  hugo-github:
+    description: 'GitHub username for social links (without @, e.g., octocat)'
+    required: false
+  hugo-twitter:
+    description: 'Twitter handle for social links (without @, e.g., username)'
+    required: false
+  hugo-site-logo:
+    description: 'Path to site logo (e.g., images/logo.png or /static/logo.svg)'
+    required: false
+  custom-initialisms:
+    description: 'Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT,CORP,ACME)'
+    required: false
 
 outputs:
   output-file:
@@ -240,6 +263,54 @@ runs:
 
         if [ "${{ inputs.scan-prompts }}" = "false" ]; then
             CMD_ARGS+=("--no-prompts")
+        fi
+
+        # Add Hugo-specific configuration if format is hugo
+        if [ "${{ inputs.format }}" = "hugo" ]; then
+            # Hugo base URL
+            HUGO_BASE_URL="${{ inputs.hugo-base-url }}"
+            if [ -n "${HUGO_BASE_URL}" ]; then
+                CMD_ARGS+=("--hugo-base-url" "${HUGO_BASE_URL}")
+            fi
+
+            # Hugo language code (with defensive default handling)
+            HUGO_LANG_CODE="${{ inputs.hugo-language-code }}"
+            if [ -n "${HUGO_LANG_CODE}" ] && [ "${HUGO_LANG_CODE}" != "en-us" ]; then
+                CMD_ARGS+=("--hugo-language-code" "${HUGO_LANG_CODE}")
+            fi
+
+            # Hugo theme (with defensive default handling)
+            HUGO_THEME="${{ inputs.hugo-theme }}"
+            if [ -n "${HUGO_THEME}" ] && [ "${HUGO_THEME}" != "ananke" ]; then
+                CMD_ARGS+=("--hugo-theme" "${HUGO_THEME}")
+            fi
+
+            # Hugo GitHub username
+            HUGO_GITHUB="${{ inputs.hugo-github }}"
+            if [ -n "${HUGO_GITHUB}" ]; then
+                CMD_ARGS+=("--hugo-github" "${HUGO_GITHUB}")
+            fi
+
+            # Hugo Twitter handle
+            HUGO_TWITTER="${{ inputs.hugo-twitter }}"
+            if [ -n "${HUGO_TWITTER}" ]; then
+                CMD_ARGS+=("--hugo-twitter" "${HUGO_TWITTER}")
+            fi
+
+            # Hugo site logo
+            HUGO_SITE_LOGO="${{ inputs.hugo-site-logo }}"
+            if [ -n "${HUGO_SITE_LOGO}" ]; then
+                CMD_ARGS+=("--hugo-site-logo" "${HUGO_SITE_LOGO}")
+            fi
+        fi
+
+        # Add custom initialisms if specified (applies to all formats that use human-readable headings)
+        CUSTOM_INITIALISMS="${{ inputs.custom-initialisms }}"
+        if [ -n "${CUSTOM_INITIALISMS}" ]; then
+            parse_comma_separated_values "${CUSTOM_INITIALISMS}" "custom initialism"
+            for initialism in "${PARSED_ITEMS[@]}"; do
+                CMD_ARGS+=("--custom-initialisms" "${initialism}")
+            done
         fi
 
         # Add server command (this should be the last argument)

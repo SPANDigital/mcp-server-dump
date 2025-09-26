@@ -21,12 +21,12 @@
 
 {{range $key, $value := .Context -}}
 {{if contains $value "\n" -}}
-**{{$key}}:**
+**{{ humanizeKey $key }}:**
 
 {{$value}}
 
 {{else -}}
-- **{{$key}}:** {{$value}}
+- **{{ humanizeKey $key }}:** {{$value}}
 {{end -}}
 {{end -}}
 {{end}}
