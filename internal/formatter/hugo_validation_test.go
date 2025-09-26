@@ -254,11 +254,15 @@ func TestValidateGoogleAnalyticsID(t *testing.T) {
 		{"valid GA4 ID", "G-ABCD123456", false},
 		{"valid GA4 ID with numbers", "G-1234567890", false},
 		{"valid GA4 ID mixed", "G-AB12CD34EF", false},
-		{"invalid - too short", "G-ABC123", true},
-		{"invalid - too long", "G-ABCD1234567", true},
+		{"valid GA4 ID with lowercase", "G-abcd123456", false},
+		{"valid GA4 ID mixed case", "G-Ab1Cd2Ef3G", false},
+		{"valid GA4 ID - 9 characters", "G-ABC123DEF", false},
+		{"valid GA4 ID - 12 characters", "G-ABC123DEF456", false},
+		{"invalid - too short", "G-ABC12", true},
+		{"invalid - too long", "G-ABCD1234567890", true},
 		{"invalid - no G- prefix", "ABCD123456", true},
-		{"invalid - lowercase letters", "G-abcd123456", true},
 		{"invalid - contains special chars", "G-ABCD@12345", true},
+		{"invalid - contains underscore", "G-ABCD_12345", true},
 		{"invalid - old UA format", "UA-12345678-1", true},
 	}
 

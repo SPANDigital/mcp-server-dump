@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -182,12 +183,16 @@ func (h *HugoBinaryTestHelper) RunHugo(args ...string) (string, error) {
 
 	h.t.Logf("Running: %s %v", h.BinaryPath, args)
 
-	// Execute Hugo command
-	cmd := fmt.Sprintf("%s %s", h.BinaryPath, strings.Join(args, " "))
+	// Execute Hugo command using exec.Command
+	cmd := exec.Command(h.BinaryPath, args...)
 
-	// Use a simple execution approach for cross-platform compatibility
-	// In a real test, you might use exec.Command here
-	return "", fmt.Errorf("RunHugo not yet implemented - would run: %s", cmd)
+	// Capture both stdout and stderr
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return string(output), fmt.Errorf("Hugo command failed: %w\nOutput: %s", err, string(output))
+	}
+
+	return string(output), nil
 }
 
 // GetVersion returns Hugo version by executing hugo version

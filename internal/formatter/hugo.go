@@ -155,25 +155,8 @@ func validateSocialHandle(handle string) error {
 	}
 
 	// Social handles: alphanumeric, underscore, hyphen only (no special chars)
-	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, handle)
-	if !matched {
+	if !socialHandleRegex.MatchString(handle) {
 		return fmt.Errorf("handle contains invalid characters (use only letters, numbers, underscore, hyphen)")
-	}
-
-	return nil
-}
-
-// validateGoogleAnalyticsID validates Google Analytics measurement ID format
-func validateGoogleAnalyticsID(gaID string) error {
-	if gaID == "" {
-		return nil
-	}
-
-	// Google Analytics 4 measurement IDs follow the pattern G-XXXXXXXXXX (G- followed by 10 characters)
-	// Universal Analytics (deprecated) used UA-XXXXXXXX-X but we'll focus on GA4
-	matched, _ := regexp.MatchString(`^G-[A-Z0-9]{10}$`, gaID)
-	if !matched {
-		return fmt.Errorf("invalid Google Analytics ID format (expected G-XXXXXXXXXX for GA4, got %q)", gaID)
 	}
 
 	return nil
@@ -181,9 +164,27 @@ func validateGoogleAnalyticsID(gaID string) error {
 
 // Compile regex patterns once at package level for performance
 var (
-	nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9-]+`)
-	multiHyphenRegex = regexp.MustCompile(`-+`)
+	nonAlphaNumRegex     = regexp.MustCompile(`[^a-z0-9-]+`)
+	socialHandleRegex    = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	googleAnalyticsRegex = regexp.MustCompile(`^G-[A-Za-z0-9]{9,12}$`)
+	multiHyphenRegex     = regexp.MustCompile(`-+`)
 )
+
+// validateGoogleAnalyticsID validates Google Analytics measurement ID format
+func validateGoogleAnalyticsID(gaID string) error {
+	if gaID == "" {
+		return nil
+	}
+
+	// Google Analytics 4 measurement IDs follow the pattern G-XXXXXXXXXX
+	// (G- followed by 9-12 alphanumeric characters, can include lowercase)
+	// Universal Analytics (deprecated) used UA-XXXXXXXX-X but we'll focus on GA4
+	if !googleAnalyticsRegex.MatchString(gaID) {
+		return fmt.Errorf("invalid Google Analytics ID format (expected G-XXXXXXXXXX for GA4 with 9-12 characters, got %q)", gaID)
+	}
+
+	return nil
+}
 
 // FormatHugo generates a Hugo documentation site structure with hierarchical content organization.
 // It creates a content directory with subdirectories for tools, resources, and prompts,
