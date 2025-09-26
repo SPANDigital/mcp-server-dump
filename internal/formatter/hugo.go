@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -54,23 +55,43 @@ func (hc *HugoConfig) Validate() error {
 		}
 	}
 
+	// Validate GitHub handle if provided
+	if hc.Github != "" {
+		if err := validateSocialHandle(hc.Github); err != nil {
+			return fmt.Errorf("invalid Github handle: %w", err)
+		}
+	}
+
+	// Validate Twitter handle if provided
+	if hc.Twitter != "" {
+		if err := validateSocialHandle(hc.Twitter); err != nil {
+			return fmt.Errorf("invalid Twitter handle: %w", err)
+		}
+	}
+
 	return nil
 }
 
-// validateURL validates if the provided URL is well-formed
+// validateURL validates if the provided URL is well-formed using the standard library
 func validateURL(urlStr string) error {
 	if urlStr == "" {
 		return nil
 	}
 
-	// Basic URL validation
-	if !strings.HasPrefix(urlStr, "http://") && !strings.HasPrefix(urlStr, "https://") {
-		return fmt.Errorf("URL must start with http:// or https://")
+	// Parse URL using standard library for robust validation
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return fmt.Errorf("malformed URL: %w", err)
 	}
 
-	// Additional basic checks for malformed URLs
-	if strings.Contains(urlStr, " ") {
-		return fmt.Errorf("URL cannot contain spaces")
+	// Verify scheme is http or https
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("URL must use http or https scheme")
+	}
+
+	// Verify host is present
+	if parsed.Host == "" {
+		return fmt.Errorf("URL must include a host")
 	}
 
 	return nil
@@ -114,6 +135,21 @@ func validateLogoPath(logoPath string) error {
 				return fmt.Errorf("logo path cannot reference system directories")
 			}
 		}
+	}
+
+	return nil
+}
+
+// validateSocialHandle validates social media handles (GitHub/Twitter) to prevent injection
+func validateSocialHandle(handle string) error {
+	if handle == "" {
+		return nil
+	}
+
+	// Social handles: alphanumeric, underscore, hyphen only (no special chars)
+	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, handle)
+	if !matched {
+		return fmt.Errorf("handle contains invalid characters (use only letters, numbers, underscore, hyphen)")
 	}
 
 	return nil

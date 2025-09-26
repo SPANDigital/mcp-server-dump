@@ -170,6 +170,9 @@ func TestSplitCamelCase(t *testing.T) {
 		{"all uppercase", "UPPERCASE", []string{"UPPERCASE"}},
 		{"numbers", "test123", []string{"test123"}},
 		{"mixed with numbers", "test123ABC", []string{"test123", "ABC"}},
+		{"consecutive caps HTTPAPI", "HTTPAPI", []string{"HTTPAPI"}},
+		{"consecutive caps mixed HTTPSServer", "HTTPSServer", []string{"HTTPS", "Server"}},
+		{"API prefix APIHandler", "APIHandler", []string{"API", "Handler"}},
 	}
 
 	for _, tt := range tests {

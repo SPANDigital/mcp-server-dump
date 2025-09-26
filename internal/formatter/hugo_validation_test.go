@@ -29,7 +29,7 @@ func TestHugoConfigValidate(t *testing.T) {
 				LanguageCode: "en-us",
 				Theme:        "ananke",
 				Github:       "user",
-				Twitter:      "@user",
+				Twitter:      "user",
 				SiteLogo:     "images/logo.png",
 			},
 			expectError: false,
@@ -48,7 +48,7 @@ func TestHugoConfigValidate(t *testing.T) {
 				BaseURL: "https://example .com",
 			},
 			expectError: true,
-			errorMsg:    "URL cannot contain spaces",
+			errorMsg:    "invalid character",
 		},
 		{
 			name: "invalid LanguageCode - wrong format",
@@ -197,6 +197,35 @@ func TestValidateLogoPath(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateLogoPath(tt.logoPath)
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			} else if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateSocialHandle(t *testing.T) {
+	tests := []struct {
+		name        string
+		handle      string
+		expectError bool
+	}{
+		{"empty handle", "", false},
+		{"valid alphanumeric", "user123", false},
+		{"valid with underscore", "user_name", false},
+		{"valid with hyphen", "user-name", false},
+		{"valid mixed", "My_User-123", false},
+		{"invalid - contains @", "@username", true},
+		{"invalid - contains space", "user name", true},
+		{"invalid - contains special char", "user$name", true},
+		{"invalid - contains dot", "user.name", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateSocialHandle(tt.handle)
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
 			} else if !tt.expectError && err != nil {
