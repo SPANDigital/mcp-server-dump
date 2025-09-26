@@ -2,7 +2,9 @@ package formatter
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"net/http"
@@ -43,21 +45,23 @@ func NewHugoBinaryTestHelper(t *testing.T) *HugoBinaryTestHelper {
 	case "darwin":
 		hugoBinaryPlatform = "darwin-universal" // Hugo uses universal binaries for macOS
 	case windowsOS:
-		if goarch == "amd64" {
+		switch goarch {
+		case "amd64":
 			hugoBinaryPlatform = "windows-amd64"
-		} else if goarch == "386" {
+		case "386":
 			hugoBinaryPlatform = "windows-386"
-		} else {
+		default:
 			hugoBinaryPlatform = fmt.Sprintf("windows-%s", goarch)
 		}
 	case "linux":
-		if goarch == "amd64" {
+		switch goarch {
+		case "amd64":
 			hugoBinaryPlatform = "linux-amd64"
-		} else if goarch == "arm64" {
+		case "arm64":
 			hugoBinaryPlatform = "linux-arm64"
-		} else if goarch == "386" {
+		case "386":
 			hugoBinaryPlatform = "linux-386"
-		} else {
+		default:
 			hugoBinaryPlatform = fmt.Sprintf("linux-%s", goarch)
 		}
 	default:
@@ -101,10 +105,91 @@ func NewHugoBinaryTestHelper(t *testing.T) *HugoBinaryTestHelper {
 	return helper
 }
 
-// DownloadAndExtract downloads the Hugo binary and extracts it
+// downloadChecksums downloads and parses Hugo release checksums
+func (h *HugoBinaryTestHelper) downloadChecksums() (map[string]string, error) {
+	h.t.Helper()
+
+	checksumsURL := fmt.Sprintf("https://github.com/gohugoio/hugo/releases/download/v%s/hugo_%s_checksums.txt", h.Version, h.Version)
+	h.t.Logf("Downloading checksums from %s", checksumsURL)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Get(checksumsURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download checksums: %w", err)
+	}
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			h.t.Logf("Failed to close checksums response body: %v", closeErr)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to download checksums: HTTP %d", resp.StatusCode)
+	}
+
+	// Read checksums content
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read checksums content: %w", err)
+	}
+
+	// Parse checksums (format: "checksum  filename")
+	checksums := make(map[string]string)
+	lines := strings.Split(string(content), "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		parts := strings.Fields(line)
+		if len(parts) >= 2 {
+			checksum := parts[0]
+			filename := parts[1]
+			checksums[filename] = checksum
+		}
+	}
+
+	h.t.Logf("Downloaded %d checksums", len(checksums))
+	return checksums, nil
+}
+
+// verifyChecksum verifies the SHA256 checksum of downloaded content
+func (h *HugoBinaryTestHelper) verifyChecksum(content []byte, expectedChecksum, filename string) error {
+	h.t.Helper()
+
+	if expectedChecksum == "" {
+		h.t.Logf("No checksum available for %s, skipping verification", filename)
+		return nil
+	}
+
+	// Calculate SHA256
+	hash := sha256.Sum256(content)
+	actualChecksum := fmt.Sprintf("%x", hash)
+
+	if actualChecksum != expectedChecksum {
+		return fmt.Errorf("checksum mismatch for %s: expected %s, got %s", filename, expectedChecksum, actualChecksum)
+	}
+
+	h.t.Logf("✅ Checksum verified for %s", filename)
+	return nil
+}
+
+// DownloadAndExtract downloads the Hugo binary, verifies checksum, and extracts it
 func (h *HugoBinaryTestHelper) DownloadAndExtract() error {
 	h.t.Helper()
 	h.t.Logf("Downloading Hugo %s from %s", h.Version, h.DownloadURL)
+
+	// Download checksums first
+	checksums, err := h.downloadChecksums()
+	if err != nil {
+		h.t.Logf("Failed to download checksums (continuing without verification): %v", err)
+		checksums = make(map[string]string) // Empty map to continue without verification
+	}
+
+	// Extract filename from URL for checksum lookup
+	filename := filepath.Base(h.DownloadURL)
+	expectedChecksum := checksums[filename]
 
 	// Create HTTP client with timeout
 	client := &http.Client{
@@ -117,8 +202,8 @@ func (h *HugoBinaryTestHelper) DownloadAndExtract() error {
 		return fmt.Errorf("failed to download Hugo binary: %w", err)
 	}
 	defer func() {
-		if err := resp.Body.Close(); err != nil {
-			h.t.Logf("Failed to close response body: %v", err)
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			h.t.Logf("Failed to close response body: %v", closeErr)
 		}
 	}()
 
@@ -126,9 +211,20 @@ func (h *HugoBinaryTestHelper) DownloadAndExtract() error {
 		return fmt.Errorf("failed to download Hugo binary: HTTP %d", resp.StatusCode)
 	}
 
+	// Read entire content for checksum verification
+	content, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read Hugo binary content: %w", err)
+	}
+
+	// Verify checksum
+	if err := h.verifyChecksum(content, expectedChecksum, filename); err != nil {
+		return fmt.Errorf("checksum verification failed: %w", err)
+	}
+
 	// Extract based on file type
 	if strings.HasSuffix(h.DownloadURL, ".tar.gz") {
-		return h.extractTarGz(resp.Body)
+		return h.extractTarGz(bytes.NewReader(content))
 	}
 
 	return fmt.Errorf("unsupported archive format for URL: %s", h.DownloadURL)
