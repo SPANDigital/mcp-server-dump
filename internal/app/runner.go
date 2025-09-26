@@ -250,6 +250,11 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 			GoogleAnalytics: cli.HugoGoogleAnalytics,
 		}
 
+		// Warn user about deprecated HugoTheme field
+		if cli.HugoTheme != "" {
+			log.Printf("⚠️  WARNING: --hugo-theme is deprecated. Hugo now uses modules with Hextra theme by default. The theme parameter will be ignored.")
+		}
+
 		err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, cli.CustomInitialisms, HugoTemplateFS)
 		if err != nil {
 			return nil, err

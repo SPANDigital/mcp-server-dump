@@ -30,7 +30,7 @@ type HugoBinaryTestHelper struct {
 func NewHugoBinaryTestHelper(t *testing.T) *HugoBinaryTestHelper {
 	t.Helper()
 
-	// Use Hugo v0.150.1 (latest as of September 2025)
+	// Use Hugo v0.150.1 (as of January 2025 - consider updating periodically)
 	version := "0.150.1"
 
 	// Determine architecture and OS for download URL
@@ -80,13 +80,20 @@ func NewHugoBinaryTestHelper(t *testing.T) *HugoBinaryTestHelper {
 	}
 	binaryPath := filepath.Join(tempDir, binaryName)
 
-	return &HugoBinaryTestHelper{
+	helper := &HugoBinaryTestHelper{
 		Version:     version,
 		BinaryPath:  binaryPath,
 		TempDir:     tempDir,
 		DownloadURL: downloadURL,
 		t:           t,
 	}
+
+	// Use t.Cleanup for better resource management
+	t.Cleanup(func() {
+		helper.Cleanup()
+	})
+
+	return helper
 }
 
 // DownloadAndExtract downloads the Hugo binary and extracts it

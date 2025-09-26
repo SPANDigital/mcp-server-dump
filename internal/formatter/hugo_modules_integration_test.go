@@ -41,7 +41,6 @@ func setupHugoModulesTest(t *testing.T) (string, *model.ServerInfo, *HugoConfig)
 
 	// Create Hugo binary test helper
 	hugoBinary := NewHugoBinaryTestHelper(t)
-	defer hugoBinary.Cleanup()
 	hugoBinary.SkipIfDownloadFails()
 
 	// Create temporary site directory

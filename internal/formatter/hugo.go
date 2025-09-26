@@ -166,7 +166,7 @@ func validateSocialHandle(handle string) error {
 var (
 	nonAlphaNumRegex     = regexp.MustCompile(`[^a-z0-9-]+`)
 	socialHandleRegex    = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-	googleAnalyticsRegex = regexp.MustCompile(`^G-[A-Za-z0-9]{9,12}$`)
+	googleAnalyticsRegex = regexp.MustCompile(`^G-[A-Za-z0-9]{10}$`)
 	multiHyphenRegex     = regexp.MustCompile(`-+`)
 )
 
@@ -177,10 +177,10 @@ func validateGoogleAnalyticsID(gaID string) error {
 	}
 
 	// Google Analytics 4 measurement IDs follow the pattern G-XXXXXXXXXX
-	// (G- followed by 9-12 alphanumeric characters, can include lowercase)
+	// (G- followed by exactly 10 alphanumeric characters, can include lowercase)
 	// Universal Analytics (deprecated) used UA-XXXXXXXX-X but we'll focus on GA4
 	if !googleAnalyticsRegex.MatchString(gaID) {
-		return fmt.Errorf("invalid Google Analytics ID format (expected G-XXXXXXXXXX for GA4 with 9-12 characters, got %q)", gaID)
+		return fmt.Errorf("invalid Google Analytics ID format (expected G-XXXXXXXXXX for GA4 with exactly 10 characters, got %q)", gaID)
 	}
 
 	return nil
