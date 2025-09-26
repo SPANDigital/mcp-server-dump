@@ -25,7 +25,7 @@ func TestFormatHugoWithContext(t *testing.T) {
 
 	// Generate Hugo output
 	hugoConfig := &HugoConfig{} // Default empty config
-	err = FormatHugo(info, tempDir, false, "", nil, hugoConfig, testHugoTemplateFS)
+	err = FormatHugo(info, tempDir, false, "", nil, hugoConfig, nil, testHugoTemplateFS)
 	if err != nil {
 		t.Fatalf("FormatHugo failed: %v", err)
 	}

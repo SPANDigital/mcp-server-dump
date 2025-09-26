@@ -123,7 +123,7 @@ var (
 // FormatHugo generates a Hugo documentation site structure with hierarchical content organization.
 // It creates a content directory with subdirectories for tools, resources, and prompts,
 // each containing individual markdown files and section index files (_index.md).
-func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, hugoConfig *HugoConfig, templateFS embed.FS) error {
+func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, hugoConfig *HugoConfig, customInitialisms []string, templateFS embed.FS) error {
 	// Validate Hugo configuration first
 	if err := hugoConfig.Validate(); err != nil {
 		return fmt.Errorf("invalid Hugo configuration: %w", err)
@@ -164,28 +164,28 @@ func FormatHugo(info *model.ServerInfo, outputDir string, includeFrontmatter boo
 	}
 
 	// Generate all content sections
-	return generateContentSections(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS)
+	return generateContentSections(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS)
 }
 
 // generateContentSections generates all content sections (tools, resources, prompts) if they exist
-func generateContentSections(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
+func generateContentSections(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	// Generate tools section
 	if len(info.Tools) > 0 {
-		if err := generateToolsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS); err != nil {
+		if err := generateToolsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate tools section: %w", err)
 		}
 	}
 
 	// Generate resources section
 	if len(info.Resources) > 0 {
-		if err := generateResourcesSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS); err != nil {
+		if err := generateResourcesSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate resources section: %w", err)
 		}
 	}
 
 	// Generate prompts section
 	if len(info.Prompts) > 0 {
-		if err := generatePromptsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, templateFS); err != nil {
+		if err := generatePromptsSection(info, contentDir, includeFrontmatter, frontmatterFormat, customFields, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate prompts section: %w", err)
 		}
 	}
@@ -254,7 +254,7 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 }
 
 // generateToolsSection creates the tools directory and all tool markdown files
-func generateToolsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
+func generateToolsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	toolsDir := filepath.Join(contentDir, "tools")
 	if err := os.MkdirAll(toolsDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create tools directory: %w", err)
@@ -267,7 +267,7 @@ func generateToolsSection(info *model.ServerInfo, contentDir string, includeFron
 
 	// Generate individual tool files
 	for i, tool := range info.Tools {
-		if err := generateContentFile(toolsDir, &tool, tool.Name, "tool", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, templateFS); err != nil {
+		if err := generateContentFile(toolsDir, &tool, tool.Name, "tool", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate tool file for %s: %w", tool.Name, err)
 		}
 	}
@@ -276,7 +276,7 @@ func generateToolsSection(info *model.ServerInfo, contentDir string, includeFron
 }
 
 // generateResourcesSection creates the resources directory and all resource markdown files
-func generateResourcesSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
+func generateResourcesSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	resourcesDir := filepath.Join(contentDir, "resources")
 	if err := os.MkdirAll(resourcesDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create resources directory: %w", err)
@@ -289,7 +289,7 @@ func generateResourcesSection(info *model.ServerInfo, contentDir string, include
 
 	// Generate individual resource files
 	for i, resource := range info.Resources {
-		if err := generateContentFile(resourcesDir, &resource, resource.Name, "resource", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, templateFS); err != nil {
+		if err := generateContentFile(resourcesDir, &resource, resource.Name, "resource", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate resource file for %s: %w", resource.Name, err)
 		}
 	}
@@ -298,7 +298,7 @@ func generateResourcesSection(info *model.ServerInfo, contentDir string, include
 }
 
 // generatePromptsSection creates the prompts directory and all prompt markdown files
-func generatePromptsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, templateFS embed.FS) error {
+func generatePromptsSection(info *model.ServerInfo, contentDir string, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	promptsDir := filepath.Join(contentDir, "prompts")
 	if err := os.MkdirAll(promptsDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create prompts directory: %w", err)
@@ -311,7 +311,7 @@ func generatePromptsSection(info *model.ServerInfo, contentDir string, includeFr
 
 	// Generate individual prompt files
 	for i, prompt := range info.Prompts {
-		if err := generateContentFile(promptsDir, &prompt, prompt.Name, "prompt", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, templateFS); err != nil {
+		if err := generateContentFile(promptsDir, &prompt, prompt.Name, "prompt", i+1, includeFrontmatter, frontmatterFormat, customFields, info, generationTime, customInitialisms, templateFS); err != nil {
 			return fmt.Errorf("failed to generate prompt file for %s: %w", prompt.Name, err)
 		}
 	}
@@ -355,7 +355,7 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 }
 
 // generateContentFile creates an individual content markdown file with the given template
-func generateContentFile(dir string, data any, name, itemType string, weight int, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, info *model.ServerInfo, generationTime time.Time, templateFS embed.FS) error {
+func generateContentFile(dir string, data any, name, itemType string, weight int, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, info *model.ServerInfo, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	var content bytes.Buffer
 
 	// Prepare frontmatter fields
@@ -383,10 +383,12 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	// Create template with functions
 	templateName := itemType + ".md.tmpl"
 	tmpl := template.New(templateName).Funcs(template.FuncMap{
-		"json":        jsonIndent,
-		"contains":    strings.Contains,
-		"sortedKeys":  getSortedKeys,
-		"humanizeKey": humanizeKey,
+		"json":       jsonIndent,
+		"contains":   strings.Contains,
+		"sortedKeys": getSortedKeys,
+		"humanizeKey": func(key string) string {
+			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+		},
 	})
 
 	// Parse template from embedded filesystem - try test path first, then production path
@@ -397,10 +399,12 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	if err != nil {
 		// Reset template for production path
 		tmpl = template.New(templateName).Funcs(template.FuncMap{
-			"json":        jsonIndent,
-			"contains":    strings.Contains,
-			"sortedKeys":  getSortedKeys,
-			"humanizeKey": humanizeKey,
+			"json":       jsonIndent,
+			"contains":   strings.Contains,
+			"sortedKeys": getSortedKeys,
+			"humanizeKey": func(key string) string {
+				return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+			},
 		})
 		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
 	}

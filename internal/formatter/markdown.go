@@ -11,7 +11,7 @@ import (
 )
 
 // FormatMarkdown formats server info as Markdown
-func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, templateFS embed.FS) (string, error) {
+func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, customInitialisms []string, templateFS embed.FS) (string, error) {
 	var result bytes.Buffer
 
 	// Add frontmatter if requested
@@ -25,11 +25,13 @@ func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool,
 
 	// Create template with custom functions
 	tmpl := template.New("base.md.tmpl").Funcs(template.FuncMap{
-		"anchor":      anchorName,
-		"json":        jsonIndent,
-		"formatBool":  formatBool,
-		"contains":    strings.Contains,
-		"humanizeKey": humanizeKey,
+		"anchor":     anchorName,
+		"json":       jsonIndent,
+		"formatBool": formatBool,
+		"contains":   strings.Contains,
+		"humanizeKey": func(key string) string {
+			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+		},
 	})
 
 	// Parse all templates

@@ -76,6 +76,9 @@ inputs:
   hugo-site-logo:
     description: 'Path to site logo'
     required: false
+  custom-initialisms:
+    description: 'Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT)'
+    required: false
 
 outputs:
   output-file:
@@ -299,6 +302,15 @@ runs:
             if [ -n "${HUGO_SITE_LOGO}" ]; then
                 CMD_ARGS+=("--hugo-site-logo" "${HUGO_SITE_LOGO}")
             fi
+        fi
+
+        # Add custom initialisms if specified (applies to all formats that use human-readable headings)
+        CUSTOM_INITIALISMS="${{ inputs.custom-initialisms }}"
+        if [ -n "${CUSTOM_INITIALISMS}" ]; then
+            parse_comma_separated_values "${CUSTOM_INITIALISMS}" "custom initialism"
+            for initialism in "${PARSED_ITEMS[@]}"; do
+                CMD_ARGS+=("--custom-initialisms" "${initialism}")
+            done
         fi
 
         # Add server command (this should be the last argument)

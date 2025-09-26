@@ -249,7 +249,7 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 			SiteLogo:     cli.HugoSiteLogo,
 		}
 
-		err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, HugoTemplateFS)
+		err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, cli.CustomInitialisms, HugoTemplateFS)
 		if err != nil {
 			return nil, err
 		}
@@ -257,7 +257,7 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 		return []byte{}, nil
 	case "markdown":
 		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
-		markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, TemplateFS)
+		markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, cli.CustomInitialisms, TemplateFS)
 		if err != nil {
 			return nil, err
 		}

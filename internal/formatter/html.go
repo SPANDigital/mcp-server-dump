@@ -20,7 +20,7 @@ import (
 // FormatHTML formats server info as HTML
 func FormatHTML(info *model.ServerInfo, includeTOC bool, templateFS embed.FS) (string, error) {
 	// First generate markdown
-	markdown, err := FormatMarkdown(info, includeTOC, false, "", nil, templateFS)
+	markdown, err := FormatMarkdown(info, includeTOC, false, "", nil, nil, templateFS)
 	if err != nil {
 		return "", err
 	}

@@ -35,7 +35,7 @@ func TestHumanizeKey(t *testing.T) {
 
 		// Already formatted cases
 		{"already title case", "User Name", "User Name"},
-		{"mixed case", "userNAME", "Username"},
+		{"mixed case", "userNAME", "User Name"},
 
 		// Special characters (should be preserved after underscores/spaces)
 		{"with numbers", "user_id_123", "User ID 123"},
@@ -69,6 +69,15 @@ func TestHumanizeKey(t *testing.T) {
 		{"html", "html", "HTML"},
 		{"css", "css", "CSS"},
 
+		// CamelCase boundary test cases (new functionality)
+		{"XMLHttpRequest", "XMLHttpRequest", "XML HTTP Request"},
+		{"getElementById", "getElementById", "Get Element By ID"},
+		{"innerHTML", "innerHTML", "Inner HTML"},
+		{"XMLParser", "XMLParser", "XML Parser"},
+		{"httpRequest", "httpRequest", "HTTP Request"},
+		{"parseJSON", "parseJSON", "Parse JSON"},
+		{"createXMLNode", "createXMLNode", "Create XML Node"},
+
 		// Multi-word with acronyms (all acronyms should be uppercase)
 		{"user api key", "user_api_key", "User API Key"},
 		{"cdn endpoint url", "cdn_endpoint_url", "CDN Endpoint URL"},
@@ -77,6 +86,11 @@ func TestHumanizeKey(t *testing.T) {
 		{"database sql query", "database_sql_query", "Database SQL Query"},
 		{"web html content", "web_html_content", "Web HTML Content"},
 		{"api json response", "api_json_response", "API JSON Response"},
+
+		// Mixed underscore and camelCase test cases (complex scenarios)
+		{"api_XMLHttpRequest", "api_XMLHttpRequest", "API XML HTTP Request"},
+		{"user_getElementById", "user_getElementById", "User Get Element By ID"},
+		{"httpRequest_data", "httpRequest_data", "HTTP Request Data"},
 	}
 
 	for _, tt := range tests {
@@ -84,6 +98,151 @@ func TestHumanizeKey(t *testing.T) {
 			result := humanizeKey(tt.input)
 			if result != tt.expected {
 				t.Errorf("humanizeKey(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestHumanizeKeyWithCustomInitialisms(t *testing.T) {
+	tests := []struct {
+		name             string
+		input            string
+		customInitialisms []string
+		expected         string
+	}{
+		// Basic custom initialism tests
+		{"custom initialism CORP", "corp_api_key", []string{"CORP"}, "CORP API Key"},
+		{"custom initialism ACME", "acme_system", []string{"ACME"}, "ACME System"},
+		{"multiple custom initialisms", "corp_acme_api", []string{"CORP", "ACME"}, "CORP ACME API"},
+
+		// Case insensitive custom initialisms (should work with lowercase input)
+		{"case insensitive custom", "myorg_api", []string{"myorg"}, "MYORG API"},
+		{"mixed case custom", "MyOrg_system", []string{"MyOrg"}, "MYORG System"},
+
+		// Custom initialisms with camelCase
+		{"custom with camelCase", "corpRequest", []string{"CORP"}, "CORP Request"},
+		{"camelCase with custom initialism", "parseCorpData", []string{"CORP"}, "Parse CORP Data"},
+
+		// Duplicates should be handled gracefully
+		{"duplicate custom initialisms", "corp_api", []string{"CORP", "corp", "CORP"}, "CORP API"},
+
+		// Empty custom initialisms should fall back to built-in
+		{"empty custom list", "api_key", []string{}, "API Key"},
+		{"nil custom list", "http_server", nil, "HTTP Server"},
+
+		// Custom initialisms should not override built-in ones
+		{"custom should not override builtin", "api_corp_system", []string{"CORP"}, "API CORP System"},
+
+		// Whitespace in custom initialisms should be handled
+		{"custom with whitespace", "corp_api", []string{" CORP ", "  API  "}, "CORP API"},
+
+		// Complex mixed scenarios
+		{"complex mixed scenario", "corp_XMLHttpRequest_api", []string{"CORP"}, "CORP XML HTTP Request API"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := humanizeKeyWithCustomInitialisms(tt.input, tt.customInitialisms)
+			if result != tt.expected {
+				t.Errorf("humanizeKeyWithCustomInitialisms(%q, %v) = %q, want %q",
+					tt.input, tt.customInitialisms, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSplitCamelCase(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{"empty string", "", nil},
+		{"single word", "hello", []string{"hello"}},
+		{"simple camelCase", "helloWorld", []string{"hello", "World"}},
+		{"XMLHttpRequest", "XMLHttpRequest", []string{"XML", "Http", "Request"}},
+		{"getElementById", "getElementById", []string{"get", "Element", "By", "Id"}},
+		{"innerHTML", "innerHTML", []string{"inner", "HTML"}},
+		{"all lowercase", "lowercase", []string{"lowercase"}},
+		{"all uppercase", "UPPERCASE", []string{"UPPERCASE"}},
+		{"numbers", "test123", []string{"test123"}},
+		{"mixed with numbers", "test123ABC", []string{"test123", "ABC"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := splitCamelCase(tt.input)
+			if len(result) != len(tt.expected) {
+				t.Errorf("splitCamelCase(%q) = %v, want %v (length mismatch)",
+					tt.input, result, tt.expected)
+				return
+			}
+			for i, expected := range tt.expected {
+				if result[i] != expected {
+					t.Errorf("splitCamelCase(%q) = %v, want %v (at index %d)",
+						tt.input, result, tt.expected, i)
+					break
+				}
+			}
+		})
+	}
+}
+
+func TestBuildInitialismsMap(t *testing.T) {
+	tests := []struct {
+		name              string
+		customInitialisms []string
+		expectedKeys      []string
+	}{
+		{
+			name:              "empty custom list",
+			customInitialisms: []string{},
+			expectedKeys:      []string{"API", "HTTP", "JSON"}, // Should contain built-in initialisms
+		},
+		{
+			name:              "nil custom list",
+			customInitialisms: nil,
+			expectedKeys:      []string{"API", "HTTP", "JSON"}, // Should contain built-in initialisms
+		},
+		{
+			name:              "custom initialisms added",
+			customInitialisms: []string{"CORP", "ACME"},
+			expectedKeys:      []string{"API", "HTTP", "JSON", "CORP", "ACME"}, // Should contain both
+		},
+		{
+			name:              "lowercase custom initialisms converted",
+			customInitialisms: []string{"corp", "acme"},
+			expectedKeys:      []string{"API", "HTTP", "JSON", "CORP", "ACME"}, // Should be uppercase
+		},
+		{
+			name:              "whitespace handled",
+			customInitialisms: []string{" CORP ", "  ACME  "},
+			expectedKeys:      []string{"API", "HTTP", "JSON", "CORP", "ACME"}, // Should be trimmed
+		},
+		{
+			name:              "empty strings ignored",
+			customInitialisms: []string{"CORP", "", " ", "ACME"},
+			expectedKeys:      []string{"API", "HTTP", "JSON", "CORP", "ACME"}, // Empty strings ignored
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := buildInitialismsMap(tt.customInitialisms)
+
+			// Check that all expected keys are present
+			for _, expectedKey := range tt.expectedKeys {
+				if !result[expectedKey] {
+					t.Errorf("buildInitialismsMap(%v) missing expected key %q",
+						tt.customInitialisms, expectedKey)
+				}
+			}
+
+			// Check that result contains built-in initialisms count + unique custom count
+			expectedMinSize := len(commonInitialisms)
+			if len(result) < expectedMinSize {
+				t.Errorf("buildInitialismsMap(%v) result size %d is less than built-in size %d",
+					tt.customInitialisms, len(result), expectedMinSize)
 			}
 		})
 	}

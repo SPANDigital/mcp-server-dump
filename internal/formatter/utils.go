@@ -177,6 +177,12 @@ var (
 	// Pre-compiled regex for performance
 	spacingRegex = regexp.MustCompile(`[_\s]+`)
 
+	// CamelCase boundary detection regexes
+	// Pattern 1: lowercase/digits followed by uppercase (camelCase)
+	camelCaseRegex = regexp.MustCompile(`([a-z0-9])([A-Z])`)
+	// Pattern 2: uppercase followed by uppercase then lowercase (HTTPServer -> HTTP Server)
+	acronymRegex = regexp.MustCompile(`([A-Z])([A-Z][a-z])`)
+
 	// English title case converter (reused across calls)
 	titleCaser = cases.Title(language.English)
 
@@ -227,6 +233,46 @@ var (
 	}
 )
 
+// buildInitialismsMap creates a merged map of built-in and custom initialisms
+// Custom initialisms are converted to uppercase for consistent lookup
+func buildInitialismsMap(customInitialisms []string) map[string]bool {
+	// Start with built-in initialisms
+	merged := make(map[string]bool, len(commonInitialisms)+len(customInitialisms))
+	for initialism, value := range commonInitialisms {
+		merged[initialism] = value
+	}
+
+	// Add custom initialisms (convert to uppercase for consistency)
+	for _, custom := range customInitialisms {
+		if custom != "" {
+			upperCustom := strings.ToUpper(strings.TrimSpace(custom))
+			if upperCustom != "" {
+				merged[upperCustom] = true
+			}
+		}
+	}
+
+	return merged
+}
+
+// splitCamelCase splits a string on camelCase boundaries
+// Examples: "XMLHttpRequest" → ["XML", "Http", "Request"], "getElementById" → ["get", "Element", "By", "Id"]
+func splitCamelCase(word string) []string {
+	if word == "" {
+		return nil
+	}
+
+
+	// First, handle acronym boundaries: "XMLHttpRequest" → "XML HttpRequest"
+	spaced := acronymRegex.ReplaceAllString(word, "$1 $2")
+
+	// Then handle regular camelCase boundaries: "XML HttpRequest" → "XML Http Request"
+	spaced = camelCaseRegex.ReplaceAllString(spaced, "$1 $2")
+
+	// Split on the inserted spaces
+	return strings.Fields(spaced)
+}
+
 // humanizeKey converts context keys with underscores or spaces to human-readable titles.
 // It handles common technical acronyms properly and uses performance optimizations.
 // Examples:
@@ -237,32 +283,64 @@ var (
 //   - "database_url" → "Database URL"
 //   - "ssl" → "SSL"
 func humanizeKey(key string) string {
+	return humanizeKeyWithCustomInitialisms(key, nil)
+}
+
+// humanizeKeyWithCustomInitialisms converts context keys with underscores or spaces to human-readable titles,
+// supporting custom initialisms in addition to built-in ones.
+// It also handles camelCase boundaries properly.
+// Examples:
+//   - "user_name" → "User Name"
+//   - "api_key" → "API Key"
+//   - "XMLHttpRequest" → "XML HTTP Request"
+//   - "getElementById" → "Get Element By ID"
+//   - With custom initialisms ["CORP"]: "corp_api_key" → "CORP API Key"
+func humanizeKeyWithCustomInitialisms(key string, customInitialisms []string) string {
 	if key == "" {
 		return ""
 	}
 
-	// Replace underscores and multiple spaces with single spaces using pre-compiled regex
+	// Build the initialisms map (built-in + custom)
+	initialisms := commonInitialisms
+	if len(customInitialisms) > 0 {
+		initialisms = buildInitialismsMap(customInitialisms)
+	}
+
+	// Phase 1: Replace underscores and multiple spaces with single spaces
 	spaced := spacingRegex.ReplaceAllString(key, " ")
 
-	// Split into words for acronym processing
+	// Phase 2: Split into initial words
 	words := strings.Fields(spaced)
 	if len(words) == 0 {
 		return ""
 	}
 
-	// Process each word
-	for i, word := range words {
+	// Phase 3: Further split each word on camelCase boundaries, but check for custom initialisms first
+	var allWords []string
+	for _, word := range words {
+		// Check if the word (case-insensitive) is a custom initialism before splitting
 		upperWord := strings.ToUpper(word)
-
-		// Check if this word is a known initialism/acronym
-		if commonInitialisms[upperWord] {
-			// Acronyms should always be uppercase
-			words[i] = upperWord
+		if initialisms[upperWord] {
+			allWords = append(allWords, word)
 		} else {
-			// Apply title case to non-acronym words
-			words[i] = titleCaser.String(strings.ToLower(word))
+			camelWords := splitCamelCase(word)
+			allWords = append(allWords, camelWords...)
 		}
 	}
 
-	return strings.Join(words, " ")
+	// Phase 4: Process each word for initialisms and title case
+	for i, word := range allWords {
+		upperWord := strings.ToUpper(word)
+
+		// Check if this word is a known initialism/acronym
+		if initialisms[upperWord] {
+			// Acronyms should always be uppercase
+			allWords[i] = upperWord
+		} else {
+			// Apply title case to non-acronym words
+			allWords[i] = titleCaser.String(strings.ToLower(word))
+		}
+	}
+
+	return strings.Join(allWords, " ")
 }

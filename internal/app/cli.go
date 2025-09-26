@@ -47,6 +47,9 @@ type CLI struct {
 	HugoTwitter      string `kong:"help='Twitter handle for social links'"`
 	HugoSiteLogo     string `kong:"help='Path to site logo'"`
 
+	// Context formatting options
+	CustomInitialisms []string `kong:"help='Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT)'"`
+
 	// Legacy command format (backward compatibility)
 	Args []string `kong:"arg,optional,help='Command and arguments (legacy format for backward compatibility)'"`
 }
