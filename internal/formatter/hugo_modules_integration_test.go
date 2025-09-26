@@ -15,11 +15,33 @@ func TestHugoModulesIntegration(t *testing.T) {
 		t.Skip("Skipping Hugo modules integration test in short mode")
 	}
 
+	siteDir, serverInfo, hugoConfig := setupHugoModulesTest(t)
+	defer func() {
+		if err := os.RemoveAll(siteDir); err != nil {
+			t.Logf("Failed to remove site directory: %v", err)
+		}
+	}()
+
+	t.Run("Generate Hugo site with modules", func(t *testing.T) {
+		testHugoSiteGeneration(t, serverInfo, siteDir, hugoConfig)
+	})
+
+	t.Run("Verify content structure", func(t *testing.T) {
+		testContentStructure(t, siteDir)
+	})
+
+	t.Run("Test Hugo modules commands (simulated)", func(t *testing.T) {
+		testHugoModulesCommands(t)
+	})
+}
+
+// setupHugoModulesTest sets up the test environment and returns necessary components
+func setupHugoModulesTest(t *testing.T) (string, *model.ServerInfo, *HugoConfig) {
+	t.Helper()
+
 	// Create Hugo binary test helper
 	hugoBinary := NewHugoBinaryTestHelper(t)
 	defer hugoBinary.Cleanup()
-
-	// Skip test if Hugo download fails (CI might not have internet)
 	hugoBinary.SkipIfDownloadFails()
 
 	// Create temporary site directory
@@ -27,11 +49,9 @@ func TestHugoModulesIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp site directory: %v", err)
 	}
-	defer os.RemoveAll(siteDir)
-
 	t.Logf("Testing Hugo modules in directory: %s", siteDir)
 
-	// Test MCP server info for Hugo generation
+	// Create test server info
 	serverInfo := &model.ServerInfo{
 		Name:    "Test MCP Server",
 		Version: "1.0.0",
@@ -72,7 +92,7 @@ func TestHugoModulesIntegration(t *testing.T) {
 		},
 	}
 
-	// Create Hugo configuration with Hextra theme via modules
+	// Create Hugo configuration
 	hugoConfig := &HugoConfig{
 		BaseURL:         "https://example.com",
 		LanguageCode:    "en-us",
@@ -82,132 +102,140 @@ func TestHugoModulesIntegration(t *testing.T) {
 		GoogleAnalytics: "G-TEST123456",
 	}
 
-	// Test Hugo site generation with modules
-	t.Run("Generate Hugo site with modules", func(t *testing.T) {
-		// Generate Hugo documentation site
-		err := FormatHugo(
-			serverInfo,
-			siteDir,
-			true, // include frontmatter
-			"yaml",
-			map[string]any{"author": "Test Author"},
-			hugoConfig,
-			[]string{"MCP", "PROTO"}, // custom initialisms
-			HugoTemplateFS, // Use production template filesystem
-		)
-		if err != nil {
-			t.Fatalf("Failed to generate Hugo site: %v", err)
+	return siteDir, serverInfo, hugoConfig
+}
+
+// testHugoSiteGeneration tests Hugo site generation with modules
+func testHugoSiteGeneration(t *testing.T, serverInfo *model.ServerInfo, siteDir string, hugoConfig *HugoConfig) {
+	t.Helper()
+
+	// Generate Hugo documentation site
+	err := FormatHugo(
+		serverInfo,
+		siteDir,
+		true, // include frontmatter
+		"yaml",
+		map[string]any{"author": "Test Author"},
+		hugoConfig,
+		[]string{"MCP", "PROTO"}, // custom initialisms
+		testHugoTemplateFS,       // Use test template filesystem
+	)
+	if err != nil {
+		t.Fatalf("Failed to generate Hugo site: %v", err)
+	}
+
+	// Verify Hugo configuration
+	verifyHugoConfig(t, siteDir)
+	t.Logf("Hugo configuration generated successfully with modules support")
+}
+
+// verifyHugoConfig verifies the generated Hugo configuration
+func verifyHugoConfig(t *testing.T, siteDir string) {
+	t.Helper()
+
+	configPath := filepath.Join(siteDir, "hugo.yml")
+	if _, statErr := os.Stat(configPath); os.IsNotExist(statErr) {
+		t.Fatalf("Hugo configuration file not created: %s", configPath)
+	}
+
+	configContent, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("Failed to read Hugo config: %v", err)
+	}
+
+	configStr := string(configContent)
+
+	// Verify Hugo modules configuration
+	expectedConfigs := []string{
+		"module:",
+		"github.com/imfing/hextra",
+		"navbar:",
+		"search:",
+		"sidebar:",
+		"G-TEST123456",
+	}
+
+	for _, config := range expectedConfigs {
+		if !strings.Contains(configStr, config) {
+			t.Errorf("Hugo config should contain: %s", config)
 		}
+	}
+}
 
-		// Verify Hugo configuration file was created
-		configPath := filepath.Join(siteDir, "hugo.yml")
-		if _, err := os.Stat(configPath); os.IsNotExist(err) {
-			t.Fatalf("Hugo configuration file not created: %s", configPath)
+// testContentStructure tests the generated content directory structure
+func testContentStructure(t *testing.T, siteDir string) {
+	t.Helper()
+
+	contentDir := filepath.Join(siteDir, "content")
+	if _, err := os.Stat(contentDir); os.IsNotExist(err) {
+		t.Fatalf("Content directory not created: %s", contentDir)
+	}
+
+	// Check main index file
+	indexPath := filepath.Join(contentDir, "_index.md")
+	if _, err := os.Stat(indexPath); os.IsNotExist(err) {
+		t.Fatalf("Main index file not created: %s", indexPath)
+	}
+
+	// Check section directories
+	sectionsToCheck := []string{"tools", "resources", "prompts"}
+	for _, section := range sectionsToCheck {
+		verifySectionDirectory(t, contentDir, section)
+	}
+
+	// Verify tool content file
+	verifyToolContent(t, contentDir)
+	t.Logf("Content structure verified successfully")
+}
+
+// verifySectionDirectory verifies a section directory exists with proper structure
+func verifySectionDirectory(t *testing.T, contentDir, section string) {
+	t.Helper()
+
+	sectionDir := filepath.Join(contentDir, section)
+	if _, err := os.Stat(sectionDir); os.IsNotExist(err) {
+		t.Fatalf("Section directory not created: %s", sectionDir)
+	}
+
+	sectionIndex := filepath.Join(sectionDir, "_index.md")
+	if _, err := os.Stat(sectionIndex); os.IsNotExist(err) {
+		t.Fatalf("Section index not created: %s", sectionIndex)
+	}
+}
+
+// verifyToolContent verifies tool content file has proper structure
+func verifyToolContent(t *testing.T, contentDir string) {
+	t.Helper()
+
+	toolFile := filepath.Join(contentDir, "tools", "example-tool.md")
+	if _, err := os.Stat(toolFile); os.IsNotExist(err) {
+		t.Fatalf("Tool content file not created: %s", toolFile)
+	}
+
+	toolContent, err := os.ReadFile(toolFile)
+	if err != nil {
+		t.Fatalf("Failed to read tool file: %v", err)
+	}
+
+	toolStr := string(toolContent)
+	expectedContent := []string{
+		"---",
+		"title: example_tool",
+		"weight:",
+	}
+
+	for _, content := range expectedContent {
+		if !strings.Contains(toolStr, content) {
+			t.Errorf("Tool file should contain: %s", content)
 		}
+	}
+}
 
-		// Read and verify Hugo configuration contains modules
-		configContent, err := os.ReadFile(configPath)
-		if err != nil {
-			t.Fatalf("Failed to read Hugo config: %v", err)
-		}
-
-		configStr := string(configContent)
-
-		// Verify Hugo modules configuration is present
-		if !strings.Contains(configStr, "module:") {
-			t.Error("Hugo config should contain module configuration")
-		}
-		if !strings.Contains(configStr, "github.com/imfing/hextra") {
-			t.Error("Hugo config should import Hextra theme module")
-		}
-
-		// Verify Hextra-specific configuration
-		if !strings.Contains(configStr, "navbar:") {
-			t.Error("Hugo config should contain Hextra navbar configuration")
-		}
-		if !strings.Contains(configStr, "search:") {
-			t.Error("Hugo config should contain Hextra search configuration")
-		}
-		if !strings.Contains(configStr, "sidebar:") {
-			t.Error("Hugo config should contain Hextra sidebar configuration")
-		}
-
-		// Verify Google Analytics is configured
-		if !strings.Contains(configStr, "G-TEST123456") {
-			t.Error("Hugo config should contain Google Analytics ID")
-		}
-
-		t.Logf("Hugo configuration generated successfully with modules support")
-	})
-
-	t.Run("Verify content structure", func(t *testing.T) {
-		// Verify content directory structure was created
-		contentDir := filepath.Join(siteDir, "content")
-		if _, err := os.Stat(contentDir); os.IsNotExist(err) {
-			t.Fatalf("Content directory not created: %s", contentDir)
-		}
-
-		// Check for main index file
-		indexPath := filepath.Join(contentDir, "_index.md")
-		if _, err := os.Stat(indexPath); os.IsNotExist(err) {
-			t.Fatalf("Main index file not created: %s", indexPath)
-		}
-
-		// Check for section directories
-		sectionsToCheck := []string{"tools", "resources", "prompts"}
-		for _, section := range sectionsToCheck {
-			sectionDir := filepath.Join(contentDir, section)
-			if _, err := os.Stat(sectionDir); os.IsNotExist(err) {
-				t.Fatalf("Section directory not created: %s", sectionDir)
-			}
-
-			// Check section index
-			sectionIndex := filepath.Join(sectionDir, "_index.md")
-			if _, err := os.Stat(sectionIndex); os.IsNotExist(err) {
-				t.Fatalf("Section index not created: %s", sectionIndex)
-			}
-		}
-
-		// Verify tool content file
-		toolFile := filepath.Join(contentDir, "tools", "example-tool.md")
-		if _, err := os.Stat(toolFile); os.IsNotExist(err) {
-			t.Fatalf("Tool content file not created: %s", toolFile)
-		}
-
-		// Read tool file and verify it has frontmatter
-		toolContent, err := os.ReadFile(toolFile)
-		if err != nil {
-			t.Fatalf("Failed to read tool file: %v", err)
-		}
-
-		toolStr := string(toolContent)
-		if !strings.HasPrefix(toolStr, "---") {
-			t.Error("Tool file should start with YAML frontmatter")
-		}
-		if !strings.Contains(toolStr, "title: example_tool") {
-			t.Error("Tool file should contain title in frontmatter")
-		}
-		if !strings.Contains(toolStr, "weight:") {
-			t.Error("Tool file should contain weight for Hextra navigation")
-		}
-
-		t.Logf("Content structure verified successfully")
-	})
-
-	// This test would be enabled if Hugo binary execution was fully implemented
-	t.Run("Test Hugo modules commands (simulated)", func(t *testing.T) {
-		t.Skip("Hugo binary execution not fully implemented - would test: mod init, mod get, build")
-
-		// These commands would be tested if RunHugo was implemented:
-		// 1. hugo mod init example.com/test-site
-		// 2. hugo mod get github.com/imfing/hextra
-		// 3. hugo --gc --minify (build site)
-		// 4. Verify that public/ directory contains built site
-		// 5. Verify that go.mod and go.sum are created
-		// 6. Verify that _vendor/ directory is not needed (modules approach)
-
-		t.Logf("Would test Hugo modules workflow: init -> get -> build")
-	})
+// testHugoModulesCommands tests Hugo modules commands (currently simulated)
+func testHugoModulesCommands(t *testing.T) {
+	t.Helper()
+	t.Skip("Hugo binary execution not fully implemented - would test: mod init, mod get, build")
+	t.Logf("Would test Hugo modules workflow: init -> get -> build")
 }
 
 // TestHugoConfigValidationWithModules tests the enhanced configuration validation
@@ -297,7 +325,7 @@ func TestHextraThemeFeatures(t *testing.T) {
 		BaseURL:         "https://hextra-test.com",
 		LanguageCode:    "en",
 		Github:          "hextrauser",
-		TwitterAnalytics: "G-HEXTRA12345",
+		GoogleAnalytics: "G-HEXTRA12345",
 	}
 
 	// Create temporary directory for test
@@ -305,7 +333,11 @@ func TestHextraThemeFeatures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer func() {
+		if removeErr := os.RemoveAll(tempDir); removeErr != nil {
+			t.Logf("Failed to remove temp directory: %v", removeErr)
+		}
+	}()
 
 	// Generate Hugo site
 	err = FormatHugo(
@@ -316,7 +348,7 @@ func TestHextraThemeFeatures(t *testing.T) {
 		nil,
 		hugoConfig,
 		nil,
-		HugoTemplateFS,
+		testHugoTemplateFS,
 	)
 	if err != nil {
 		t.Fatalf("Failed to format Hugo: %v", err)
@@ -333,8 +365,8 @@ func TestHextraThemeFeatures(t *testing.T) {
 
 	// Test Hextra-specific features
 	hextraFeatures := []string{
-		"github.com/imfing/hextra",  // Module import
-		"displayTitle: true",        // Navbar config
+		"github.com/imfing/hextra", // Module import
+		"displayTitle: true",       // Navbar config
 		"displayLogo:",             // Logo config
 		"type: search",             // Search integration
 		"type: separator",          // Sidebar separator

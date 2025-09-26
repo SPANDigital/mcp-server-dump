@@ -14,13 +14,15 @@ import (
 	"time"
 )
 
+const windowsOS = "windows"
+
 // HugoBinaryTestHelper manages downloading and testing with official Hugo binary
 type HugoBinaryTestHelper struct {
-	Version      string
-	BinaryPath   string
-	TempDir      string
-	DownloadURL  string
-	t            *testing.T
+	Version     string
+	BinaryPath  string
+	TempDir     string
+	DownloadURL string
+	t           *testing.T
 }
 
 // NewHugoBinaryTestHelper creates a new helper for testing with Hugo binary
@@ -46,16 +48,21 @@ func NewHugoBinaryTestHelper(t *testing.T) *HugoBinaryTestHelper {
 	}
 
 	// Map Go OS names to Hugo release names
-	hugoBinaryOS := strings.Title(goos)
-	if goos == "darwin" {
+	var hugoBinaryOS string
+	switch goos {
+	case "darwin":
 		hugoBinaryOS = "macOS"
-	} else if goos == "windows" {
+	case windowsOS:
 		hugoBinaryOS = "Windows"
+	case "linux":
+		hugoBinaryOS = "Linux"
+	default:
+		hugoBinaryOS = strings.ToUpper(goos[:1]) + goos[1:]
 	}
 
 	// Construct download URL for Hugo extended (required for Sass/SCSS)
 	filename := fmt.Sprintf("hugo_extended_%s_%s-%s.tar.gz", version, hugoBinaryOS, hugoBinaryArch)
-	if goos == "windows" {
+	if goos == windowsOS {
 		filename = strings.Replace(filename, ".tar.gz", ".zip", 1)
 	}
 	downloadURL := fmt.Sprintf("https://github.com/gohugoio/hugo/releases/download/v%s/%s", version, filename)
@@ -67,7 +74,7 @@ func NewHugoBinaryTestHelper(t *testing.T) *HugoBinaryTestHelper {
 	}
 
 	binaryName := "hugo"
-	if goos == "windows" {
+	if goos == windowsOS {
 		binaryName = "hugo.exe"
 	}
 	binaryPath := filepath.Join(tempDir, binaryName)
@@ -96,7 +103,11 @@ func (h *HugoBinaryTestHelper) DownloadAndExtract() error {
 	if err != nil {
 		return fmt.Errorf("failed to download Hugo binary: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			h.t.Logf("Failed to close response body: %v", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to download Hugo binary: HTTP %d", resp.StatusCode)
@@ -117,7 +128,11 @@ func (h *HugoBinaryTestHelper) extractTarGz(r io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("failed to create gzip reader: %w", err)
 	}
-	defer gzr.Close()
+	defer func() {
+		if err := gzr.Close(); err != nil {
+			h.t.Logf("Failed to close gzip reader: %v", err)
+		}
+	}()
 
 	// Read tar archive
 	tr := tar.NewReader(gzr)
@@ -134,16 +149,18 @@ func (h *HugoBinaryTestHelper) extractTarGz(r io.Reader) error {
 		// Look for hugo binary (might be in subdirectory)
 		if strings.HasSuffix(header.Name, "hugo") || strings.HasSuffix(header.Name, "hugo.exe") {
 			// Create the binary file
-			outFile, err := os.OpenFile(h.BinaryPath, os.O_CREATE|os.O_WRONLY, 0755)
+			outFile, err := os.OpenFile(h.BinaryPath, os.O_CREATE|os.O_WRONLY, 0o755)
 			if err != nil {
 				return fmt.Errorf("failed to create Hugo binary file: %w", err)
 			}
 
 			// Copy binary content
-			_, err = io.Copy(outFile, tr)
-			outFile.Close()
-			if err != nil {
-				return fmt.Errorf("failed to extract Hugo binary: %w", err)
+			_, copyErr := io.Copy(outFile, tr)
+			if closeErr := outFile.Close(); closeErr != nil {
+				return fmt.Errorf("failed to close Hugo binary file: %w", closeErr)
+			}
+			if copyErr != nil {
+				return fmt.Errorf("failed to extract Hugo binary: %w", copyErr)
 			}
 
 			h.t.Logf("Hugo binary extracted to: %s", h.BinaryPath)
@@ -188,10 +205,14 @@ func (h *HugoBinaryTestHelper) InitModule(dir, modulePath string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chdirErr := os.Chdir(oldDir); chdirErr != nil {
+			h.t.Logf("Failed to restore directory: %v", chdirErr)
+		}
+	}()
 
-	if err := os.Chdir(dir); err != nil {
-		return err
+	if chdirErr := os.Chdir(dir); chdirErr != nil {
+		return chdirErr
 	}
 
 	_, err = h.RunHugo("mod", "init", modulePath)
@@ -207,10 +228,14 @@ func (h *HugoBinaryTestHelper) GetModule(dir, modulePath string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chdirErr := os.Chdir(oldDir); chdirErr != nil {
+			h.t.Logf("Failed to restore directory: %v", chdirErr)
+		}
+	}()
 
-	if err := os.Chdir(dir); err != nil {
-		return err
+	if chdirErr := os.Chdir(dir); chdirErr != nil {
+		return chdirErr
 	}
 
 	_, err = h.RunHugo("mod", "get", modulePath)
@@ -226,10 +251,14 @@ func (h *HugoBinaryTestHelper) BuildSite(dir string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Chdir(oldDir)
+	defer func() {
+		if chdirErr := os.Chdir(oldDir); chdirErr != nil {
+			h.t.Logf("Failed to restore directory: %v", chdirErr)
+		}
+	}()
 
-	if err := os.Chdir(dir); err != nil {
-		return err
+	if chdirErr := os.Chdir(dir); chdirErr != nil {
+		return chdirErr
 	}
 
 	_, err = h.RunHugo("--gc", "--minify")
@@ -240,7 +269,9 @@ func (h *HugoBinaryTestHelper) BuildSite(dir string) error {
 func (h *HugoBinaryTestHelper) Cleanup() {
 	h.t.Helper()
 	if h.TempDir != "" {
-		os.RemoveAll(h.TempDir)
+		if err := os.RemoveAll(h.TempDir); err != nil {
+			h.t.Logf("Failed to remove temp directory: %v", err)
+		}
 		h.t.Logf("Cleaned up Hugo binary temp directory: %s", h.TempDir)
 	}
 }
