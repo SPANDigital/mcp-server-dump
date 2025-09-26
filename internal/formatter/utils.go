@@ -262,7 +262,6 @@ func splitCamelCase(word string) []string {
 		return nil
 	}
 
-
 	// First, handle acronym boundaries: "XMLHttpRequest" → "XML HttpRequest"
 	spaced := acronymRegex.ReplaceAllString(word, "$1 $2")
 

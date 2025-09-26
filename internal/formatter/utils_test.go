@@ -105,10 +105,10 @@ func TestHumanizeKey(t *testing.T) {
 
 func TestHumanizeKeyWithCustomInitialisms(t *testing.T) {
 	tests := []struct {
-		name             string
-		input            string
+		name              string
+		input             string
 		customInitialisms []string
-		expected         string
+		expected          string
 	}{
 		// Basic custom initialism tests
 		{"custom initialism CORP", "corp_api_key", []string{"CORP"}, "CORP API Key"},
