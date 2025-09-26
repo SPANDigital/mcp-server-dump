@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-pdf/fpdf"
+	"codeberg.org/go-pdf/fpdf"
 
 	"github.com/spandigital/mcp-server-dump/internal/model"
 )

@@ -81,7 +81,7 @@ golangci-lint run
 - `github.com/modelcontextprotocol/go-sdk` - Official MCP Go SDK for client/server communication
 - `github.com/alecthomas/kong` - Command line argument parsing library
 - `github.com/yuin/goldmark` - Markdown to HTML converter with GitHub Flavored Markdown support
-- `github.com/go-pdf/fpdf` - Pure Go PDF generation library with bookmark support
+- `codeberg.org/go-pdf/fpdf` - Pure Go PDF generation library with bookmark support
 - `gopkg.in/yaml.v2` - YAML parsing and generation for frontmatter and context file support
 
 ### Development Tools
