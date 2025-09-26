@@ -241,12 +241,13 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 
 		// Create Hugo configuration from CLI parameters
 		hugoConfig := &formatter.HugoConfig{
-			BaseURL:      cli.HugoBaseURL,
-			LanguageCode: cli.HugoLanguageCode,
-			Theme:        cli.HugoTheme,
-			Github:       cli.HugoGithub,
-			Twitter:      cli.HugoTwitter,
-			SiteLogo:     cli.HugoSiteLogo,
+			BaseURL:         cli.HugoBaseURL,
+			LanguageCode:    cli.HugoLanguageCode,
+			Theme:           cli.HugoTheme, // Deprecated when using Hugo modules
+			Github:          cli.HugoGithub,
+			Twitter:         cli.HugoTwitter,
+			SiteLogo:        cli.HugoSiteLogo,
+			GoogleAnalytics: cli.HugoGoogleAnalytics,
 		}
 
 		err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, cli.CustomInitialisms, HugoTemplateFS)

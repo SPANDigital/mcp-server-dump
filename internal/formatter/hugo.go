@@ -20,12 +20,13 @@ import (
 
 // HugoConfig holds Hugo-specific configuration options
 type HugoConfig struct {
-	BaseURL      string
-	LanguageCode string
-	Theme        string
-	Github       string
-	Twitter      string
-	SiteLogo     string
+	BaseURL         string
+	LanguageCode    string
+	Theme           string // Deprecated when using Hugo modules
+	Github          string
+	Twitter         string
+	SiteLogo        string
+	GoogleAnalytics string // Google Analytics measurement ID (e.g., "G-MEASUREMENT_ID")
 }
 
 // Validate validates the Hugo configuration and returns any errors found
@@ -66,6 +67,13 @@ func (hc *HugoConfig) Validate() error {
 	if hc.Twitter != "" {
 		if err := validateSocialHandle(hc.Twitter); err != nil {
 			return fmt.Errorf("invalid Twitter handle: %w", err)
+		}
+	}
+
+	// Validate Google Analytics ID if provided
+	if hc.GoogleAnalytics != "" {
+		if err := validateGoogleAnalyticsID(hc.GoogleAnalytics); err != nil {
+			return fmt.Errorf("invalid GoogleAnalytics ID: %w", err)
 		}
 	}
 
@@ -150,6 +158,22 @@ func validateSocialHandle(handle string) error {
 	matched, _ := regexp.MatchString(`^[a-zA-Z0-9_-]+$`, handle)
 	if !matched {
 		return fmt.Errorf("handle contains invalid characters (use only letters, numbers, underscore, hyphen)")
+	}
+
+	return nil
+}
+
+// validateGoogleAnalyticsID validates Google Analytics measurement ID format
+func validateGoogleAnalyticsID(gaID string) error {
+	if gaID == "" {
+		return nil
+	}
+
+	// Google Analytics 4 measurement IDs follow the pattern G-XXXXXXXXXX (G- followed by 10 characters)
+	// Universal Analytics (deprecated) used UA-XXXXXXXX-X but we'll focus on GA4
+	matched, _ := regexp.MatchString(`^G-[A-Z0-9]{10}$`, gaID)
+	if !matched {
+		return fmt.Errorf("invalid Google Analytics ID format (expected G-XXXXXXXXXX for GA4, got %q)", gaID)
 	}
 
 	return nil

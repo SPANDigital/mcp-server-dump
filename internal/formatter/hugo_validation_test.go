@@ -25,12 +25,13 @@ func TestHugoConfigValidate(t *testing.T) {
 		{
 			name: "valid config",
 			config: &HugoConfig{
-				BaseURL:      "https://example.com",
-				LanguageCode: "en-us",
-				Theme:        "ananke",
-				Github:       "user",
-				Twitter:      "user",
-				SiteLogo:     "images/logo.png",
+				BaseURL:         "https://example.com",
+				LanguageCode:    "en-us",
+				Theme:           "ananke",
+				Github:          "user",
+				Twitter:         "user",
+				SiteLogo:        "images/logo.png",
+				GoogleAnalytics: "G-ABCD123456",
 			},
 			expectError: false,
 		},
@@ -95,6 +96,14 @@ func TestHugoConfigValidate(t *testing.T) {
 				LanguageCode: "fr-ca",
 			},
 			expectError: false,
+		},
+		{
+			name: "invalid GoogleAnalytics ID",
+			config: &HugoConfig{
+				GoogleAnalytics: "invalid-ga-id",
+			},
+			expectError: true,
+			errorMsg:    "invalid GoogleAnalytics ID",
 		},
 	}
 
@@ -226,6 +235,36 @@ func TestValidateSocialHandle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := validateSocialHandle(tt.handle)
+			if tt.expectError && err == nil {
+				t.Error("Expected error but got none")
+			} else if !tt.expectError && err != nil {
+				t.Errorf("Expected no error but got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidateGoogleAnalyticsID(t *testing.T) {
+	tests := []struct {
+		name        string
+		gaID        string
+		expectError bool
+	}{
+		{"empty ID", "", false},
+		{"valid GA4 ID", "G-ABCD123456", false},
+		{"valid GA4 ID with numbers", "G-1234567890", false},
+		{"valid GA4 ID mixed", "G-AB12CD34EF", false},
+		{"invalid - too short", "G-ABC123", true},
+		{"invalid - too long", "G-ABCD1234567", true},
+		{"invalid - no G- prefix", "ABCD123456", true},
+		{"invalid - lowercase letters", "G-abcd123456", true},
+		{"invalid - contains special chars", "G-ABCD@12345", true},
+		{"invalid - old UA format", "UA-12345678-1", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateGoogleAnalyticsID(tt.gaID)
 			if tt.expectError && err == nil {
 				t.Error("Expected error but got none")
 			} else if !tt.expectError && err != nil {

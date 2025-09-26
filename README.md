@@ -178,10 +178,11 @@ mcp-server-dump -f pdf -o server-docs.pdf node server.js
 # Hugo documentation site (requires output directory)
 mcp-server-dump -f hugo -o hugo-docs node server.js
 
-# Hugo with frontmatter and custom fields
-mcp-server-dump -f hugo -o hugo-docs --frontmatter \
-  -M "author:MCP Team" \
-  -M "category:documentation" \
+# Hugo with custom configuration and Google Analytics
+mcp-server-dump -f hugo -o hugo-docs \
+  --hugo-base-url="https://docs.example.com" \
+  --hugo-github="mycompany" \
+  --hugo-google-analytics="G-1234567890" \
   node server.js
 
 # Output to file (any format)
@@ -192,14 +193,15 @@ mcp-server-dump -f pdf -o server-docs.pdf python server.py
 
 ### Hugo Documentation Site
 
-The Hugo format generates a complete content directory structure suitable for [Hugo](https://gohugo.io/) static site generator:
+The Hugo format generates a complete Hugo site with modern Hugo modules configuration and the [Hextra](https://imfing.github.io/hextra/) documentation theme:
 
 ```bash
-# Generate Hugo documentation site
+# Generate Hugo documentation site with Hextra theme
 mcp-server-dump -f hugo -o my-docs node server.js
 
 # Directory structure created:
 my-docs/
+├── hugo.yml                # Hugo configuration with modules
 └── content/
     ├── _index.md           # Root index with server info
     ├── tools/
@@ -215,19 +217,23 @@ my-docs/
         ├── prompt1.md     # Individual prompt page
         └── prompt2.md
 
-# Build with Hugo
+# Build with Hugo (requires Go and Hugo v0.126.0+)
 cd my-docs
-hugo new site . --force
-hugo serve
+hugo mod init example.com/my-docs    # Initialize Hugo module
+hugo mod get github.com/imfing/hextra # Get Hextra theme
+hugo serve                           # Serve locally at http://localhost:1313
 ```
 
 **Hugo format features:**
-- Hierarchical content organization with `_index.md` files for sections
-- Individual markdown files for each tool, resource, and prompt
-- SEO-friendly URLs with slug-safe filenames
-- Automatic weight assignment for proper ordering
-- Full frontmatter support with custom fields
-- Compatible with all Hugo themes
+- **Modern Hugo modules**: Uses Hugo modules instead of git submodules for theme management
+- **Hextra documentation theme**: Pre-configured with left sidebar navigation optimized for API documentation
+- **Complete Hugo configuration**: Generated `hugo.yml` with Hextra-specific settings (search, navbar, sidebar)
+- **Hierarchical content organization**: `_index.md` files for sections with proper navigation structure
+- **Individual pages**: Separate markdown files for each tool, resource, and prompt
+- **SEO-friendly URLs**: Slug-safe filenames and proper Hugo frontmatter
+- **Google Analytics support**: Built-in GA4 integration when configured
+- **Mobile responsive**: Hextra theme provides excellent mobile experience
+- **Search integration**: FlexSearch integration for client-side documentation search
 
 ### Frontmatter Support
 
@@ -417,10 +423,10 @@ Arguments:
 
 Flags:
   -h, --help                 Show context-sensitive help
-  -o, --output=STRING        Output file for documentation (defaults to stdout)
-  -f, --format="markdown"    Output format (markdown, json, html, pdf)
+  -o, --output=STRING        Output file for documentation (defaults to stdout, required for hugo format as directory)
+  -f, --format="markdown"    Output format (markdown, json, html, pdf, hugo)
       --no-toc               Disable table of contents in markdown output
-  -F, --frontmatter          Include frontmatter in markdown output
+  -F, --frontmatter          Include frontmatter in markdown output (enabled by default for Hugo format)
   -M, --frontmatter-field=FIELD,...
                              Add custom frontmatter field (format: key:value), can be used multiple times
       --frontmatter-format="yaml"
@@ -435,6 +441,17 @@ Flags:
       --no-tools             Skip scanning tools from the MCP server
       --no-resources         Skip scanning resources from the MCP server
       --no-prompts           Skip scanning prompts from the MCP server
+
+Hugo-specific options (only used when format=hugo):
+      --hugo-base-url=STRING        Base URL for Hugo site (e.g., https://example.com)
+      --hugo-language-code=STRING   Language code for Hugo site (default: en-us)
+      --hugo-github=STRING          GitHub username for social links
+      --hugo-twitter=STRING         Twitter handle for social links
+      --hugo-site-logo=STRING       Path to site logo
+      --hugo-google-analytics=STRING
+                                    Google Analytics measurement ID (GA4 format: G-XXXXXXXXXX)
+      --custom-initialisms=STRING,...
+                                    Additional technical initialisms to recognize for human-readable headings
 ```
 
 ## GitHub Action
@@ -606,6 +623,55 @@ jobs:
           path: docs/
 ```
 
+### Hugo Documentation Site Usage
+
+```yaml
+name: Generate Hugo Documentation Site
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  generate-hugo-site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Hugo Documentation Site
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'npx @modelcontextprotocol/server-filesystem ./data'
+          format: 'hugo'
+          output-file: 'docs-site'
+          hugo-base-url: 'https://docs.mycompany.com'
+          hugo-github: 'mycompany'
+          hugo-twitter: 'mycompany'
+          hugo-google-analytics: 'G-1234567890'
+          hugo-site-logo: 'static/logo.svg'
+
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: 'latest'
+          extended: true
+
+      - name: Build Hugo Site
+        run: |
+          cd docs-site
+          hugo mod init docs.mycompany.com
+          hugo mod get github.com/imfing/hextra
+          hugo --minify
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs-site/public
+```
+
 ### HTTP Transport Usage
 
 ```yaml
@@ -627,7 +693,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Generate Remote Server Documentation
         uses: spandigital/mcp-server-dump@v1
         with:
@@ -646,8 +712,8 @@ jobs:
 | `transport` | Transport type (stdio, sse, streamable) | No | `stdio` |
 | `endpoint` | Endpoint URL for sse or streamable transport | No | - |
 | `headers` | HTTP headers in Key:Value format (comma-separated) | No | - |
-| `format` | Output format (markdown, html, json, pdf) | No | `markdown` |
-| `output-file` | Output file path (required for pdf format) | No | - |
+| `format` | Output format (markdown, html, json, pdf, hugo) | No | `markdown` |
+| `output-file` | Output file path (required for pdf format) or directory path (for hugo format) | No | - |
 | `no-toc` | Disable table of contents in markdown output | No | `false` |
 | `frontmatter` | Add frontmatter to output (yaml, toml, json) | No | - |
 | `timeout` | Connection timeout in seconds | No | `30` |
@@ -656,6 +722,13 @@ jobs:
 | `scan-tools` | Include tools in the documentation output | No | `true` |
 | `scan-resources` | Include resources in the documentation output | No | `true` |
 | `scan-prompts` | Include prompts in the documentation output | No | `true` |
+| `hugo-base-url` | Base URL for Hugo site (e.g., https://example.com or https://docs.mysite.com) | No | - |
+| `hugo-language-code` | Language code for Hugo site (e.g., en, en-US, zh-Hans, pt-BR) | No | `en-us` |
+| `hugo-github` | GitHub username for social links (without @, e.g., octocat) | No | - |
+| `hugo-twitter` | Twitter handle for social links (without @, e.g., username) | No | - |
+| `hugo-site-logo` | Path to site logo (e.g., images/logo.png or /static/logo.svg) | No | - |
+| `hugo-google-analytics` | Google Analytics measurement ID for Hugo site (GA4 format: G-XXXXXXXXXX) | No | - |
+| `custom-initialisms` | Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT,CORP,ACME) | No | - |
 
 **Parameter Naming Convention**: The GitHub Action uses positive naming (`scan-tools: true/false`) while the CLI uses negative flags (`--no-tools`). This is intentional - GitHub Actions typically use positive boolean parameters for better UX, while CLI tools often use negative flags to disable default behavior.
 
