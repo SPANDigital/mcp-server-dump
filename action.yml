@@ -76,6 +76,9 @@ inputs:
   hugo-site-logo:
     description: 'Path to site logo (e.g., images/logo.png or /static/logo.svg)'
     required: false
+  hugo-google-analytics:
+    description: 'Google Analytics measurement ID for Hugo site (GA4 format: G-XXXXXXXXXX)'
+    required: false
   custom-initialisms:
     description: 'Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT,CORP,ACME)'
     required: false
@@ -301,6 +304,12 @@ runs:
             HUGO_SITE_LOGO="${{ inputs.hugo-site-logo }}"
             if [ -n "${HUGO_SITE_LOGO}" ]; then
                 CMD_ARGS+=("--hugo-site-logo" "${HUGO_SITE_LOGO}")
+            fi
+
+            # Hugo Google Analytics
+            HUGO_GOOGLE_ANALYTICS="${{ inputs.hugo-google-analytics }}"
+            if [ -n "${HUGO_GOOGLE_ANALYTICS}" ]; then
+                CMD_ARGS+=("--hugo-google-analytics" "${HUGO_GOOGLE_ANALYTICS}")
             fi
         fi
 
