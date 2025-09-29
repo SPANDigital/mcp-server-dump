@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	codeberg.org/go-pdf/fpdf v0.11.1
 	github.com/alecthomas/kong v1.12.1
-	github.com/modelcontextprotocol/go-sdk v0.7.0
+	github.com/modelcontextprotocol/go-sdk v0.8.0
 	github.com/yuin/goldmark v1.7.13
 	golang.org/x/text v0.29.0
 	gopkg.in/yaml.v2 v2.4.0
