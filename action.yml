@@ -64,21 +64,25 @@ inputs:
     required: false
     default: 'en-us'
   hugo-theme:
-    description: 'Hugo theme to use (default: ananke)'
+    description: '[DEPRECATED] No longer supported with Presidium layouts. Hugo now uses Presidium modules automatically.'
     required: false
-    default: 'ananke'
+    deprecated: true
   hugo-github:
-    description: 'GitHub username for social links (without @, e.g., octocat)'
+    description: '[DEPRECATED] No longer supported with Presidium layouts. Configure social links in Hugo site config if needed.'
     required: false
+    deprecated: true
   hugo-twitter:
-    description: 'Twitter handle for social links (without @, e.g., username)'
+    description: '[DEPRECATED] No longer supported with Presidium layouts. Configure social links in Hugo site config if needed.'
     required: false
+    deprecated: true
   hugo-site-logo:
-    description: 'Path to site logo (e.g., images/logo.png or /static/logo.svg)'
+    description: '[DEPRECATED] No longer supported with Presidium layouts. Configure logo in Hugo site config if needed.'
     required: false
+    deprecated: true
   hugo-google-analytics:
-    description: 'Google Analytics measurement ID for Hugo site (GA4 format: G-XXXXXXXXXX)'
+    description: '[DEPRECATED] No longer supported with Presidium layouts. Configure analytics in Hugo site config if needed.'
     required: false
+    deprecated: true
   custom-initialisms:
     description: 'Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT,CORP,ACME)'
     required: false
@@ -282,34 +286,20 @@ runs:
                 CMD_ARGS+=("--hugo-language-code" "${HUGO_LANG_CODE}")
             fi
 
-            # Hugo theme (with defensive default handling)
+            # Deprecated Hugo flags - show warnings but do not pass to command
             HUGO_THEME="${{ inputs.hugo-theme }}"
-            if [ -n "${HUGO_THEME}" ] && [ "${HUGO_THEME}" != "ananke" ]; then
-                CMD_ARGS+=("--hugo-theme" "${HUGO_THEME}")
+            if [ -n "${HUGO_THEME}" ]; then
+                log "⚠️  WARNING: --hugo-theme is no longer supported. Hugo now uses Presidium layouts via Hugo modules."
             fi
 
-            # Hugo GitHub username
+            # Check for other deprecated flags
             HUGO_GITHUB="${{ inputs.hugo-github }}"
-            if [ -n "${HUGO_GITHUB}" ]; then
-                CMD_ARGS+=("--hugo-github" "${HUGO_GITHUB}")
-            fi
-
-            # Hugo Twitter handle
             HUGO_TWITTER="${{ inputs.hugo-twitter }}"
-            if [ -n "${HUGO_TWITTER}" ]; then
-                CMD_ARGS+=("--hugo-twitter" "${HUGO_TWITTER}")
-            fi
-
-            # Hugo site logo
             HUGO_SITE_LOGO="${{ inputs.hugo-site-logo }}"
-            if [ -n "${HUGO_SITE_LOGO}" ]; then
-                CMD_ARGS+=("--hugo-site-logo" "${HUGO_SITE_LOGO}")
-            fi
-
-            # Hugo Google Analytics
             HUGO_GOOGLE_ANALYTICS="${{ inputs.hugo-google-analytics }}"
-            if [ -n "${HUGO_GOOGLE_ANALYTICS}" ]; then
-                CMD_ARGS+=("--hugo-google-analytics" "${HUGO_GOOGLE_ANALYTICS}")
+            if [ -n "${HUGO_GITHUB}" ] || [ -n "${HUGO_TWITTER}" ] || [ -n "${HUGO_SITE_LOGO}" ] || [ -n "${HUGO_GOOGLE_ANALYTICS}" ]; then
+                log "⚠️  WARNING: Social media, logo, and analytics flags are no longer supported for Presidium layouts."
+                log "Configure these options directly in your Hugo site config if needed."
             fi
         fi
 

@@ -112,8 +112,30 @@ params:
   {{- end }}
 
 # Navigation menu
-# Note: Section menu entries are defined in each section's _index.md file
-# to ensure proper integration with Presidium navigation
+menu:
+  main:
+    - identifier: overview
+      name: Overview
+      url: /
+      weight: 1
+    {{- if .Capabilities.Tools }}
+    - identifier: tools
+      name: Tools
+      url: /tools/
+      weight: 10
+    {{- end }}
+    {{- if .Capabilities.Resources }}
+    - identifier: resources
+      name: Resources
+      url: /resources/
+      weight: 20
+    {{- end }}
+    {{- if .Capabilities.Prompts }}
+    - identifier: prompts
+      name: Prompts
+      url: /prompts/
+      weight: 30
+    {{- end }}
 
 # Taxonomies (categories and tags)
 taxonomies:

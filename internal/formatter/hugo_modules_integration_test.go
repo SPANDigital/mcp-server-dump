@@ -9,7 +9,7 @@ import (
 	"github.com/spandigital/mcp-server-dump/internal/model"
 )
 
-// TestHugoModulesIntegration tests the complete Hugo modules workflow with Hextra theme
+// TestHugoModulesIntegration tests the complete Hugo modules workflow with Presidium layouts
 func TestHugoModulesIntegration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping Hugo modules integration test in short mode")
@@ -140,14 +140,14 @@ func verifyHugoConfig(t *testing.T, siteDir string) {
 
 	configStr := string(configContent)
 
-	// Verify Hugo modules configuration
+	// Verify Hugo modules configuration for Presidium
 	expectedConfigs := []string{
 		"module:",
-		"github.com/imfing/hextra",
-		"navbar:",
-		"search:",
-		"sidebar:",
-		"G-TEST123456",
+		"github.com/spandigital/presidium-styling-base",
+		"github.com/spandigital/presidium-layouts-base",
+		"menu:",
+		"identifier:",
+		"enterprise_key:",
 	}
 
 	for _, config := range expectedConfigs {
@@ -702,6 +702,11 @@ func checkPresidiumOutput(t *testing.T, publicDir, filename, outputName string) 
 func TestPresidiumLayoutsFeatures(t *testing.T) {
 	serverInfo := &model.ServerInfo{
 		Name: "Presidium Feature Test",
+		Capabilities: model.Capabilities{
+			Tools:     true,
+			Resources: true,
+			Prompts:   true,
+		},
 		Tools: []model.Tool{
 			{Name: "tool1", Description: "Test tool 1"},
 			{Name: "tool2", Description: "Test tool 2"},
@@ -772,12 +777,21 @@ func TestPresidiumLayoutsFeatures(t *testing.T) {
 		}
 	}
 
-	// Verify navigation structure
-	if !strings.Contains(configStr, `name: "Documentation"`) {
-		t.Error("Should have Documentation as main navigation item")
+	// Verify navigation structure matches Presidium pattern
+	navigationChecks := []string{
+		"menu:",
+		"identifier: overview",
+		"name: Overview",
+		"url: /",
+		"identifier: tools",
+		"name: Tools",
+		"url: /tools/",
 	}
-	if !strings.Contains(configStr, `pageRef: /tools`) {
-		t.Error("Should use pageRef instead of url for internal links")
+
+	for _, check := range navigationChecks {
+		if !strings.Contains(configStr, check) {
+			t.Errorf("Navigation should contain: %s", check)
+		}
 	}
 
 	t.Log("All Presidium layout features properly configured")
