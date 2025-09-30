@@ -20,13 +20,8 @@ import (
 
 // HugoConfig holds Hugo-specific configuration options
 type HugoConfig struct {
-	BaseURL         string
-	LanguageCode    string
-	Theme           string // Deprecated when using Hugo modules
-	Github          string
-	Twitter         string
-	SiteLogo        string
-	GoogleAnalytics string // Google Analytics measurement ID (e.g., "G-MEASUREMENT_ID")
+	BaseURL      string
+	LanguageCode string
 }
 
 // Validate validates the Hugo configuration and returns any errors found
@@ -46,34 +41,6 @@ func (hc *HugoConfig) Validate() error {
 	if hc.LanguageCode != "" {
 		if err := validateLanguageCode(hc.LanguageCode); err != nil {
 			return fmt.Errorf("invalid LanguageCode: %w", err)
-		}
-	}
-
-	// Validate SiteLogo path if provided
-	if hc.SiteLogo != "" {
-		if err := validateLogoPath(hc.SiteLogo); err != nil {
-			return fmt.Errorf("invalid SiteLogo: %w", err)
-		}
-	}
-
-	// Validate GitHub handle if provided
-	if hc.Github != "" {
-		if err := validateSocialHandle(hc.Github); err != nil {
-			return fmt.Errorf("invalid Github handle: %w", err)
-		}
-	}
-
-	// Validate Twitter handle if provided
-	if hc.Twitter != "" {
-		if err := validateSocialHandle(hc.Twitter); err != nil {
-			return fmt.Errorf("invalid Twitter handle: %w", err)
-		}
-	}
-
-	// Validate Google Analytics ID if provided
-	if hc.GoogleAnalytics != "" {
-		if err := validateGoogleAnalyticsID(hc.GoogleAnalytics); err != nil {
-			return fmt.Errorf("invalid GoogleAnalytics ID: %w", err)
 		}
 	}
 
@@ -124,67 +91,11 @@ func validateLanguageCode(langCode string) error {
 	return nil
 }
 
-// validateLogoPath validates if the logo path is reasonable
-func validateLogoPath(logoPath string) error {
-	if logoPath == "" {
-		return nil
-	}
-
-	// Check for path traversal attempts
-	if strings.Contains(logoPath, "..") {
-		return fmt.Errorf("logo path cannot contain path traversal sequences")
-	}
-
-	// Check for absolute paths to system directories
-	if filepath.IsAbs(logoPath) {
-		criticalPaths := []string{"/bin", "/etc", "/usr", "/sys", "/proc", "/dev"}
-		for _, criticalPath := range criticalPaths {
-			if strings.HasPrefix(logoPath, criticalPath) {
-				return fmt.Errorf("logo path cannot reference system directories")
-			}
-		}
-	}
-
-	return nil
-}
-
-// validateSocialHandle validates social media handles (GitHub/Twitter) to prevent injection
-func validateSocialHandle(handle string) error {
-	if handle == "" {
-		return nil
-	}
-
-	// Social handles: alphanumeric, underscore, hyphen only (no special chars)
-	if !socialHandleRegex.MatchString(handle) {
-		return fmt.Errorf("handle contains invalid characters (use only letters, numbers, underscore, hyphen)")
-	}
-
-	return nil
-}
-
 // Compile regex patterns once at package level for performance
 var (
-	nonAlphaNumRegex     = regexp.MustCompile(`[^a-z0-9-]+`)
-	socialHandleRegex    = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-	googleAnalyticsRegex = regexp.MustCompile(`^G-[A-Za-z0-9]{10}$`)
-	multiHyphenRegex     = regexp.MustCompile(`-+`)
+	nonAlphaNumRegex = regexp.MustCompile(`[^a-z0-9-]+`)
+	multiHyphenRegex = regexp.MustCompile(`-+`)
 )
-
-// validateGoogleAnalyticsID validates Google Analytics measurement ID format
-func validateGoogleAnalyticsID(gaID string) error {
-	if gaID == "" {
-		return nil
-	}
-
-	// Google Analytics 4 measurement IDs follow the pattern G-XXXXXXXXXX
-	// (G- followed by exactly 10 alphanumeric characters, can include lowercase)
-	// Universal Analytics (deprecated) used UA-XXXXXXXX-X but we'll focus on GA4
-	if !googleAnalyticsRegex.MatchString(gaID) {
-		return fmt.Errorf("invalid Google Analytics ID format (expected G-XXXXXXXXXX for GA4 with exactly 10 characters, got %q)", gaID)
-	}
-
-	return nil
-}
 
 // FormatHugo generates a Hugo documentation site structure with hierarchical content organization.
 // It creates a content directory with subdirectories for tools, resources, and prompts,

@@ -241,18 +241,16 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 
 		// Create Hugo configuration from CLI parameters
 		hugoConfig := &formatter.HugoConfig{
-			BaseURL:         cli.HugoBaseURL,
-			LanguageCode:    cli.HugoLanguageCode,
-			Theme:           cli.HugoTheme, // Deprecated when using Hugo modules
-			Github:          cli.HugoGithub,
-			Twitter:         cli.HugoTwitter,
-			SiteLogo:        cli.HugoSiteLogo,
-			GoogleAnalytics: cli.HugoGoogleAnalytics,
+			BaseURL:      cli.HugoBaseURL,
+			LanguageCode: cli.HugoLanguageCode,
 		}
 
-		// Warn user about deprecated HugoTheme field
+		// Warn user about deprecated flags
 		if cli.HugoTheme != "" {
-			log.Printf("⚠️  WARNING: --hugo-theme is deprecated. Hugo now uses modules with Hextra theme by default. The theme parameter will be ignored.")
+			log.Printf("⚠️  WARNING: --hugo-theme is no longer supported. Hugo now uses Presidium layouts via Hugo modules.")
+		}
+		if cli.HugoGithub != "" || cli.HugoTwitter != "" || cli.HugoSiteLogo != "" || cli.HugoGoogleAnalytics != "" {
+			log.Printf("⚠️  WARNING: Social media, logo, and analytics flags are no longer supported for Presidium layouts.")
 		}
 
 		err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, cli.CustomInitialisms, HugoTemplateFS)

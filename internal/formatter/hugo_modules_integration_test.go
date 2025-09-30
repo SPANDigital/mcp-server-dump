@@ -93,12 +93,8 @@ func setupHugoModulesTest(t *testing.T) (string, *model.ServerInfo, *HugoConfig)
 
 	// Create Hugo configuration
 	hugoConfig := &HugoConfig{
-		BaseURL:         "https://example.com",
-		LanguageCode:    "en-us",
-		Github:          "testuser",
-		Twitter:         "testuser",
-		SiteLogo:        "images/logo.png",
-		GoogleAnalytics: "G-TEST123456",
+		BaseURL:      "https://example.com",
+		LanguageCode: "en-us",
 	}
 
 	return siteDir, serverInfo, hugoConfig
@@ -366,13 +362,8 @@ func TestHugoConfigValidationWithModules(t *testing.T) {
 		{
 			name: "valid modern config with modules",
 			config: &HugoConfig{
-				BaseURL:         "https://docs.example.com",
-				LanguageCode:    "en-US",
-				Theme:           "", // Empty when using modules
-				Github:          "myorg",
-				Twitter:         "myorg",
-				SiteLogo:        "static/logo.svg",
-				GoogleAnalytics: "G-1234567890",
+				BaseURL:      "https://docs.example.com",
+				LanguageCode: "en-US",
 			},
 			expectError: false,
 		},
@@ -382,15 +373,6 @@ func TestHugoConfigValidationWithModules(t *testing.T) {
 				BaseURL: "https://localhost:1313",
 			},
 			expectError: false,
-		},
-		{
-			name: "invalid config - bad Google Analytics",
-			config: &HugoConfig{
-				BaseURL:         "https://example.com",
-				GoogleAnalytics: "UA-123456789-1", // Old Universal Analytics format
-			},
-			expectError: true,
-			errorMsg:    "invalid GoogleAnalytics ID",
 		},
 		{
 			name: "invalid config - bad language code",
@@ -423,9 +405,9 @@ func TestHugoConfigValidationWithModules(t *testing.T) {
 }
 
 // TestHextraThemeFeatures tests that Hextra-specific features are properly configured
-func TestHextraThemeFeatures(t *testing.T) {
+func TestPresidiumLayoutsFeatures(t *testing.T) {
 	serverInfo := &model.ServerInfo{
-		Name: "Hextra Feature Test",
+		Name: "Presidium Feature Test",
 		Tools: []model.Tool{
 			{Name: "tool1", Description: "Test tool 1"},
 			{Name: "tool2", Description: "Test tool 2"},
@@ -439,14 +421,12 @@ func TestHextraThemeFeatures(t *testing.T) {
 	}
 
 	hugoConfig := &HugoConfig{
-		BaseURL:         "https://hextra-test.com",
-		LanguageCode:    "en",
-		Github:          "hextrauser",
-		GoogleAnalytics: "G-1234567890",
+		BaseURL:      "https://presidium-test.com",
+		LanguageCode: "en",
 	}
 
 	// Create temporary directory for test
-	tempDir, err := os.MkdirTemp("", "hextra_test_*")
+	tempDir, err := os.MkdirTemp("", "presidium_test_*")
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
@@ -480,25 +460,25 @@ func TestHextraThemeFeatures(t *testing.T) {
 
 	configStr := string(configContent)
 
-	// Test Hextra-specific features
-	hextraFeatures := []string{
-		"github.com/imfing/hextra", // Module import
-		"displayTitle: true",       // Navbar config
-		"displayLogo:",             // Logo config
-		"type: search",             // Search integration
-		"type: separator",          // Sidebar separator
-		"flexsearch",               // Search type
-		"displayCopyright: true",   // Footer config
-		"displayToggle: true",      // Theme toggle
+	// Test Presidium-specific features
+	presidiumFeatures := []string{
+		"github.com/spandigital/presidium-layouts-base", // Module import
+		"MenuIndex",                                       // Output format
+		"SearchMap",                                       // Output format
+		"enterprise_key:",                                 // Presidium config
+		"sortByFilePath: true",                            // Presidium param
+		"lazyLoad: false",                                 // Presidium param
+		"enableInlineShortcodes: true",                    // Feature flag
+		"pluralizeListTitles: false",                      // Feature flag
 	}
 
-	for _, feature := range hextraFeatures {
+	for _, feature := range presidiumFeatures {
 		if !strings.Contains(configStr, feature) {
-			t.Errorf("Hugo config should contain Hextra feature: %s", feature)
+			t.Errorf("Hugo config should contain Presidium feature: %s", feature)
 		}
 	}
 
-	// Verify navigation structure optimized for documentation
+	// Verify navigation structure
 	if !strings.Contains(configStr, `name: "Documentation"`) {
 		t.Error("Should have Documentation as main navigation item")
 	}
@@ -506,5 +486,5 @@ func TestHextraThemeFeatures(t *testing.T) {
 		t.Error("Should use pageRef instead of url for internal links")
 	}
 
-	t.Log("All Hextra theme features properly configured")
+	t.Log("All Presidium layout features properly configured")
 }

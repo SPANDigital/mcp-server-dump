@@ -40,14 +40,16 @@ type CLI struct {
 	NoPrompts   bool `kong:"help='Skip scanning prompts from the MCP server'"`
 
 	// Hugo-specific options (only used when format=hugo)
-	// Uses Hugo Modules (modern approach, no git submodules needed)
-	HugoBaseURL         string `kong:"help='Base URL for Hugo site (e.g., https://example.com)'"`
-	HugoLanguageCode    string `kong:"help='Language code for Hugo site (default: en-us)'"`
-	HugoTheme           string `kong:"help='Hugo theme (deprecated, uses Hextra via Hugo Modules by default)'"`
-	HugoGithub          string `kong:"help='GitHub username for social links'"`
-	HugoTwitter         string `kong:"help='Twitter handle for social links'"`
-	HugoSiteLogo        string `kong:"help='Path to site logo'"`
-	HugoGoogleAnalytics string `kong:"help='Google Analytics measurement ID (GA4 format: G-XXXXXXXXXX)'"`
+	// Uses Hugo Modules with Presidium layouts
+	HugoBaseURL      string `kong:"help='Base URL for Hugo site (e.g., https://example.com)'"`
+	HugoLanguageCode string `kong:"help='Language code for Hugo site (default: en-us)'"`
+
+	// Deprecated Hugo flags (maintained for backward compatibility)
+	HugoTheme           string `kong:"help='[DEPRECATED] No longer supported with Presidium layouts',hidden"`
+	HugoGithub          string `kong:"help='[DEPRECATED] No longer supported with Presidium layouts',hidden"`
+	HugoTwitter         string `kong:"help='[DEPRECATED] No longer supported with Presidium layouts',hidden"`
+	HugoSiteLogo        string `kong:"help='[DEPRECATED] No longer supported with Presidium layouts',hidden"`
+	HugoGoogleAnalytics string `kong:"help='[DEPRECATED] No longer supported with Presidium layouts',hidden"`
 
 	// Context formatting options
 	CustomInitialisms []string `kong:"help='Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT)'"`
