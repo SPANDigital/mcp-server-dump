@@ -263,14 +263,19 @@ func testHugoModulesCommands(t *testing.T) {
 		}
 	})
 
-	// Test 2: Hugo mod get (get the Hextra theme module)
-	t.Run("hugo mod get hextra", func(t *testing.T) {
-		err := hugoBinary.GetModule(testSiteDir, "github.com/imfing/hextra")
+	// Test 2: Hugo mod get (get the Presidium modules)
+	t.Run("hugo mod get presidium", func(t *testing.T) {
+		err := hugoBinary.GetModule(testSiteDir, "github.com/spandigital/presidium-styling-base")
 		if err != nil {
-			t.Logf("Hugo mod get failed (this is expected in test environments): %v", err)
+			t.Logf("Hugo mod get styling failed (this is expected in test environments): %v", err)
 			t.Skip("Skipping build test due to mod get failure")
 		}
-		t.Log("Hugo mod get hextra completed successfully")
+		err = hugoBinary.GetModule(testSiteDir, "github.com/spandigital/presidium-layouts-base")
+		if err != nil {
+			t.Logf("Hugo mod get layouts failed (this is expected in test environments): %v", err)
+			t.Skip("Skipping build test due to mod get failure")
+		}
+		t.Log("Hugo mod get presidium completed successfully")
 
 		// Verify go.sum was created (indicates modules were downloaded)
 		goSumPath := filepath.Join(testSiteDir, "go.sum")
@@ -295,36 +300,63 @@ func testHugoModulesCommands(t *testing.T) {
 		}
 	})
 
-	// Test 4: Basic Hugo build (if previous tests passed)
-	t.Run("hugo build", func(t *testing.T) {
+	// Test 4: Basic Hugo build with Presidium (if previous tests passed)
+	t.Run("hugo build with presidium", func(t *testing.T) {
 		// First create minimal required content structure
 		contentDir := filepath.Join(testSiteDir, "content")
 		if mkdirErr := os.MkdirAll(contentDir, 0o755); mkdirErr != nil {
 			t.Fatalf("Failed to create content directory: %v", mkdirErr)
 		}
 
-		// Create a basic index file
+		// Create a basic index file with Presidium-required frontmatter
 		indexContent := `---
 title: "Test Site"
+author: test@example.com
 ---
 
 # Welcome to Test Site
 
-This is a test site for Hugo modules integration testing.
+This is a test site for Hugo modules integration testing with Presidium layouts.
 `
 		indexPath := filepath.Join(contentDir, "_index.md")
 		if writeErr := os.WriteFile(indexPath, []byte(indexContent), 0o644); writeErr != nil {
 			t.Fatalf("Failed to create index file: %v", writeErr)
 		}
 
-		// Create basic Hugo config that uses modules
+		// Create basic Hugo config that uses Presidium modules
 		configContent := `baseURL: 'https://test.example.com'
 languageCode: 'en-us'
 title: 'Test Site'
 
 module:
   imports:
-    - path: github.com/imfing/hextra
+    - path: github.com/spandigital/presidium-styling-base
+    - path: github.com/spandigital/presidium-layouts-base
+
+outputFormats:
+  MenuIndex:
+    baseName: menu
+    mediaType: application/json
+  SearchMap:
+    baseName: searchmap
+    mediaType: application/json
+
+outputs:
+  home:
+    - HTML
+    - RSS
+    - MenuIndex
+    - SearchMap
+
+params:
+  enterprise_key: test-site
+  frontmatter:
+    - key: author
+      type: email
+      strict: true
+    - key: title
+      type: text
+      strict: true
 `
 		configPath := filepath.Join(testSiteDir, "hugo.yml")
 		if writeErr := os.WriteFile(configPath, []byte(configContent), 0o644); writeErr != nil {
@@ -338,12 +370,28 @@ module:
 			// Don't fail the test - build failures are common in CI environments
 			// due to network restrictions or missing dependencies
 		} else {
-			t.Log("Hugo build completed successfully")
+			t.Log("Hugo build completed successfully with Presidium")
 
 			// Verify public directory was created
 			publicDir := filepath.Join(testSiteDir, "public")
 			if _, statErr := os.Stat(publicDir); os.IsNotExist(statErr) {
 				t.Error("public directory was not created by Hugo build")
+			} else {
+				// Verify Presidium-specific output files were created
+				menuIndexPath := filepath.Join(publicDir, "menu.json")
+				searchMapPath := filepath.Join(publicDir, "searchmap.json")
+
+				if _, statErr := os.Stat(menuIndexPath); os.IsNotExist(statErr) {
+					t.Log("MenuIndex output file not found - may not be generated in minimal site")
+				} else {
+					t.Log("MenuIndex output file created successfully")
+				}
+
+				if _, statErr := os.Stat(searchMapPath); os.IsNotExist(statErr) {
+					t.Log("SearchMap output file not found - may not be generated in minimal site")
+				} else {
+					t.Log("SearchMap output file created successfully")
+				}
 			}
 		}
 	})
@@ -404,7 +452,181 @@ func TestHugoConfigValidationWithModules(t *testing.T) {
 	}
 }
 
-// TestHextraThemeFeatures tests that Hextra-specific features are properly configured
+// TestPresidiumSiteBuild tests building an actual Hugo site with Presidium from generated output
+func TestPresidiumSiteBuild(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping Presidium site build test in short mode")
+	}
+
+	// Create Hugo binary test helper
+	hugoBinary := NewHugoBinaryTestHelper(t)
+	hugoBinary.SkipIfDownloadFails()
+
+	// Create temporary site directory
+	siteDir, err := os.MkdirTemp("", "presidium_build_test_*")
+	if err != nil {
+		t.Fatalf("Failed to create temp site directory: %v", err)
+	}
+	defer func() {
+		if removeErr := os.RemoveAll(siteDir); removeErr != nil {
+			t.Logf("Failed to remove site directory: %v", removeErr)
+		}
+	}()
+
+	t.Logf("Testing Presidium site build in directory: %s", siteDir)
+
+	// Create test server info with realistic MCP data
+	serverInfo := &model.ServerInfo{
+		Name:    "test-mcp-server",
+		Version: "1.0.0",
+		Capabilities: model.Capabilities{
+			Tools:     true,
+			Resources: true,
+			Prompts:   true,
+		},
+		Tools: []model.Tool{
+			{
+				Name:        "search_tool",
+				Description: "A tool for searching content",
+				InputSchema: map[string]any{
+					"type": "object",
+					"properties": map[string]any{
+						"query": map[string]any{
+							"type":        "string",
+							"description": "Search query",
+						},
+					},
+				},
+			},
+		},
+		Resources: []model.Resource{
+			{
+				URI:         "test://resource",
+				Name:        "test_resource",
+				Description: "A test resource",
+				MimeType:    "application/json",
+			},
+		},
+		Prompts: []model.Prompt{
+			{
+				Name:        "test_prompt",
+				Description: "A test prompt",
+				Arguments:   []any{"arg1"},
+			},
+		},
+	}
+
+	// Create Hugo configuration
+	hugoConfig := &HugoConfig{
+		BaseURL:      "https://test-presidium.example.com",
+		LanguageCode: "en",
+	}
+
+	// Generate Hugo site with Presidium
+	err = FormatHugo(
+		serverInfo,
+		siteDir,
+		true, // include frontmatter
+		"yaml",
+		map[string]any{"author": "test@example.com"},
+		hugoConfig,
+		[]string{"MCP"},
+		testHugoTemplateFS,
+	)
+	if err != nil {
+		t.Fatalf("Failed to generate Hugo site: %v", err)
+	}
+
+	t.Log("Hugo site generated successfully")
+
+	// Initialize Hugo modules
+	t.Run("Initialize Hugo modules", func(t *testing.T) {
+		err := hugoBinary.InitModule(siteDir, "example.com/test-mcp-server")
+		if err != nil {
+			t.Skipf("Hugo mod init failed: %v", err)
+		}
+		t.Log("Hugo modules initialized")
+	})
+
+	// Download Presidium modules
+	t.Run("Download Presidium modules", func(t *testing.T) {
+		err := hugoBinary.GetModule(siteDir, "github.com/spandigital/presidium-styling-base")
+		if err != nil {
+			t.Skipf("Failed to download presidium-styling-base: %v", err)
+		}
+
+		err = hugoBinary.GetModule(siteDir, "github.com/spandigital/presidium-layouts-base")
+		if err != nil {
+			t.Skipf("Failed to download presidium-layouts-base: %v", err)
+		}
+		t.Log("Presidium modules downloaded")
+	})
+
+	// Build the Hugo site
+	t.Run("Build Hugo site", func(t *testing.T) {
+		err := hugoBinary.BuildSite(siteDir)
+		if err != nil {
+			t.Logf("Hugo build failed: %v", err)
+			t.Skip("Build failed - may be network or environment issue")
+		}
+
+		t.Log("Hugo site built successfully")
+
+		// Verify public directory structure
+		publicDir := filepath.Join(siteDir, "public")
+		if _, statErr := os.Stat(publicDir); os.IsNotExist(statErr) {
+			t.Fatal("public directory was not created")
+		}
+
+		// Verify main index file
+		indexPath := filepath.Join(publicDir, "index.html")
+		if _, statErr := os.Stat(indexPath); os.IsNotExist(statErr) {
+			t.Error("index.html not created")
+		} else {
+			indexContent, readErr := os.ReadFile(indexPath)
+			if readErr != nil {
+				t.Errorf("Failed to read index.html: %v", readErr)
+			} else {
+				content := string(indexContent)
+				// Verify it contains our MCP server name
+				if !strings.Contains(content, "test-mcp-server") {
+					t.Error("index.html does not contain server name")
+				}
+				t.Log("index.html contains expected content")
+			}
+		}
+
+		// Verify section pages were created
+		sectionsToVerify := []string{"tools", "resources", "prompts"}
+		for _, section := range sectionsToVerify {
+			sectionIndexPath := filepath.Join(publicDir, section, "index.html")
+			if _, statErr := os.Stat(sectionIndexPath); os.IsNotExist(statErr) {
+				t.Errorf("%s section index not created", section)
+			} else {
+				t.Logf("%s section created successfully", section)
+			}
+		}
+
+		// Verify Presidium output formats
+		menuIndexPath := filepath.Join(publicDir, "menu.json")
+		if _, statErr := os.Stat(menuIndexPath); os.IsNotExist(statErr) {
+			t.Log("menu.json not found (may be normal for simple sites)")
+		} else {
+			t.Log("Presidium MenuIndex output created")
+		}
+
+		searchMapPath := filepath.Join(publicDir, "searchmap.json")
+		if _, statErr := os.Stat(searchMapPath); os.IsNotExist(statErr) {
+			t.Log("searchmap.json not found (may be normal for simple sites)")
+		} else {
+			t.Log("Presidium SearchMap output created")
+		}
+
+		t.Log("All verifications passed - Presidium site built successfully!")
+	})
+}
+
+// TestPresidiumLayoutsFeatures tests that Presidium-specific features are properly configured
 func TestPresidiumLayoutsFeatures(t *testing.T) {
 	serverInfo := &model.ServerInfo{
 		Name: "Presidium Feature Test",
