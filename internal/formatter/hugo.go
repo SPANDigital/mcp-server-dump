@@ -308,9 +308,14 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 	fields["weight"] = getSectionWeight(title)
 
 	// Add menu configuration for Presidium navigation
+	// identifier: lowercase-with-hyphens version of title
+	// name: Human-readable title
+	identifier := strings.ToLower(strings.ReplaceAll(title, " ", "-"))
 	menu := map[string]any{
 		"main": map[string]any{
-			"weight": getSectionWeight(title),
+			"identifier": identifier,
+			"name":       title,
+			"weight":     getSectionWeight(title),
 		},
 	}
 	fields["menu"] = menu

@@ -112,26 +112,8 @@ params:
   {{- end }}
 
 # Navigation menu
-menu:
-  main:
-    - name: "Documentation"
-      pageRef: /
-      weight: 1
-    {{- if .Tools }}
-    - name: "Tools"
-      pageRef: /tools
-      weight: 10
-    {{- end }}
-    {{- if .Resources }}
-    - name: "Resources"
-      pageRef: /resources
-      weight: 20
-    {{- end }}
-    {{- if .Prompts }}
-    - name: "Prompts"
-      pageRef: /prompts
-      weight: 30
-    {{- end }}
+# Note: Section menu entries are defined in each section's _index.md file
+# to ensure proper integration with Presidium navigation
 
 # Taxonomies (categories and tags)
 taxonomies:
