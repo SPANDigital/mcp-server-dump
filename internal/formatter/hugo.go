@@ -345,6 +345,21 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 	return os.WriteFile(indexPath, content.Bytes(), 0o644)
 }
 
+// createHugoTemplateFuncMap creates a FuncMap with all template functions for Hugo content generation
+func createHugoTemplateFuncMap(customInitialisms []string) template.FuncMap {
+	return template.FuncMap{
+		"json":       jsonIndent,
+		"contains":   strings.Contains,
+		"sortedKeys": getSortedKeys,
+		"humanizeKey": func(key string) string {
+			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+		},
+		"humanize": func(name string) string {
+			return humanizeKeyWithCustomInitialisms(name, customInitialisms)
+		},
+	}
+}
+
 // generateContentFile creates an individual content markdown file with the given template
 func generateContentFile(dir string, data any, name, itemType string, weight int, includeFrontmatter bool, frontmatterFormat string, customFields map[string]any, info *model.ServerInfo, generationTime time.Time, customInitialisms []string, templateFS embed.FS) error {
 	var content bytes.Buffer
@@ -373,17 +388,8 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 
 	// Create template with functions
 	templateName := itemType + ".md.tmpl"
-	tmpl := template.New(templateName).Funcs(template.FuncMap{
-		"json":       jsonIndent,
-		"contains":   strings.Contains,
-		"sortedKeys": getSortedKeys,
-		"humanizeKey": func(key string) string {
-			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
-		},
-		"humanize": func(name string) string {
-			return humanizeKeyWithCustomInitialisms(name, customInitialisms)
-		},
-	})
+	funcMap := createHugoTemplateFuncMap(customInitialisms)
+	tmpl := template.New(templateName).Funcs(funcMap)
 
 	// Parse template from embedded filesystem - try test path first, then production path
 	testPath := "test_templates/hugo/" + templateName
@@ -392,17 +398,7 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	tmpl, err := tmpl.ParseFS(templateFS, testPath)
 	if err != nil {
 		// Reset template for production path
-		tmpl = template.New(templateName).Funcs(template.FuncMap{
-			"json":       jsonIndent,
-			"contains":   strings.Contains,
-			"sortedKeys": getSortedKeys,
-			"humanizeKey": func(key string) string {
-				return humanizeKeyWithCustomInitialisms(key, customInitialisms)
-			},
-			"humanize": func(name string) string {
-				return humanizeKeyWithCustomInitialisms(name, customInitialisms)
-			},
-		})
+		tmpl = template.New(templateName).Funcs(funcMap)
 		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
 	}
 	if err != nil {
