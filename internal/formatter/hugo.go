@@ -23,7 +23,6 @@ type HugoConfig struct {
 	BaseURL       string
 	LanguageCode  string
 	EnterpriseKey string // Optional Presidium enterprise key
-	AuthorStrict  bool   // Whether to require author field in frontmatter (default: false)
 }
 
 // Validate validates the Hugo configuration and returns any errors found
