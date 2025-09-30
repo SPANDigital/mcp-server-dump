@@ -183,6 +183,7 @@ mcp-server-dump -f hugo -o hugo-docs \
   --hugo-base-url="https://docs.example.com" \
   --hugo-language-code="en-us" \
   --hugo-enterprise-key="my-custom-key" \
+  --hugo-author-strict \
   node server.js
 
 # Output to file (any format)
@@ -447,6 +448,7 @@ Hugo-specific options (only used when format=hugo):
       --hugo-base-url=STRING           Base URL for Hugo site (e.g., https://example.com)
       --hugo-language-code=STRING      Language code for Hugo site (default: en-us)
       --hugo-enterprise-key=STRING     Enterprise key for Presidium configuration (optional, uses server name if not specified)
+      --hugo-author-strict             Require author field in frontmatter (default: false)
       --custom-initialisms=STRING,...
                                        Additional technical initialisms to recognize for human-readable headings
 ```

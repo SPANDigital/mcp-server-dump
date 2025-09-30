@@ -88,7 +88,7 @@ params:
   frontmatter:
     - key: author
       type: email
-      strict: true
+      strict: {{ .HugoConfig.AuthorStrict }}
     - key: title
       type: text
       strict: true
