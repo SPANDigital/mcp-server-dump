@@ -221,54 +221,77 @@ func formatOutput(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 	case "json":
 		return formatter.FormatJSON(info)
 	case "html":
-		htmlStr, err := formatter.FormatHTML(info, !cli.NoTOC, TemplateFS)
-		if err != nil {
-			return nil, err
-		}
-		return []byte(htmlStr), nil
+		return formatHTML(info, cli)
 	case "pdf":
-		if cli.Output == "" {
-			return nil, fmt.Errorf("PDF format requires --output flag")
-		}
-		return formatter.FormatPDF(info, !cli.NoTOC)
+		return formatPDF(info, cli)
 	case "hugo":
-		if cli.Output == "" {
-			return nil, fmt.Errorf("hugo format requires --output flag (directory path)")
-		}
-		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
-		// Enable frontmatter by default for Hugo format
-		enableFrontmatter := cli.Frontmatter || cli.Format == "hugo"
-
-		// Create Hugo configuration from CLI parameters
-		hugoConfig := &formatter.HugoConfig{
-			BaseURL:      cli.HugoBaseURL,
-			LanguageCode: cli.HugoLanguageCode,
-		}
-
-		// Warn user about deprecated flags
-		if cli.HugoTheme != "" {
-			log.Printf("⚠️  WARNING: --hugo-theme is no longer supported. Hugo now uses Presidium layouts via Hugo modules.")
-		}
-		if cli.HugoGithub != "" || cli.HugoTwitter != "" || cli.HugoSiteLogo != "" || cli.HugoGoogleAnalytics != "" {
-			log.Printf("⚠️  WARNING: Social media, logo, and analytics flags are no longer supported for Presidium layouts.")
-		}
-
-		err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, cli.CustomInitialisms, HugoTemplateFS)
-		if err != nil {
-			return nil, err
-		}
-		// Return empty bytes since Hugo writes directly to files
-		return []byte{}, nil
+		return formatHugo(info, cli)
 	case "markdown":
-		customFields := formatter.ParseCustomFields(cli.FrontmatterField)
-		markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, cli.CustomInitialisms, TemplateFS)
-		if err != nil {
-			return nil, err
-		}
-		return []byte(markdownStr), nil
+		return formatMarkdown(info, cli)
 	default:
 		return nil, fmt.Errorf("unsupported output format: %s", cli.Format)
 	}
+}
+
+// formatHTML generates HTML output from server information
+func formatHTML(info *model.ServerInfo, cli *CLI) ([]byte, error) {
+	htmlStr, err := formatter.FormatHTML(info, !cli.NoTOC, TemplateFS)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(htmlStr), nil
+}
+
+// formatPDF generates PDF output from server information
+func formatPDF(info *model.ServerInfo, cli *CLI) ([]byte, error) {
+	if cli.Output == "" {
+		return nil, fmt.Errorf("PDF format requires --output flag")
+	}
+	return formatter.FormatPDF(info, !cli.NoTOC)
+}
+
+// formatHugo generates Hugo site from server information
+func formatHugo(info *model.ServerInfo, cli *CLI) ([]byte, error) {
+	if cli.Output == "" {
+		return nil, fmt.Errorf("hugo format requires --output flag (directory path)")
+	}
+
+	customFields := formatter.ParseCustomFields(cli.FrontmatterField)
+	enableFrontmatter := cli.Frontmatter || cli.Format == "hugo"
+
+	hugoConfig := &formatter.HugoConfig{
+		BaseURL:      cli.HugoBaseURL,
+		LanguageCode: cli.HugoLanguageCode,
+	}
+
+	warnDeprecatedHugoFlags(cli)
+
+	err := formatter.FormatHugo(info, cli.Output, enableFrontmatter, cli.FrontmatterFormat, customFields, hugoConfig, cli.CustomInitialisms, HugoTemplateFS)
+	if err != nil {
+		return nil, err
+	}
+	// Return empty bytes since Hugo writes directly to files
+	return []byte{}, nil
+}
+
+// warnDeprecatedHugoFlags logs warnings for deprecated Hugo configuration flags
+func warnDeprecatedHugoFlags(cli *CLI) {
+	if cli.HugoTheme != "" {
+		log.Printf("⚠️  WARNING: --hugo-theme is no longer supported. Hugo now uses Presidium layouts via Hugo modules.")
+	}
+	if cli.HugoGithub != "" || cli.HugoTwitter != "" || cli.HugoSiteLogo != "" || cli.HugoGoogleAnalytics != "" {
+		log.Printf("⚠️  WARNING: Social media, logo, and analytics flags are no longer supported for Presidium layouts.")
+	}
+}
+
+// formatMarkdown generates markdown output from server information
+func formatMarkdown(info *model.ServerInfo, cli *CLI) ([]byte, error) {
+	customFields := formatter.ParseCustomFields(cli.FrontmatterField)
+	markdownStr, err := formatter.FormatMarkdown(info, !cli.NoTOC, cli.Frontmatter, cli.FrontmatterFormat, customFields, cli.CustomInitialisms, TemplateFS)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(markdownStr), nil
 }
 
 // writeOutput writes the formatted content to the specified output destination.
