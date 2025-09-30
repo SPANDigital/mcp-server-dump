@@ -23,6 +23,7 @@ type HugoConfig struct {
 	BaseURL       string
 	LanguageCode  string
 	EnterpriseKey string // Optional Presidium enterprise key
+	AuthorStrict  bool   // Whether to require author field in frontmatter (default: false)
 }
 
 // Validate validates the Hugo configuration and returns any errors found
@@ -351,7 +352,7 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 
 	// Prepare frontmatter fields
 	fields := make(map[string]any)
-	fields["title"] = name
+	fields["title"] = humanizeKeyWithCustomInitialisms(name, customInitialisms)
 	fields["date"] = generationTime.Format(time.RFC3339)
 	fields["draft"] = false
 	fields["weight"] = weight
@@ -380,6 +381,9 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 		"humanizeKey": func(key string) string {
 			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
 		},
+		"humanize": func(name string) string {
+			return humanizeKeyWithCustomInitialisms(name, customInitialisms)
+		},
 	})
 
 	// Parse template from embedded filesystem - try test path first, then production path
@@ -395,6 +399,9 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 			"sortedKeys": getSortedKeys,
 			"humanizeKey": func(key string) string {
 				return humanizeKeyWithCustomInitialisms(key, customInitialisms)
+			},
+			"humanize": func(name string) string {
+				return humanizeKeyWithCustomInitialisms(name, customInitialisms)
 			},
 		})
 		tmpl, err = tmpl.ParseFS(templateFS, prodPath)
