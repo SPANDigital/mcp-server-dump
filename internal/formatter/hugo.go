@@ -351,11 +351,8 @@ func createHugoTemplateFuncMap(customInitialisms []string) template.FuncMap {
 		"json":       jsonIndent,
 		"contains":   strings.Contains,
 		"sortedKeys": getSortedKeys,
-		"humanizeKey": func(key string) string {
-			return humanizeKeyWithCustomInitialisms(key, customInitialisms)
-		},
-		"humanize": func(name string) string {
-			return humanizeKeyWithCustomInitialisms(name, customInitialisms)
+		"humanize": func(s string) string {
+			return humanizeKeyWithCustomInitialisms(s, customInitialisms)
 		},
 	}
 }
