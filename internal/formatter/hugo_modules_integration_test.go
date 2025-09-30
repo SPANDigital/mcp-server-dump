@@ -463,13 +463,13 @@ func TestPresidiumLayoutsFeatures(t *testing.T) {
 	// Test Presidium-specific features
 	presidiumFeatures := []string{
 		"github.com/spandigital/presidium-layouts-base", // Module import
-		"MenuIndex",                                       // Output format
-		"SearchMap",                                       // Output format
-		"enterprise_key:",                                 // Presidium config
-		"sortByFilePath: true",                            // Presidium param
-		"lazyLoad: false",                                 // Presidium param
-		"enableInlineShortcodes: true",                    // Feature flag
-		"pluralizeListTitles: false",                      // Feature flag
+		"MenuIndex",                    // Output format
+		"SearchMap",                    // Output format
+		"enterprise_key:",              // Presidium config
+		"sortByFilePath: true",         // Presidium param
+		"lazyLoad: false",              // Presidium param
+		"enableInlineShortcodes: true", // Feature flag
+		"pluralizeListTitles: false",   // Feature flag
 	}
 
 	for _, feature := range presidiumFeatures {
