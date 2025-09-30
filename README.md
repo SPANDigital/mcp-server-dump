@@ -182,6 +182,7 @@ mcp-server-dump -f hugo -o hugo-docs node server.js
 mcp-server-dump -f hugo -o hugo-docs \
   --hugo-base-url="https://docs.example.com" \
   --hugo-language-code="en-us" \
+  --hugo-enterprise-key="my-custom-key" \
   node server.js
 
 # Output to file (any format)
@@ -443,10 +444,11 @@ Flags:
       --no-prompts           Skip scanning prompts from the MCP server
 
 Hugo-specific options (only used when format=hugo):
-      --hugo-base-url=STRING        Base URL for Hugo site (e.g., https://example.com)
-      --hugo-language-code=STRING   Language code for Hugo site (default: en-us)
+      --hugo-base-url=STRING           Base URL for Hugo site (e.g., https://example.com)
+      --hugo-language-code=STRING      Language code for Hugo site (default: en-us)
+      --hugo-enterprise-key=STRING     Enterprise key for Presidium configuration (optional, uses server name if not specified)
       --custom-initialisms=STRING,...
-                                    Additional technical initialisms to recognize for human-readable headings
+                                       Additional technical initialisms to recognize for human-readable headings
 ```
 
 ## GitHub Action

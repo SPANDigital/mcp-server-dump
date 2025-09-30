@@ -260,8 +260,9 @@ func formatHugo(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 	enableFrontmatter := cli.Frontmatter || cli.Format == "hugo"
 
 	hugoConfig := &formatter.HugoConfig{
-		BaseURL:      cli.HugoBaseURL,
-		LanguageCode: cli.HugoLanguageCode,
+		BaseURL:       cli.HugoBaseURL,
+		LanguageCode:  cli.HugoLanguageCode,
+		EnterpriseKey: cli.HugoEnterpriseKey,
 	}
 
 	warnDeprecatedHugoFlags(cli)
