@@ -226,15 +226,10 @@ func verifyToolContent(t *testing.T, contentDir string) {
 	}
 }
 
-// testHugoModulesCommands tests Hugo modules commands with actual Hugo binary
-func testHugoModulesCommands(t *testing.T) {
+// createTestSiteDir creates a temporary test site directory
+func createTestSiteDir(t *testing.T) string {
 	t.Helper()
 
-	// Create Hugo binary test helper
-	hugoBinary := NewHugoBinaryTestHelper(t)
-	hugoBinary.SkipIfDownloadFails()
-
-	// Create temporary test site directory
 	testSiteDir, err := os.MkdirTemp("", "hugo_modules_commands_test_*")
 	if err != nil {
 		t.Fatalf("Failed to create test site directory: %v", err)
@@ -245,62 +240,89 @@ func testHugoModulesCommands(t *testing.T) {
 		}
 	})
 
+	return testSiteDir
+}
+
+// testHugoModInit tests Hugo module initialization
+func testHugoModInit(t *testing.T, hugoBinary *HugoBinaryTestHelper, testSiteDir string) {
+	t.Helper()
+
+	err := hugoBinary.InitModule(testSiteDir, "example.com/test-site")
+	if err != nil {
+		t.Logf("Hugo mod init failed (this is expected in test environments): %v", err)
+		t.Skip("Skipping remaining module tests due to mod init failure")
+	}
+	t.Log("Hugo mod init completed successfully")
+
+	goModPath := filepath.Join(testSiteDir, "go.mod")
+	if _, statErr := os.Stat(goModPath); os.IsNotExist(statErr) {
+		t.Error("go.mod file was not created by hugo mod init")
+	}
+}
+
+// testHugoModGetPresidium tests getting Presidium modules
+func testHugoModGetPresidium(t *testing.T, hugoBinary *HugoBinaryTestHelper, testSiteDir string) {
+	t.Helper()
+
+	err := hugoBinary.GetModule(testSiteDir, "github.com/spandigital/presidium-styling-base")
+	if err != nil {
+		t.Logf("Hugo mod get styling failed (this is expected in test environments): %v", err)
+		t.Skip("Skipping build test due to mod get failure")
+	}
+
+	err = hugoBinary.GetModule(testSiteDir, "github.com/spandigital/presidium-layouts-base")
+	if err != nil {
+		t.Logf("Hugo mod get layouts failed (this is expected in test environments): %v", err)
+		t.Skip("Skipping build test due to mod get failure")
+	}
+	t.Log("Hugo mod get presidium completed successfully")
+
+	goSumPath := filepath.Join(testSiteDir, "go.sum")
+	if _, statErr := os.Stat(goSumPath); os.IsNotExist(statErr) {
+		t.Log("go.sum file not found - modules may not have been fully downloaded")
+	}
+}
+
+// testHugoVersion tests Hugo version command
+func testHugoVersion(t *testing.T, hugoBinary *HugoBinaryTestHelper) {
+	t.Helper()
+
+	version, err := hugoBinary.GetVersion()
+	if err != nil {
+		t.Logf("Hugo version check failed: %v", err)
+		return
+	}
+
+	t.Logf("Hugo version output: %s", strings.TrimSpace(version))
+
+	versionLower := strings.ToLower(version)
+	if !strings.Contains(versionLower, "hugo") || !strings.Contains(versionLower, "0.150") {
+		t.Errorf("Unexpected version output format: %s", version)
+	}
+}
+
+// testHugoModulesCommands tests Hugo modules commands with actual Hugo binary
+func testHugoModulesCommands(t *testing.T) {
+	t.Helper()
+
+	hugoBinary := NewHugoBinaryTestHelper(t)
+	hugoBinary.SkipIfDownloadFails()
+
+	testSiteDir := createTestSiteDir(t)
 	t.Logf("Testing Hugo modules commands in directory: %s", testSiteDir)
 
-	// Test 1: Hugo mod init
 	t.Run("hugo mod init", func(t *testing.T) {
-		err := hugoBinary.InitModule(testSiteDir, "example.com/test-site")
-		if err != nil {
-			t.Logf("Hugo mod init failed (this is expected in test environments): %v", err)
-			t.Skip("Skipping remaining module tests due to mod init failure")
-		}
-		t.Log("Hugo mod init completed successfully")
-
-		// Verify go.mod was created
-		goModPath := filepath.Join(testSiteDir, "go.mod")
-		if _, statErr := os.Stat(goModPath); os.IsNotExist(statErr) {
-			t.Error("go.mod file was not created by hugo mod init")
-		}
+		testHugoModInit(t, hugoBinary, testSiteDir)
 	})
 
-	// Test 2: Hugo mod get (get the Presidium modules)
 	t.Run("hugo mod get presidium", func(t *testing.T) {
-		err := hugoBinary.GetModule(testSiteDir, "github.com/spandigital/presidium-styling-base")
-		if err != nil {
-			t.Logf("Hugo mod get styling failed (this is expected in test environments): %v", err)
-			t.Skip("Skipping build test due to mod get failure")
-		}
-		err = hugoBinary.GetModule(testSiteDir, "github.com/spandigital/presidium-layouts-base")
-		if err != nil {
-			t.Logf("Hugo mod get layouts failed (this is expected in test environments): %v", err)
-			t.Skip("Skipping build test due to mod get failure")
-		}
-		t.Log("Hugo mod get presidium completed successfully")
-
-		// Verify go.sum was created (indicates modules were downloaded)
-		goSumPath := filepath.Join(testSiteDir, "go.sum")
-		if _, statErr := os.Stat(goSumPath); os.IsNotExist(statErr) {
-			t.Log("go.sum file not found - modules may not have been fully downloaded")
-		}
+		testHugoModGetPresidium(t, hugoBinary, testSiteDir)
 	})
 
-	// Test 3: Hugo version check
 	t.Run("hugo version", func(t *testing.T) {
-		version, err := hugoBinary.GetVersion()
-		if err != nil {
-			t.Logf("Hugo version check failed: %v", err)
-		} else {
-			t.Logf("Hugo version output: %s", strings.TrimSpace(version))
-
-			// Verify it contains expected version info
-			versionLower := strings.ToLower(version)
-			if !strings.Contains(versionLower, "hugo") || !strings.Contains(versionLower, "0.150") {
-				t.Errorf("Unexpected version output format: %s", version)
-			}
-		}
+		testHugoVersion(t, hugoBinary)
 	})
 
-	// Test 4: Basic Hugo build with Presidium (if previous tests passed)
 	t.Run("hugo build with presidium", func(t *testing.T) {
 		// First create minimal required content structure
 		contentDir := filepath.Join(testSiteDir, "content")
@@ -458,25 +480,49 @@ func TestPresidiumSiteBuild(t *testing.T) {
 		t.Skip("Skipping Presidium site build test in short mode")
 	}
 
-	// Create Hugo binary test helper
 	hugoBinary := NewHugoBinaryTestHelper(t)
 	hugoBinary.SkipIfDownloadFails()
 
-	// Create temporary site directory
+	siteDir, serverInfo, hugoConfig := setupPresidiumBuildTest(t)
+	defer cleanupTestDir(t, siteDir)
+
+	generatePresidiumSite(t, serverInfo, siteDir, hugoConfig)
+
+	t.Run("Initialize Hugo modules", func(t *testing.T) {
+		testInitializeHugoModules(t, hugoBinary, siteDir)
+	})
+
+	t.Run("Download Presidium modules", func(t *testing.T) {
+		testDownloadPresidiumModules(t, hugoBinary, siteDir)
+	})
+
+	t.Run("Build Hugo site", func(t *testing.T) {
+		testBuildPresidiumSite(t, hugoBinary, siteDir)
+	})
+}
+
+// setupPresidiumBuildTest creates test environment for Presidium build
+func setupPresidiumBuildTest(t *testing.T) (string, *model.ServerInfo, *HugoConfig) {
+	t.Helper()
+
 	siteDir, err := os.MkdirTemp("", "presidium_build_test_*")
 	if err != nil {
 		t.Fatalf("Failed to create temp site directory: %v", err)
 	}
-	defer func() {
-		if removeErr := os.RemoveAll(siteDir); removeErr != nil {
-			t.Logf("Failed to remove site directory: %v", removeErr)
-		}
-	}()
-
 	t.Logf("Testing Presidium site build in directory: %s", siteDir)
 
-	// Create test server info with realistic MCP data
-	serverInfo := &model.ServerInfo{
+	serverInfo := createPresidiumTestServerInfo()
+	hugoConfig := &HugoConfig{
+		BaseURL:      "https://test-presidium.example.com",
+		LanguageCode: "en",
+	}
+
+	return siteDir, serverInfo, hugoConfig
+}
+
+// createPresidiumTestServerInfo creates test MCP server info for Presidium tests
+func createPresidiumTestServerInfo() *model.ServerInfo {
+	return &model.ServerInfo{
 		Name:    "test-mcp-server",
 		Version: "1.0.0",
 		Capabilities: model.Capabilities{
@@ -515,18 +561,24 @@ func TestPresidiumSiteBuild(t *testing.T) {
 			},
 		},
 	}
+}
 
-	// Create Hugo configuration
-	hugoConfig := &HugoConfig{
-		BaseURL:      "https://test-presidium.example.com",
-		LanguageCode: "en",
+// cleanupTestDir removes test directory
+func cleanupTestDir(t *testing.T, siteDir string) {
+	t.Helper()
+	if removeErr := os.RemoveAll(siteDir); removeErr != nil {
+		t.Logf("Failed to remove site directory: %v", removeErr)
 	}
+}
 
-	// Generate Hugo site with Presidium
-	err = FormatHugo(
+// generatePresidiumSite generates Hugo site with Presidium
+func generatePresidiumSite(t *testing.T, serverInfo *model.ServerInfo, siteDir string, hugoConfig *HugoConfig) {
+	t.Helper()
+
+	err := FormatHugo(
 		serverInfo,
 		siteDir,
-		true, // include frontmatter
+		true,
 		"yaml",
 		map[string]any{"author": "test@example.com"},
 		hugoConfig,
@@ -536,94 +588,114 @@ func TestPresidiumSiteBuild(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate Hugo site: %v", err)
 	}
-
 	t.Log("Hugo site generated successfully")
+}
 
-	// Initialize Hugo modules
-	t.Run("Initialize Hugo modules", func(t *testing.T) {
-		err := hugoBinary.InitModule(siteDir, "example.com/test-mcp-server")
-		if err != nil {
-			t.Skipf("Hugo mod init failed: %v", err)
-		}
-		t.Log("Hugo modules initialized")
-	})
+// testInitializeHugoModules tests Hugo module initialization
+func testInitializeHugoModules(t *testing.T, hugoBinary *HugoBinaryTestHelper, siteDir string) {
+	t.Helper()
 
-	// Download Presidium modules
-	t.Run("Download Presidium modules", func(t *testing.T) {
-		err := hugoBinary.GetModule(siteDir, "github.com/spandigital/presidium-styling-base")
-		if err != nil {
-			t.Skipf("Failed to download presidium-styling-base: %v", err)
-		}
+	err := hugoBinary.InitModule(siteDir, "example.com/test-mcp-server")
+	if err != nil {
+		t.Skipf("Hugo mod init failed: %v", err)
+	}
+	t.Log("Hugo modules initialized")
+}
 
-		err = hugoBinary.GetModule(siteDir, "github.com/spandigital/presidium-layouts-base")
-		if err != nil {
-			t.Skipf("Failed to download presidium-layouts-base: %v", err)
-		}
-		t.Log("Presidium modules downloaded")
-	})
+// testDownloadPresidiumModules tests downloading Presidium modules
+func testDownloadPresidiumModules(t *testing.T, hugoBinary *HugoBinaryTestHelper, siteDir string) {
+	t.Helper()
 
-	// Build the Hugo site
-	t.Run("Build Hugo site", func(t *testing.T) {
-		err := hugoBinary.BuildSite(siteDir)
-		if err != nil {
-			t.Logf("Hugo build failed: %v", err)
-			t.Skip("Build failed - may be network or environment issue")
-		}
+	if err := hugoBinary.GetModule(siteDir, "github.com/spandigital/presidium-styling-base"); err != nil {
+		t.Skipf("Failed to download presidium-styling-base: %v", err)
+	}
 
-		t.Log("Hugo site built successfully")
+	if err := hugoBinary.GetModule(siteDir, "github.com/spandigital/presidium-layouts-base"); err != nil {
+		t.Skipf("Failed to download presidium-layouts-base: %v", err)
+	}
+	t.Log("Presidium modules downloaded")
+}
 
-		// Verify public directory structure
-		publicDir := filepath.Join(siteDir, "public")
-		if _, statErr := os.Stat(publicDir); os.IsNotExist(statErr) {
-			t.Fatal("public directory was not created")
-		}
+// testBuildPresidiumSite tests building the Hugo site and verifying outputs
+func testBuildPresidiumSite(t *testing.T, hugoBinary *HugoBinaryTestHelper, siteDir string) {
+	t.Helper()
 
-		// Verify main index file
-		indexPath := filepath.Join(publicDir, "index.html")
-		if _, statErr := os.Stat(indexPath); os.IsNotExist(statErr) {
-			t.Error("index.html not created")
+	err := hugoBinary.BuildSite(siteDir)
+	if err != nil {
+		t.Logf("Hugo build failed: %v", err)
+		t.Skip("Build failed - may be network or environment issue")
+	}
+
+	t.Log("Hugo site built successfully")
+
+	publicDir := filepath.Join(siteDir, "public")
+	verifyPublicDirectory(t, publicDir)
+	verifyIndexFile(t, publicDir)
+	verifySectionPages(t, publicDir)
+	verifyPresidiumOutputs(t, publicDir)
+
+	t.Log("All verifications passed - Presidium site built successfully!")
+}
+
+// verifyPublicDirectory verifies public directory exists
+func verifyPublicDirectory(t *testing.T, publicDir string) {
+	t.Helper()
+	if _, err := os.Stat(publicDir); os.IsNotExist(err) {
+		t.Fatal("public directory was not created")
+	}
+}
+
+// verifyIndexFile verifies index.html exists and contains expected content
+func verifyIndexFile(t *testing.T, publicDir string) {
+	t.Helper()
+
+	indexPath := filepath.Join(publicDir, "index.html")
+	indexContent, err := os.ReadFile(indexPath)
+	if err != nil {
+		t.Errorf("Failed to read index.html: %v", err)
+		return
+	}
+
+	if !strings.Contains(string(indexContent), "test-mcp-server") {
+		t.Error("index.html does not contain server name")
+	} else {
+		t.Log("index.html contains expected content")
+	}
+}
+
+// verifySectionPages verifies section pages were created
+func verifySectionPages(t *testing.T, publicDir string) {
+	t.Helper()
+
+	sections := []string{"tools", "resources", "prompts"}
+	for _, section := range sections {
+		sectionIndexPath := filepath.Join(publicDir, section, "index.html")
+		if _, err := os.Stat(sectionIndexPath); os.IsNotExist(err) {
+			t.Errorf("%s section index not created", section)
 		} else {
-			indexContent, readErr := os.ReadFile(indexPath)
-			if readErr != nil {
-				t.Errorf("Failed to read index.html: %v", readErr)
-			} else {
-				content := string(indexContent)
-				// Verify it contains our MCP server name
-				if !strings.Contains(content, "test-mcp-server") {
-					t.Error("index.html does not contain server name")
-				}
-				t.Log("index.html contains expected content")
-			}
+			t.Logf("%s section created successfully", section)
 		}
+	}
+}
 
-		// Verify section pages were created
-		sectionsToVerify := []string{"tools", "resources", "prompts"}
-		for _, section := range sectionsToVerify {
-			sectionIndexPath := filepath.Join(publicDir, section, "index.html")
-			if _, statErr := os.Stat(sectionIndexPath); os.IsNotExist(statErr) {
-				t.Errorf("%s section index not created", section)
-			} else {
-				t.Logf("%s section created successfully", section)
-			}
-		}
+// verifyPresidiumOutputs verifies Presidium-specific output files
+func verifyPresidiumOutputs(t *testing.T, publicDir string) {
+	t.Helper()
 
-		// Verify Presidium output formats
-		menuIndexPath := filepath.Join(publicDir, "menu.json")
-		if _, statErr := os.Stat(menuIndexPath); os.IsNotExist(statErr) {
-			t.Log("menu.json not found (may be normal for simple sites)")
-		} else {
-			t.Log("Presidium MenuIndex output created")
-		}
+	checkPresidiumOutput(t, publicDir, "menu.json", "MenuIndex")
+	checkPresidiumOutput(t, publicDir, "searchmap.json", "SearchMap")
+}
 
-		searchMapPath := filepath.Join(publicDir, "searchmap.json")
-		if _, statErr := os.Stat(searchMapPath); os.IsNotExist(statErr) {
-			t.Log("searchmap.json not found (may be normal for simple sites)")
-		} else {
-			t.Log("Presidium SearchMap output created")
-		}
+// checkPresidiumOutput checks if a Presidium output file exists
+func checkPresidiumOutput(t *testing.T, publicDir, filename, outputName string) {
+	t.Helper()
 
-		t.Log("All verifications passed - Presidium site built successfully!")
-	})
+	outputPath := filepath.Join(publicDir, filename)
+	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
+		t.Logf("%s not found (may be normal for simple sites)", filename)
+	} else {
+		t.Logf("Presidium %s output created", outputName)
+	}
 }
 
 // TestPresidiumLayoutsFeatures tests that Presidium-specific features are properly configured
