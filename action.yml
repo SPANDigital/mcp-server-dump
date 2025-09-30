@@ -66,6 +66,10 @@ inputs:
   hugo-enterprise-key:
     description: 'Enterprise key for Presidium configuration (optional, uses server name if not specified)'
     required: false
+  hugo-author-strict:
+    description: 'Require author field in frontmatter (default: false)'
+    required: false
+    default: 'false'
   hugo-theme:
     description: '[DEPRECATED] No longer supported with Presidium layouts. Hugo now uses Presidium modules automatically.'
     required: false
@@ -293,6 +297,12 @@ runs:
             HUGO_ENTERPRISE_KEY="${{ inputs.hugo-enterprise-key }}"
             if [ -n "${HUGO_ENTERPRISE_KEY}" ]; then
                 CMD_ARGS+=("--hugo-enterprise-key" "${HUGO_ENTERPRISE_KEY}")
+            fi
+
+            # Hugo author strict (optional, default: false)
+            HUGO_AUTHOR_STRICT="${{ inputs.hugo-author-strict }}"
+            if [ "${HUGO_AUTHOR_STRICT}" = "true" ]; then
+                CMD_ARGS+=("--hugo-author-strict")
             fi
 
             # Deprecated Hugo flags - show warnings but do not pass to command

@@ -44,6 +44,7 @@ type CLI struct {
 	HugoBaseURL       string `kong:"help='Base URL for Hugo site (e.g., https://example.com)'"`
 	HugoLanguageCode  string `kong:"help='Language code for Hugo site (default: en-us)'"`
 	HugoEnterpriseKey string `kong:"help='Enterprise key for Presidium configuration (optional, uses server name if not specified)'"`
+	HugoAuthorStrict  bool   `kong:"help='Require author field in frontmatter (default: false)'"`
 
 	// Deprecated Hugo flags (maintained for backward compatibility)
 	HugoTheme           string `kong:"help='[DEPRECATED] No longer supported with Presidium layouts',hidden"`

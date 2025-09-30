@@ -263,6 +263,7 @@ func formatHugo(info *model.ServerInfo, cli *CLI) ([]byte, error) {
 		BaseURL:       cli.HugoBaseURL,
 		LanguageCode:  cli.HugoLanguageCode,
 		EnterpriseKey: cli.HugoEnterpriseKey,
+		AuthorStrict:  cli.HugoAuthorStrict,
 	}
 
 	warnDeprecatedHugoFlags(cli)
