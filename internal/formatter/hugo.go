@@ -307,6 +307,14 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 	fields["draft"] = false
 	fields["weight"] = getSectionWeight(title)
 
+	// Add menu configuration for Presidium navigation
+	menu := map[string]any{
+		"main": map[string]any{
+			"weight": getSectionWeight(title),
+		},
+	}
+	fields["menu"] = menu
+
 	// Add custom fields
 	for k, v := range customFields {
 		fields[k] = v
