@@ -80,7 +80,11 @@ outputs:
 
 # Site parameters (Presidium configuration)
 params:
+  {{- if .HugoConfig.EnterpriseKey }}
+  enterprise_key: {{ .HugoConfig.EnterpriseKey }}
+  {{- else }}
   enterprise_key: {{ .Name }}
+  {{- end }}
   frontmatter:
     - key: author
       type: email
