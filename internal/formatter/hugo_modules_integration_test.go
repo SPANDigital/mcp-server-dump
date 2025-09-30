@@ -215,7 +215,7 @@ func verifyToolContent(t *testing.T, contentDir string) {
 	toolStr := string(toolContent)
 	expectedContent := []string{
 		"---",
-		"title: example_tool",
+		"title: Example Tool",
 		"weight:",
 	}
 

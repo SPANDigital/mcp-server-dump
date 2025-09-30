@@ -1,4 +1,4 @@
-# {{ .Name }}
+# {{ humanize .Name }}
 
 **URI:** `{{ .URI }}`
 
@@ -13,12 +13,12 @@
 {{ range $key := sortedKeys .Context -}}
 {{ $value := index $.Context $key -}}
 {{ if contains $value "\n" -}}
-### {{ humanizeKey $key }}
+### {{ humanize $key }}
 
 {{ $value }}
 
 {{ else -}}
-**{{ humanizeKey $key }}:** {{ $value }}
+**{{ humanize $key }}:** {{ $value }}
 
 {{ end -}}
 {{ end -}}
