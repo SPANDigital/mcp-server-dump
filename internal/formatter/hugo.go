@@ -20,8 +20,9 @@ import (
 
 // HugoConfig holds Hugo-specific configuration options
 type HugoConfig struct {
-	BaseURL      string
-	LanguageCode string
+	BaseURL       string
+	LanguageCode  string
+	EnterpriseKey string // Optional Presidium enterprise key
 }
 
 // Validate validates the Hugo configuration and returns any errors found

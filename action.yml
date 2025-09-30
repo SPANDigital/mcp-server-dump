@@ -63,6 +63,9 @@ inputs:
     description: 'Language code for Hugo site (e.g., en, en-US, zh-Hans, pt-BR)'
     required: false
     default: 'en-us'
+  hugo-enterprise-key:
+    description: 'Enterprise key for Presidium configuration (optional, uses server name if not specified)'
+    required: false
   hugo-theme:
     description: '[DEPRECATED] No longer supported with Presidium layouts. Hugo now uses Presidium modules automatically.'
     required: false
@@ -284,6 +287,12 @@ runs:
             HUGO_LANG_CODE="${{ inputs.hugo-language-code }}"
             if [ -n "${HUGO_LANG_CODE}" ] && [ "${HUGO_LANG_CODE}" != "en-us" ]; then
                 CMD_ARGS+=("--hugo-language-code" "${HUGO_LANG_CODE}")
+            fi
+
+            # Hugo enterprise key (optional)
+            HUGO_ENTERPRISE_KEY="${{ inputs.hugo-enterprise-key }}"
+            if [ -n "${HUGO_ENTERPRISE_KEY}" ]; then
+                CMD_ARGS+=("--hugo-enterprise-key" "${HUGO_ENTERPRISE_KEY}")
             fi
 
             # Deprecated Hugo flags - show warnings but do not pass to command
