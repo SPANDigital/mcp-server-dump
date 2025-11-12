@@ -8,6 +8,7 @@ type ServerInfo struct {
 	Tools        []Tool       `json:"tools"`
 	Resources    []Resource   `json:"resources"`
 	Prompts      []Prompt     `json:"prompts"`
+	ToolCalls    []ToolCall   `json:"toolCalls,omitempty"`
 }
 
 // Capabilities represents the capabilities of an MCP server
@@ -40,4 +41,13 @@ type Prompt struct {
 	Description string            `json:"description"`
 	Arguments   []any             `json:"arguments"`
 	Context     map[string]string `json:"context,omitempty"`
+}
+
+// ToolCall represents the result of calling an MCP tool
+type ToolCall struct {
+	ToolName          string `json:"toolName"`
+	Arguments         any    `json:"arguments,omitempty"`
+	Content           []any  `json:"content,omitempty"`
+	StructuredContent any    `json:"structuredContent,omitempty"`
+	Error             string `json:"error,omitempty"`
 }

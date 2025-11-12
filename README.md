@@ -14,6 +14,10 @@ A command-line tool to extract and document MCP (Model Context Protocol) server 
   - Streamable HTTP transport
   - Server-Sent Events (SSE) over HTTP *(deprecated)*
 - Extract server information, capabilities, tools, resources, and prompts
+- **Tool Calling**: Call MCP tools directly and include results in documentation
+  - Call specific tools by name with custom arguments
+  - Call all available tools for comprehensive testing
+  - Results automatically integrated into all output formats
 - **Selective Scanning**: Skip specific capability types (tools, resources, prompts) for performance optimization
 - Output documentation in Markdown, JSON, HTML, PDF, or **Hugo** format
 - **Hugo format**: Generate a complete Hugo documentation site structure with hierarchical content organization
@@ -146,6 +150,28 @@ mcp-server-dump --no-prompts node server.js   # Skip prompts
 
 # Combine scan flags (at least one type must remain enabled)
 mcp-server-dump --no-tools --no-resources node server.js  # Only prompts
+```
+
+### Tool Calling
+
+```bash
+# Call a specific tool by name
+mcp-server-dump --call-tool="get_weather" node server.js
+
+# Call a tool with arguments (JSON format)
+mcp-server-dump --call-tool="get_weather" --tool-args='{"location":"London"}' node server.js
+
+# Call multiple specific tools
+mcp-server-dump --call-tool="get_weather" --call-tool="get_forecast" node server.js
+
+# Call all available tools (useful for testing/documentation)
+mcp-server-dump --call-all-tools node server.js
+
+# Call all tools with specific arguments
+mcp-server-dump --call-all-tools --tool-args='{"test":"true"}' node server.js
+
+# Combine tool calling with other options
+mcp-server-dump --call-tool="search" --tool-args='{"query":"example"}' -f html -o docs.html node server.js
 
 # Generate HTML output from markdown
 mcp-server-dump -f html node server.js
@@ -579,6 +605,53 @@ jobs:
   - Path traversal attempts (`../`, `../../`) are blocked automatically
   - Files outside the workspace directory are inaccessible
   - Suspicious path patterns are logged and skipped
+
+### Tool Calling Usage
+
+```yaml
+name: Generate MCP Documentation with Tool Calls
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  docs-with-tool-calls:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Documentation with Specific Tool Calls
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'node server.js'
+          format: 'html'
+          output-file: 'docs/server-with-tools.html'
+          call-tool: 'get_weather,get_forecast'
+          tool-args: '{"location":"London","units":"metric"}'
+
+      - name: Generate Documentation with All Tools
+        uses: spandigital/mcp-server-dump@v1
+        with:
+          server-command: 'node server.js'
+          format: 'markdown'
+          output-file: 'docs/server-all-tools.md'
+          call-all-tools: 'true'
+
+      - name: Upload documentation with tool results
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-docs-with-tools
+          path: docs/server-*.html
+```
+
+**Tool Calling Configuration:**
+- **call-tool**: Comma-separated list of tool names to call (e.g., `'tool1,tool2,tool3'`)
+- **tool-args**: JSON string with arguments to pass to all tools (e.g., `'{"param":"value"}'`)
+- **call-all-tools**: Set to `'true'` to call all available tools for comprehensive testing
+- Tool call results are automatically included in the documentation output
+- Failed tool calls are logged with error messages in the output
+- Works with all output formats (markdown, html, json, pdf, hugo)
 
 ### Selective Scanning Usage
 

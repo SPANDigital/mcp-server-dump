@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -40,6 +41,11 @@ func Run(cli *CLI) error {
 
 	if contextErr := applyContextConfig(info, cli.ContextFile); contextErr != nil {
 		return contextErr
+	}
+
+	// Call tools if requested
+	if toolErr := callTools(session, ctx, info, cli); toolErr != nil {
+		return toolErr
 	}
 
 	output, err := formatOutput(info, cli)
@@ -311,4 +317,81 @@ func writeOutput(output []byte, outputPath string) error {
 
 	_, err := os.Stdout.Write(output)
 	return err
+}
+
+// callTools calls MCP tools based on CLI configuration and stores results in ServerInfo.
+// It supports calling specific tools by name or all available tools.
+func callTools(session *mcp.ClientSession, ctx context.Context, info *model.ServerInfo, cli *CLI) error {
+	// Skip if no tool calling is requested
+	if len(cli.CallTool) == 0 && !cli.CallAllTools {
+		return nil
+	}
+
+	// Skip if tools capability is not available
+	if !info.Capabilities.Tools || len(info.Tools) == 0 {
+		if cli.CallAllTools || len(cli.CallTool) > 0 {
+			log.Printf("Warning: Tool calling requested but server has no tools capability or no tools available")
+		}
+		return nil
+	}
+
+	// Parse tool arguments if provided
+	var args any
+	if cli.ToolArgs != "" {
+		if err := json.Unmarshal([]byte(cli.ToolArgs), &args); err != nil {
+			return fmt.Errorf("failed to parse tool arguments: %w", err)
+		}
+	}
+
+	// Determine which tools to call
+	var toolsToCall []string
+	if cli.CallAllTools {
+		// Call all available tools
+		for _, tool := range info.Tools {
+			toolsToCall = append(toolsToCall, tool.Name)
+		}
+		log.Printf("Calling all %d available tools", len(toolsToCall))
+	} else {
+		// Call specific tools
+		toolsToCall = cli.CallTool
+	}
+
+	// Call each tool and collect results
+	for _, toolName := range toolsToCall {
+		result := callSingleTool(session, ctx, toolName, args)
+		info.ToolCalls = append(info.ToolCalls, result)
+	}
+
+	return nil
+}
+
+// callSingleTool calls a single tool and returns the result.
+// It handles errors gracefully by storing them in the ToolCall result.
+func callSingleTool(session *mcp.ClientSession, ctx context.Context, toolName string, args any) model.ToolCall {
+	log.Printf("Calling tool: %s", toolName)
+
+	result := model.ToolCall{
+		ToolName:  toolName,
+		Arguments: args,
+	}
+
+	callResult, err := session.CallTool(ctx, &mcp.CallToolParams{
+		Name:      toolName,
+		Arguments: args,
+	})
+	if err != nil {
+		result.Error = err.Error()
+		log.Printf("Warning: Tool call failed for %s: %v", toolName, err)
+		return result
+	}
+
+	// Store the content and structured content from the result
+	if callResult != nil {
+		for _, content := range callResult.Content {
+			result.Content = append(result.Content, content)
+		}
+		result.StructuredContent = callResult.StructuredContent
+	}
+
+	return result
 }

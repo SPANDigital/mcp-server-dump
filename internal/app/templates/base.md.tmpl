@@ -26,6 +26,12 @@
   - [{{.Name}}](#{{.Name | anchor}})
   {{- end}}
 {{- end}}
+{{- if .ToolCalls}}
+- [Tool Call Results](#tool-call-results)
+  {{- range .ToolCalls}}
+  - [{{.ToolName}}](#{{.ToolName | anchor}})
+  {{- end}}
+{{- end}}
 {{- end}}
 
 {{template "capabilities" .}}
@@ -40,4 +46,8 @@
 
 {{- if .Prompts}}
 {{template "prompts" .}}
+{{- end}}
+
+{{- if .ToolCalls}}
+{{template "tool_calls" .}}
 {{- end}}

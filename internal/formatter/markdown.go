@@ -27,6 +27,7 @@ func FormatMarkdown(info *model.ServerInfo, includeTOC, includeFrontmatter bool,
 	tmpl := template.New("base.md.tmpl").Funcs(template.FuncMap{
 		"anchor":     anchorName,
 		"json":       jsonIndent,
+		"jsonIndent": jsonIndent,
 		"formatBool": formatBool,
 		"contains":   strings.Contains,
 		"humanizeKey": func(key string) string {

@@ -93,6 +93,16 @@ inputs:
   custom-initialisms:
     description: 'Additional technical initialisms to recognize for human-readable headings (comma-separated, e.g., API,CDN,JWT,CORP,ACME)'
     required: false
+  call-tool:
+    description: 'Call specific tool(s) by name (comma-separated for multiple tools, e.g., "get_weather,get_forecast")'
+    required: false
+  tool-args:
+    description: 'JSON arguments for tool calls (applies to all tools specified in call-tool)'
+    required: false
+  call-all-tools:
+    description: 'Call all available tools with empty/provided arguments for testing and documentation'
+    required: false
+    default: 'false'
 
 outputs:
   output-file:
@@ -329,6 +339,25 @@ runs:
             for initialism in "${PARSED_ITEMS[@]}"; do
                 CMD_ARGS+=("--custom-initialisms" "${initialism}")
             done
+        fi
+
+        # Add tool calling options if specified
+        if [ "${{ inputs.call-all-tools }}" = "true" ]; then
+            CMD_ARGS+=("--call-all-tools")
+            log "Tool Calling: Will call all available tools"
+        fi
+
+        if [ -n "${{ inputs.call-tool }}" ]; then
+            parse_comma_separated_values "${{ inputs.call-tool }}" "tool name"
+            for tool_name in "${PARSED_ITEMS[@]}"; do
+                CMD_ARGS+=("--call-tool" "${tool_name}")
+            done
+            log "Tool Calling: Will call ${#PARSED_ITEMS[@]} specific tool(s)"
+        fi
+
+        if [ -n "${{ inputs.tool-args }}" ]; then
+            CMD_ARGS+=("--tool-args" "${{ inputs.tool-args }}")
+            log "Tool Calling: Using custom arguments"
         fi
 
         # Add server command (this should be the last argument)

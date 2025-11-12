@@ -39,6 +39,11 @@ type CLI struct {
 	NoResources bool `kong:"help='Skip scanning resources from the MCP server'"`
 	NoPrompts   bool `kong:"help='Skip scanning prompts from the MCP server'"`
 
+	// Tool calling options
+	CallTool     []string `kong:"help='Call specific tool(s) by name, can be used multiple times'"`
+	ToolArgs     string   `kong:"help='JSON arguments for tool calls (applies to all --call-tool invocations)'"`
+	CallAllTools bool     `kong:"help='Call all available tools with empty arguments for testing'"`
+
 	// Hugo-specific options (only used when format=hugo)
 	// Uses Hugo Modules with Presidium layouts
 	HugoBaseURL       string `kong:"help='Base URL for Hugo site (e.g., https://example.com)'"`
