@@ -1,0 +1,40 @@
+{{- /* Template for tool call results section */ -}}
+## Tool Call Results
+
+{{- range .ToolCalls}}
+
+### {{.ToolName}}
+
+{{- if .Arguments}}
+**Arguments:**
+```json
+{{.Arguments | jsonIndent}}
+```
+{{- end}}
+
+{{- if .Error}}
+**Error:** {{.Error}}
+{{- else}}
+
+{{- if .Content}}
+**Content:**
+{{- range .Content}}
+{{- if .Text}}
+{{.Text}}
+{{- else}}
+```json
+{{. | jsonIndent}}
+```
+{{- end}}
+{{- end}}
+{{- end}}
+
+{{- if .StructuredContent}}
+**Structured Content:**
+```json
+{{.StructuredContent | jsonIndent}}
+```
+{{- end}}
+
+{{- end}}
+{{- end}}

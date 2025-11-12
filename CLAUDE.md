@@ -4,7 +4,7 @@ This file contains configuration and commands for Claude Code to assist with thi
 
 ## Project Overview
 
-mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown, JSON, HTML, or PDF format. The tool includes frontmatter support for static site generator integration and rich structured context support via external YAML/JSON configuration files.
+mcp-server-dump is a Go-based command-line tool for extracting documentation from MCP (Model Context Protocol) servers. It connects to MCP servers via multiple transports (STDIO/command, SSE, and streamable HTTP) and dumps their capabilities, tools, resources, and prompts to Markdown, JSON, HTML, or PDF format. The tool includes tool calling functionality to execute MCP tools and document their results, frontmatter support for static site generator integration, and rich structured context support via external YAML/JSON configuration files.
 
 ## Development Commands
 
@@ -117,6 +117,24 @@ mcp-server-dump -f pdf -o server-docs.pdf node server.js
 mcp-server-dump -f json -o output.json python mcp_server.py
 ```
 
+### Tool Calling Usage
+```bash
+# Call a specific tool by name
+mcp-server-dump --call-tool="get_weather" node server.js
+
+# Call a tool with arguments
+mcp-server-dump --call-tool="get_weather" --tool-args='{"location":"London"}' node server.js
+
+# Call multiple specific tools
+mcp-server-dump --call-tool="search" --call-tool="analyze" node server.js
+
+# Call all available tools (for testing/documentation)
+mcp-server-dump --call-all-tools node server.js
+
+# Call all tools with specific arguments
+mcp-server-dump --call-all-tools --tool-args='{"test":true}' node server.js
+```
+
 ### Context Enhancement Usage
 ```bash
 # Basic context usage with single file
@@ -155,16 +173,20 @@ The tool follows a modern layered architecture with clear separation of concerns
 1. **CLI Parsing** - Kong library handles command line argument parsing (internal/app/cli.go)
 2. **Transport Creation** - Factory pattern creates appropriate transport with middleware:
    - Command transport: executes MCP server as subprocess with STDIO communication
-   - SSE transport: connects to HTTP Server-Sent Events endpoints  
+   - SSE transport: connects to HTTP Server-Sent Events endpoints
    - Streamable transport: connects to HTTP streamable endpoints with content-type fixing
    - HTTP Headers Support: Custom headers via HeaderRoundTripper middleware
 3. **MCP Communication** - JSON-RPC over the selected transport using official MCP Go SDK
 4. **Data Extraction** - Session-based communication to list tools, resources, prompts
-5. **Context Enhancement** - Optional context loading and application:
+5. **Tool Calling** - Optional tool execution and result collection:
+   - Call specific tools by name with custom JSON arguments
+   - Call all available tools for comprehensive testing
+   - Store results (content, structured content, or errors) in ToolCall structs
+6. **Context Enhancement** - Optional context loading and application:
    - Context file loading with YAML/JSON support and merging
    - Pattern matching for tools (exact name), resources (URI patterns), prompts (exact name)
    - Rich markdown content processing and validation
-6. **Output Formatting** - Pluggable formatters convert server data to various formats:
+7. **Output Formatting** - Pluggable formatters convert server data to various formats:
    - Markdown: Go text/template with embedded template files and TOC support
    - HTML: Generated from Markdown using Goldmark with GitHub Flavored Markdown extensions
    - JSON: Direct marshaling of data structures
@@ -186,9 +208,10 @@ internal/
 │   └── templates/
 │       ├── base.md.tmpl - Main template with TOC structure
 │       ├── capabilities.md.tmpl - Capabilities section with emoji indicators
-│       ├── tools.md.tmpl - Tools listing with anchored headings  
+│       ├── tools.md.tmpl - Tools listing with anchored headings
 │       ├── resources.md.tmpl - Resources section
-│       └── prompts.md.tmpl - Prompts section
+│       ├── prompts.md.tmpl - Prompts section
+│       └── tool_calls.md.tmpl - Tool call results section
 ├── transport/
 │   ├── factory.go - Transport factory with config-driven creation
 │   ├── header.go - HeaderRoundTripper for custom HTTP headers
@@ -201,7 +224,7 @@ internal/
 │   ├── frontmatter.go - YAML/TOML/JSON frontmatter generation
 │   └── utils.go - Shared formatting utilities (anchors, JSON indent)
 └── model/
-    ├── server.go - Data structures (ServerInfo, Tool, Resource, Prompt, Capabilities)
+    ├── server.go - Data structures (ServerInfo, Tool, Resource, Prompt, Capabilities, ToolCall)
     └── context.go - Context configuration system and application logic
 ```
 
