@@ -170,6 +170,21 @@ mcp-server-dump --call-all-tools node server.js
 # Call all tools with specific arguments
 mcp-server-dump --call-all-tools --tool-args='{"test":"true"}' node server.js
 
+# Call tools on a streamable HTTP transport server
+mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" \
+  --call-tool="search" --tool-args='{"query":"example"}'
+
+# Call tools with authentication headers
+mcp-server-dump --transport=streamable --endpoint="http://localhost:3001/stream" \
+  -H "Authorization:Bearer your-token-here" \
+  --call-all-tools
+
+# Call specific tools on remote server with custom headers
+mcp-server-dump --transport=streamable --endpoint="http://api.example.com/mcp" \
+  -H "Authorization:Bearer token123" \
+  -H "X-API-Key:key456" \
+  --call-tool="analyze_data" --tool-args='{"dataset":"production"}'
+
 # Combine tool calling with other options
 mcp-server-dump --call-tool="search" --tool-args='{"query":"example"}' -f html -o docs.html node server.js
 
