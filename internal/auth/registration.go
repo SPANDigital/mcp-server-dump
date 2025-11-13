@@ -22,17 +22,23 @@ func RegisterClient(ctx context.Context, registrationEndpoint, resourceURI strin
 	}
 
 	// Determine grant types based on what we support
+	// Include both authorization code and device flow for maximum compatibility
 	grantTypes := []string{
+		"authorization_code", // Authorization code flow with PKCE
 		"urn:ietf:params:oauth:grant-type:device_code",
 		"refresh_token",
 	}
 
 	// Build registration request
-	// Some servers require redirect_uris even for device flow, so provide a standard loopback URI
-	// Using http://localhost (without port) as per OAuth 2.1 native app best practices
+	// Per RFC 8252 Section 7.3, loopback redirect URIs must be registered without a port.
+	// The authorization server MUST allow any port to be specified at request time.
+	// We register both IPv4 and IPv6 loopback addresses for maximum compatibility.
 	regRequest := ClientRegistrationRequest{
-		ClientName:              "mcp-server-dump",
-		RedirectURIs:            []string{"http://localhost"}, // Standard loopback URI for native apps
+		ClientName: "mcp-server-dump",
+		RedirectURIs: []string{
+			"http://127.0.0.1/callback", // IPv4 loopback (any port allowed per RFC 8252)
+			"http://[::1]/callback",     // IPv6 loopback (any port allowed per RFC 8252)
+		},
 		GrantTypes:              grantTypes,
 		TokenEndpointAuthMethod: "none", // Public client (no client secret required)
 		Scope:                   strings.Join(scopes, " "),
