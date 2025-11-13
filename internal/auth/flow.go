@@ -18,8 +18,9 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// Authorize performs the OAuth 2.1 authorization code flow with PKCE.
-// It launches a browser for user authentication and returns the access token.
+// Authorize performs OAuth authorization using the appropriate flow based on configuration.
+// It automatically selects between authorization code flow (with PKCE) and device flow,
+// or uses the explicitly specified flow type.
 func Authorize(ctx context.Context, cfg *Config) (*oauth2.Token, error) {
 	if cfg.AuthURL == "" || cfg.TokenURL == "" {
 		return nil, fmt.Errorf("authorization and token URLs must be configured")
@@ -29,6 +30,44 @@ func Authorize(ctx context.Context, cfg *Config) (*oauth2.Token, error) {
 		return nil, fmt.Errorf("resource URI (MCP server endpoint) must be specified")
 	}
 
+	// Determine which flow to use
+	flowType := determineFlowType(cfg)
+
+	switch flowType {
+	case FlowTypeDeviceFlow:
+		return AuthorizeWithDeviceFlow(ctx, cfg)
+	case FlowTypeAuthorizationCode:
+		return authorizeWithAuthCode(ctx, cfg)
+	case FlowTypeClientCredentials:
+		return nil, fmt.Errorf("client credentials flow not yet implemented")
+	case FlowTypeAuto:
+		// This should never happen as determineFlowType always returns a specific flow
+		return nil, fmt.Errorf("flow type auto should have been resolved to a specific flow")
+	default:
+		return nil, fmt.Errorf("unsupported OAuth flow type: %s", flowType)
+	}
+}
+
+// determineFlowType determines which OAuth flow to use based on configuration and available endpoints.
+func determineFlowType(cfg *Config) FlowType {
+	// If explicitly specified, use that
+	if cfg.FlowType != "" && cfg.FlowType != FlowTypeAuto {
+		return cfg.FlowType
+	}
+
+	// Auto-detect based on endpoint URL patterns
+	// Device flow endpoints typically contain "/device" in the path
+	if strings.Contains(strings.ToLower(cfg.AuthURL), "/device") {
+		return FlowTypeDeviceFlow
+	}
+
+	// Default to authorization code flow with PKCE
+	return FlowTypeAuthorizationCode
+}
+
+// authorizeWithAuthCode performs the OAuth 2.1 authorization code flow with PKCE.
+// It launches a browser for user authentication and returns the access token.
+func authorizeWithAuthCode(ctx context.Context, cfg *Config) (*oauth2.Token, error) {
 	// Generate PKCE verifier and challenge
 	verifier := oauth2.GenerateVerifier()
 

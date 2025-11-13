@@ -6,6 +6,23 @@ import (
 	"golang.org/x/oauth2"
 )
 
+// FlowType represents the OAuth flow type to use.
+type FlowType string
+
+const (
+	// FlowTypeAuto automatically selects the best flow based on available endpoints
+	FlowTypeAuto FlowType = "auto"
+
+	// FlowTypeAuthorizationCode uses authorization code flow with PKCE (RFC 6749 + RFC 7636)
+	FlowTypeAuthorizationCode FlowType = "authorization-code"
+
+	// FlowTypeDeviceFlow uses device authorization grant flow (RFC 8628)
+	FlowTypeDeviceFlow FlowType = "device"
+
+	// FlowTypeClientCredentials uses client credentials grant (RFC 6749)
+	FlowTypeClientCredentials FlowType = "client-credentials"
+)
+
 // Config holds OAuth 2.1 configuration for authenticating with MCP servers.
 type Config struct {
 	// ClientID is the OAuth client identifier (required unless using DCR)
@@ -27,10 +44,14 @@ type Config struct {
 	UseCache bool
 
 	// AuthURL is the authorization endpoint (normally discovered via metadata)
+	// For device flow, this is the device authorization endpoint
 	AuthURL string
 
 	// TokenURL is the token endpoint (normally discovered via metadata)
 	TokenURL string
+
+	// FlowType specifies which OAuth flow to use
+	FlowType FlowType
 
 	// UseDCR enables Dynamic Client Registration (RFC 7591) - future feature
 	UseDCR bool

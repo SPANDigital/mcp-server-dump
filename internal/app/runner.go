@@ -113,6 +113,7 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 			UseCache:     !cli.OAuthNoCache,
 			AuthURL:      authURL,
 			TokenURL:     tokenURL,
+			FlowType:     auth.FlowType(cli.OAuthFlow),
 		}
 
 		// If scopes not specified, use defaults

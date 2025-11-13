@@ -42,6 +42,7 @@ type CLI struct {
 	OAuthTokenURL     string   `kong:"name='oauth-token-url',help='OAuth token endpoint URL (normally discovered automatically)'"`
 	OAuthRedirectPort int      `kong:"name='oauth-redirect-port',default='0',help='Port for OAuth loopback redirect (0=random ephemeral port)'"`
 	OAuthNoCache      bool     `kong:"name='oauth-no-cache',help='Disable OAuth token caching (always require fresh authentication)'"`
+	OAuthFlow         string   `kong:"name='oauth-flow',default='auto',enum='auto,authorization-code,device,client-credentials',help='OAuth flow type (auto-detects by default)'"`
 
 	// Scanning options
 	NoTools     bool `kong:"help='Skip scanning tools from the MCP server'"`
