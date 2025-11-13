@@ -106,6 +106,9 @@ type AuthServerMetadata struct { //nolint:revive // AuthServerMetadata is intent
 	// TokenEndpoint is the URL for the token endpoint
 	TokenEndpoint string `json:"token_endpoint"`
 
+	// DeviceAuthorizationEndpoint is the URL for device authorization (RFC 8628)
+	DeviceAuthorizationEndpoint string `json:"device_authorization_endpoint,omitempty"`
+
 	// RegistrationEndpoint is the URL for dynamic client registration (optional)
 	RegistrationEndpoint string `json:"registration_endpoint,omitempty"`
 

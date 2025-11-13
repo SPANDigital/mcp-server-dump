@@ -192,14 +192,107 @@ func fetchAuthServerMetadata(issuerURL string) (*AuthServerMetadata, error) {
 	return &metadata, nil
 }
 
+// discoverFromWellKnown attempts to discover OAuth endpoints by directly querying
+// the .well-known/oauth-authorization-server endpoint (RFC 8414).
+// This is a fallback when WWW-Authenticate header is not present.
+func discoverFromWellKnown(endpoint string) (*Config, error) {
+	// Parse endpoint URL
+	endpointURL, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("invalid endpoint URL: %w", err)
+	}
+
+	// Build .well-known URL
+	wellKnownURL := &url.URL{
+		Scheme: endpointURL.Scheme,
+		Host:   endpointURL.Host,
+		Path:   "/.well-known/oauth-authorization-server",
+	}
+
+	// Fetch authorization server metadata directly
+	asMetadata, err := fetchAuthServerMetadata(wellKnownURL.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch .well-known metadata: %w", err)
+	}
+
+	// Build OAuth config from discovered metadata
+	config := &Config{
+		AuthURL:     asMetadata.AuthorizationEndpoint,
+		TokenURL:    asMetadata.TokenEndpoint,
+		ResourceURI: endpoint,
+		Scopes:      asMetadata.ScopesSupported,
+		UseCache:    true,
+	}
+
+	// Validate PKCE support if using authorization code flow
+	if asMetadata.AuthorizationEndpoint != "" {
+		if !contains(asMetadata.CodeChallengeMethodsSupported, "S256") {
+			return nil, fmt.Errorf("authorization server does not support S256 PKCE (required by OAuth 2.1)")
+		}
+	}
+
+	return config, nil
+}
+
+// parseDeviceFlowFromBody attempts to extract device flow endpoints from
+// a non-standard JSON response body. This handles servers that advertise
+// endpoints directly in the 401 response instead of using WWW-Authenticate.
+func parseDeviceFlowFromBody(body []byte) (deviceAuthURL, tokenURL string, err error) {
+	var response struct {
+		DeviceFlow struct {
+			Step1 string `json:"step_1"` // POST endpoint for device authorization
+			Step3 string `json:"step_3"` // Poll endpoint (contains token URL)
+		} `json:"device_flow"`
+	}
+
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", "", fmt.Errorf("failed to parse JSON response: %w", err)
+	}
+
+	// Extract device authorization endpoint from step_1
+	// Remove "POST " prefix if present (e.g., "POST http://...")
+	deviceAuthURL = strings.TrimSpace(strings.TrimPrefix(response.DeviceFlow.Step1, "POST"))
+	deviceAuthURL = strings.TrimSpace(deviceAuthURL)
+	if deviceAuthURL == "" {
+		return "", "", fmt.Errorf("no device_flow.step_1 found in response")
+	}
+
+	// Extract token endpoint from step_3 URL
+	// step_3 format: "Poll http://host/oauth/device/poll with device_code"
+	// Extract just the URL part
+	step3Parts := strings.Fields(response.DeviceFlow.Step3)
+	var step3URL string
+	for _, part := range step3Parts {
+		if strings.HasPrefix(part, "http://") || strings.HasPrefix(part, "https://") {
+			step3URL = part
+			break
+		}
+	}
+
+	if step3URL != "" {
+		// Parse step3 URL and extract base (scheme + host + path up to /poll)
+		parsedURL, parseErr := url.Parse(step3URL)
+		if parseErr == nil {
+			// Remove /poll or similar suffix to get token endpoint base
+			tokenURL = fmt.Sprintf("%s://%s/oauth/token", parsedURL.Scheme, parsedURL.Host)
+		}
+	}
+
+	return deviceAuthURL, tokenURL, nil
+}
+
 // DiscoverAndConfigure attempts to discover OAuth configuration by making a probe request
 // to the MCP server endpoint. Returns discovered config or nil if server doesn't require OAuth.
+// Uses a layered discovery approach: WWW-Authenticate → .well-known → JSON body parsing.
 func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error) {
 	// Make probe request to trigger 401 with WWW-Authenticate
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
+
+	// Request JSON response (some servers return HTML by default for browsers)
+	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -220,8 +313,47 @@ func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error)
 		return nil, nil
 	}
 
-	// Discover OAuth configuration from response
-	return DiscoverFromResponse(resp)
+	// Read response body first (needed for strategy 3, but don't consume from resp.Body yet)
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, 4096)) // Limit to 4KB
+
+	// Strategy 1: Try WWW-Authenticate header (RFC 9728 compliant)
+	if resp.Header.Get("WWW-Authenticate") != "" {
+		config, err := DiscoverFromResponse(resp)
+		if err == nil && config != nil {
+			return config, nil
+		}
+	}
+
+	// Strategy 2: Try .well-known endpoint directly
+	config, wellKnownErr := discoverFromWellKnown(endpoint)
+	if wellKnownErr == nil && config != nil {
+		return config, nil
+	}
+
+	// Strategy 3: Parse response body for non-standard device flow advertisement
+	if readErr == nil && len(body) > 0 {
+		deviceAuthURL, tokenURL, parseErr := parseDeviceFlowFromBody(body)
+		if parseErr == nil && deviceAuthURL != "" {
+			// Successfully parsed device flow endpoints
+			return &Config{
+				AuthURL:     deviceAuthURL, // Store device auth URL in AuthURL for now
+				TokenURL:    tokenURL,
+				ResourceURI: endpoint,
+				Scopes:      DefaultScopes(),
+				UseCache:    true,
+			}, nil
+		}
+		// If parsing failed, include error in final message
+		if parseErr != nil {
+			return nil, fmt.Errorf("discovery failed: body parse error: %w", parseErr)
+		}
+	}
+
+	// All strategies failed - return most informative error
+	if wellKnownErr != nil {
+		return nil, fmt.Errorf("discovery failed: WWW-Authenticate not found, .well-known failed (%w), body parsing failed", wellKnownErr)
+	}
+	return nil, fmt.Errorf("failed to discover OAuth endpoints using all strategies")
 }
 
 // contains checks if a slice contains a string.
