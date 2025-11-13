@@ -127,7 +127,12 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 			// OAuth required by server
 			fmt.Printf("OAuth required by server\n")
 			fmt.Printf("Discovered endpoints:\n")
-			fmt.Printf("  Authorization URL: %s\n", discoveredConfig.AuthURL)
+			if discoveredConfig.AuthURL != "" {
+				fmt.Printf("  Authorization URL: %s\n", discoveredConfig.AuthURL)
+			}
+			if discoveredConfig.DeviceAuthURL != "" {
+				fmt.Printf("  Device Authorization URL: %s\n", discoveredConfig.DeviceAuthURL)
+			}
 			fmt.Printf("  Token URL: %s\n", discoveredConfig.TokenURL)
 			if discoveredConfig.ClientID != "" {
 				fmt.Printf("  Client ID: %s (pre-configured)\n", discoveredConfig.ClientID)
@@ -135,6 +140,7 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 			if discoveredConfig.RegistrationEndpoint != "" {
 				fmt.Printf("  Registration Endpoint: %s\n", discoveredConfig.RegistrationEndpoint)
 			}
+			fmt.Printf("  Flow Type: %s\n", discoveredConfig.FlowType)
 
 			// Determine how to obtain client credentials (priority order):
 			// 1. Use discovered pre-configured client ID if available

@@ -43,9 +43,11 @@ type Config struct {
 	// UseCache enables token caching to disk
 	UseCache bool
 
-	// AuthURL is the authorization endpoint (normally discovered via metadata)
-	// For device flow, this is the device authorization endpoint
+	// AuthURL is the authorization endpoint for authorization code flow
 	AuthURL string
+
+	// DeviceAuthURL is the device authorization endpoint for device flow (RFC 8628)
+	DeviceAuthURL string
 
 	// TokenURL is the token endpoint (normally discovered via metadata)
 	TokenURL string

@@ -37,7 +37,12 @@ type DeviceCodeResponse struct {
 // AuthorizeWithDeviceFlow performs the OAuth 2.0 Device Authorization Grant flow (RFC 8628).
 // It requests a device code, displays the user code to the user, and polls for authorization.
 func AuthorizeWithDeviceFlow(ctx context.Context, cfg *Config) (*oauth2.Token, error) {
-	if cfg.AuthURL == "" {
+	deviceAuthURL := cfg.DeviceAuthURL
+	if deviceAuthURL == "" {
+		// Fallback to AuthURL for backward compatibility
+		deviceAuthURL = cfg.AuthURL
+	}
+	if deviceAuthURL == "" {
 		return nil, fmt.Errorf("device authorization endpoint must be configured")
 	}
 	if cfg.TokenURL == "" {
@@ -48,7 +53,7 @@ func AuthorizeWithDeviceFlow(ctx context.Context, cfg *Config) (*oauth2.Token, e
 	}
 
 	// Step 1: Request device code
-	deviceResp, err := requestDeviceCode(ctx, cfg)
+	deviceResp, err := requestDeviceCode(ctx, cfg, deviceAuthURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to request device code: %w", err)
 	}
@@ -67,7 +72,7 @@ func AuthorizeWithDeviceFlow(ctx context.Context, cfg *Config) (*oauth2.Token, e
 }
 
 // requestDeviceCode requests a device code from the device authorization endpoint.
-func requestDeviceCode(ctx context.Context, cfg *Config) (*DeviceCodeResponse, error) {
+func requestDeviceCode(ctx context.Context, cfg *Config, deviceAuthURL string) (*DeviceCodeResponse, error) {
 	// Determine scopes
 	scopes := cfg.Scopes
 	if len(scopes) == 0 {
@@ -91,7 +96,7 @@ func requestDeviceCode(ctx context.Context, cfg *Config) (*DeviceCodeResponse, e
 	}
 
 	// Make request
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.AuthURL, strings.NewReader(data.Encode()))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, deviceAuthURL, strings.NewReader(data.Encode()))
 	if err != nil {
 		return nil, err
 	}

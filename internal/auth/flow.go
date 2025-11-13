@@ -55,10 +55,15 @@ func determineFlowType(cfg *Config) FlowType {
 		return cfg.FlowType
 	}
 
-	// Auto-detect based on endpoint URL patterns
-	// Device flow endpoints typically contain "/device" in the path
-	if strings.Contains(strings.ToLower(cfg.AuthURL), "/device") {
+	// Auto-detect based on available endpoints
+	// If device authorization endpoint is configured, prefer device flow
+	if cfg.DeviceAuthURL != "" {
 		return FlowTypeDeviceFlow
+	}
+
+	// If only authorization code endpoint available, use that
+	if cfg.AuthURL != "" {
+		return FlowTypeAuthorizationCode
 	}
 
 	// Default to authorization code flow with PKCE

@@ -298,12 +298,12 @@ func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
 	// Successfully parsed device flow endpoints from body
 	// Try to enhance with .well-known metadata for additional info (e.g., registration endpoint)
 	enhancedConfig := &Config{
-		AuthURL:     deviceAuthURL, // Device authorization endpoint
-		TokenURL:    tokenURL,
-		ResourceURI: endpoint,
-		Scopes:      DefaultScopes(),
-		UseCache:    true,
-		FlowType:    FlowTypeDeviceFlow, // Explicitly mark as device flow
+		DeviceAuthURL: deviceAuthURL, // Device authorization endpoint from body
+		TokenURL:      tokenURL,
+		ResourceURI:   endpoint,
+		Scopes:        DefaultScopes(),
+		UseCache:      true,
+		FlowType:      FlowTypeDeviceFlow, // Explicitly mark as device flow
 	}
 
 	// Try to get additional metadata from .well-known (optional enhancement)
@@ -312,6 +312,9 @@ func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
 		// Merge .well-known data into config (prefer body-parsed endpoints, add missing fields)
 		if wellKnownConfig.ClientID != "" {
 			enhancedConfig.ClientID = wellKnownConfig.ClientID
+		}
+		if wellKnownConfig.AuthURL != "" {
+			enhancedConfig.AuthURL = wellKnownConfig.AuthURL // Authorization code endpoint
 		}
 		if wellKnownConfig.RegistrationEndpoint != "" {
 			enhancedConfig.RegistrationEndpoint = wellKnownConfig.RegistrationEndpoint
