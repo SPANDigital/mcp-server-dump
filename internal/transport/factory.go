@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/spandigital/mcp-server-dump/internal/auth"
 )
 
 // Config holds transport configuration
@@ -20,15 +22,16 @@ type Config struct {
 	Args          []string
 }
 
-// Create creates an MCP transport based on the configuration
-func Create(config *Config) (mcp.Transport, error) {
+// Create creates an MCP transport based on the configuration.
+// The oauthConfig parameter is optional and only used for HTTP-based transports.
+func Create(config *Config, oauthConfig *auth.Config) (mcp.Transport, error) {
 	switch config.Transport {
 	case "command":
 		return createCommandTransport(config)
 	case "sse":
-		return createSSETransport(config)
+		return createSSETransport(config, oauthConfig)
 	case "streamable":
-		return createStreamableTransport(config)
+		return createStreamableTransport(config, oauthConfig)
 	default:
 		return nil, fmt.Errorf("unknown transport type: %s", config.Transport)
 	}
@@ -57,15 +60,18 @@ func createCommandTransport(config *Config) (mcp.Transport, error) {
 	return &mcp.CommandTransport{Command: cmd}, nil
 }
 
-func createSSETransport(config *Config) (mcp.Transport, error) {
+func createSSETransport(config *Config, oauthConfig *auth.Config) (mcp.Transport, error) {
 	if config.Endpoint == "" {
 		return nil, fmt.Errorf("SSE transport requires --endpoint")
 	}
 
 	httpClient := &http.Client{Timeout: config.Timeout}
 
-	// Build transport chain for SSE
-	transport := buildHTTPTransportChain(http.DefaultTransport, config.Headers, false)
+	// Build transport chain for SSE (OAuth layer added if configured)
+	transport, err := buildHTTPTransportChain(http.DefaultTransport, config.Headers, false, oauthConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build transport chain: %w", err)
+	}
 	httpClient.Transport = transport
 
 	return &mcp.SSEClientTransport{
@@ -74,15 +80,18 @@ func createSSETransport(config *Config) (mcp.Transport, error) {
 	}, nil
 }
 
-func createStreamableTransport(config *Config) (mcp.Transport, error) {
+func createStreamableTransport(config *Config, oauthConfig *auth.Config) (mcp.Transport, error) {
 	if config.Endpoint == "" {
 		return nil, fmt.Errorf("streamable transport requires --endpoint")
 	}
 
 	httpClient := &http.Client{Timeout: config.Timeout}
 
-	// Build transport chain for streamable (includes content type fixing)
-	transport := buildHTTPTransportChain(http.DefaultTransport, config.Headers, true)
+	// Build transport chain for streamable (includes content type fixing and OAuth if configured)
+	transport, err := buildHTTPTransportChain(http.DefaultTransport, config.Headers, true, oauthConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build transport chain: %w", err)
+	}
 	httpClient.Transport = transport
 
 	return &mcp.StreamableClientTransport{
@@ -91,14 +100,29 @@ func createStreamableTransport(config *Config) (mcp.Transport, error) {
 	}, nil
 }
 
-// buildHTTPTransportChain builds a chain of HTTP round trippers
-func buildHTTPTransportChain(base http.RoundTripper, headerStrings []string, includeContentTypeFix bool) http.RoundTripper {
+// buildHTTPTransportChain builds a chain of HTTP round trippers.
+// The chain order is: base → OAuth (if configured) → custom headers → content type fix
+func buildHTTPTransportChain(base http.RoundTripper, headerStrings []string, includeContentTypeFix bool, oauthConfig *auth.Config) (http.RoundTripper, error) {
 	transport := base
 
+	// Add OAuth layer first (if configured)
+	// This allows OAuth to inject/update the Authorization header
+	if oauthConfig != nil {
+		oauthTransport, err := auth.NewOAuthRoundTripper(transport, oauthConfig)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create OAuth transport: %w", err)
+		}
+		transport = oauthTransport
+	}
+
 	// Add custom headers if specified
+	// These can override OAuth headers if needed (for backward compatibility)
 	if len(headerStrings) > 0 {
 		headers, err := parseHeaders(headerStrings)
-		if err == nil && len(headers) > 0 {
+		if err != nil {
+			return nil, err
+		}
+		if len(headers) > 0 {
 			transport = NewHeaderRoundTripper(transport, headers)
 		}
 	}
@@ -108,7 +132,7 @@ func buildHTTPTransportChain(base http.RoundTripper, headerStrings []string, inc
 		transport = NewContentTypeFixingTransport(transport)
 	}
 
-	return transport
+	return transport, nil
 }
 
 // parseHeaders parses header strings in format "Key:Value"
