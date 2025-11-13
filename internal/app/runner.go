@@ -60,6 +60,8 @@ func Run(cli *CLI) error {
 // createMCPSession establishes a connection to the MCP server using the configured transport.
 // It returns a client session for communicating with the server, or an error if connection fails.
 // The provided context allows for connection timeout and cancellation control.
+//
+//nolint:gocyclo // OAuth configuration logic requires multiple conditional branches
 func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error) {
 	transportConfig := transport.Config{
 		Transport:     cli.Transport,
@@ -79,7 +81,29 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 			return nil, fmt.Errorf("both --oauth-auth-url and --oauth-token-url must be provided together")
 		}
 
-		// Explicit OAuth configuration
+		// If auth/token URLs not provided, discover them automatically
+		var authURL, tokenURL string
+		if cli.OAuthAuthURL == "" && cli.OAuthTokenURL == "" {
+			fmt.Printf("Discovering OAuth endpoints from %s...\n", cli.Endpoint)
+			discoveredConfig, err := auth.DiscoverAndConfigure(ctx, cli.Endpoint)
+			if err != nil {
+				return nil, fmt.Errorf("failed to discover OAuth endpoints: %w", err)
+			}
+			if discoveredConfig == nil {
+				return nil, fmt.Errorf("server does not advertise OAuth endpoints")
+			}
+			authURL = discoveredConfig.AuthURL
+			tokenURL = discoveredConfig.TokenURL
+			fmt.Printf("✓ Discovered OAuth endpoints\n")
+			fmt.Printf("  Authorization URL: %s\n", authURL)
+			fmt.Printf("  Token URL: %s\n", tokenURL)
+		} else {
+			// Use explicitly provided URLs
+			authURL = cli.OAuthAuthURL
+			tokenURL = cli.OAuthTokenURL
+		}
+
+		// Build OAuth configuration
 		oauthConfig = &auth.Config{
 			ClientID:     cli.OAuthClientID,
 			ClientSecret: cli.OAuthClientSecret,
@@ -87,8 +111,8 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 			RedirectPort: cli.OAuthRedirectPort,
 			ResourceURI:  cli.Endpoint, // MCP server endpoint is the resource URI
 			UseCache:     !cli.OAuthNoCache,
-			AuthURL:      cli.OAuthAuthURL,
-			TokenURL:     cli.OAuthTokenURL,
+			AuthURL:      authURL,
+			TokenURL:     tokenURL,
 		}
 
 		// If scopes not specified, use defaults
