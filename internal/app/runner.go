@@ -129,12 +129,27 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 			fmt.Printf("Discovered endpoints:\n")
 			fmt.Printf("  Authorization URL: %s\n", discoveredConfig.AuthURL)
 			fmt.Printf("  Token URL: %s\n", discoveredConfig.TokenURL)
+			if discoveredConfig.ClientID != "" {
+				fmt.Printf("  Client ID: %s (pre-configured)\n", discoveredConfig.ClientID)
+			}
 			if discoveredConfig.RegistrationEndpoint != "" {
 				fmt.Printf("  Registration Endpoint: %s\n", discoveredConfig.RegistrationEndpoint)
 			}
 
-			// Try to obtain client credentials via DCR
-			if discoveredConfig.UseDCR && discoveredConfig.RegistrationEndpoint != "" {
+			// Determine how to obtain client credentials (priority order):
+			// 1. Use discovered pre-configured client ID if available
+			// 2. Try Dynamic Client Registration if supported
+			// 3. Error if neither available
+			var clientID, clientSecret string
+
+			switch {
+			case discoveredConfig.ClientID != "":
+				// Use pre-configured client ID from discovery
+				fmt.Printf("✓ Using pre-configured client ID from server metadata\n")
+				clientID = discoveredConfig.ClientID
+				clientSecret = "" // Public client
+			case discoveredConfig.UseDCR && discoveredConfig.RegistrationEndpoint != "":
+				// Try DCR if no pre-configured client ID available
 				registration, regErr := auth.GetOrRegisterClient(
 					ctx,
 					cli.Endpoint,
@@ -144,29 +159,31 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 				if regErr != nil {
 					return nil, fmt.Errorf("failed to obtain client credentials via Dynamic Client Registration: %w", regErr)
 				}
+				clientID = registration.ClientID
+				clientSecret = registration.ClientSecret
+			default:
+				// Server requires OAuth but has no pre-configured client and doesn't support DCR
+				return nil, fmt.Errorf("OAuth authentication required but server does not provide a pre-configured client ID or support Dynamic Client Registration. Please provide --oauth-client-id")
+			}
 
-				// Build OAuth configuration with registered client credentials
-				oauthConfig = &auth.Config{
-					ClientID:             registration.ClientID,
-					ClientSecret:         registration.ClientSecret,
-					Scopes:               discoveredConfig.Scopes,
-					RedirectPort:         cli.OAuthRedirectPort,
-					ResourceURI:          cli.Endpoint,
-					UseCache:             !cli.OAuthNoCache,
-					AuthURL:              discoveredConfig.AuthURL,
-					TokenURL:             discoveredConfig.TokenURL,
-					RegistrationEndpoint: discoveredConfig.RegistrationEndpoint,
-					FlowType:             auth.FlowType(cli.OAuthFlow),
-					UseDCR:               true,
-				}
+			// Build OAuth configuration with obtained client credentials
+			oauthConfig = &auth.Config{
+				ClientID:             clientID,
+				ClientSecret:         clientSecret,
+				Scopes:               discoveredConfig.Scopes,
+				RedirectPort:         cli.OAuthRedirectPort,
+				ResourceURI:          cli.Endpoint,
+				UseCache:             !cli.OAuthNoCache,
+				AuthURL:              discoveredConfig.AuthURL,
+				TokenURL:             discoveredConfig.TokenURL,
+				RegistrationEndpoint: discoveredConfig.RegistrationEndpoint,
+				FlowType:             auth.FlowType(cli.OAuthFlow),
+				UseDCR:               discoveredConfig.UseDCR,
+			}
 
-				// If scopes not specified, use defaults
-				if len(oauthConfig.Scopes) == 0 {
-					oauthConfig.Scopes = auth.DefaultScopes()
-				}
-			} else {
-				// Server requires OAuth but doesn't support DCR
-				return nil, fmt.Errorf("OAuth authentication required but server does not support Dynamic Client Registration. Please provide --oauth-client-id")
+			// If scopes not specified, use defaults
+			if len(oauthConfig.Scopes) == 0 {
+				oauthConfig.Scopes = auth.DefaultScopes()
 			}
 		}
 		// If discovery fails or returns nil, proceed without OAuth

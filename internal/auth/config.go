@@ -150,6 +150,9 @@ type AuthServerMetadata struct { //nolint:revive // AuthServerMetadata is intent
 
 	// TokenEndpointAuthMethodsSupported are the client authentication methods
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported,omitempty"`
+
+	// ClientID is a pre-configured public client ID (non-standard, but used by some servers)
+	ClientID string `json:"client_id,omitempty"`
 }
 
 // ClientRegistration represents a cached client registration for a specific MCP server.

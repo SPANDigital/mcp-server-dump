@@ -217,6 +217,7 @@ func discoverFromWellKnown(endpoint string) (*Config, error) {
 
 	// Build OAuth config from discovered metadata
 	config := &Config{
+		ClientID:             asMetadata.ClientID, // Pre-configured client ID if available
 		AuthURL:              asMetadata.AuthorizationEndpoint,
 		TokenURL:             asMetadata.TokenEndpoint,
 		RegistrationEndpoint: asMetadata.RegistrationEndpoint,
@@ -297,17 +298,21 @@ func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
 	// Successfully parsed device flow endpoints from body
 	// Try to enhance with .well-known metadata for additional info (e.g., registration endpoint)
 	enhancedConfig := &Config{
-		AuthURL:     deviceAuthURL, // Store device auth URL in AuthURL for now
+		AuthURL:     deviceAuthURL, // Device authorization endpoint
 		TokenURL:    tokenURL,
 		ResourceURI: endpoint,
 		Scopes:      DefaultScopes(),
 		UseCache:    true,
+		FlowType:    FlowTypeDeviceFlow, // Explicitly mark as device flow
 	}
 
 	// Try to get additional metadata from .well-known (optional enhancement)
 	wellKnownConfig, wkErr := discoverFromWellKnown(endpoint)
 	if wkErr == nil && wellKnownConfig != nil {
 		// Merge .well-known data into config (prefer body-parsed endpoints, add missing fields)
+		if wellKnownConfig.ClientID != "" {
+			enhancedConfig.ClientID = wellKnownConfig.ClientID
+		}
 		if wellKnownConfig.RegistrationEndpoint != "" {
 			enhancedConfig.RegistrationEndpoint = wellKnownConfig.RegistrationEndpoint
 			enhancedConfig.UseDCR = true
@@ -364,13 +369,8 @@ func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error)
 		}
 	}
 
-	// Strategy 2: Try .well-known endpoint directly
-	config, wellKnownErr := discoverFromWellKnown(endpoint)
-	if wellKnownErr == nil && config != nil {
-		return config, nil
-	}
-
-	// Strategy 3: Parse response body for non-standard device flow advertisement
+	// Strategy 2: Parse response body for non-standard device flow advertisement
+	// (Try this BEFORE .well-known to prioritize server-specific device flow info)
 	if readErr == nil && len(body) > 0 {
 		config, err := discoverFromResponseBody(body, endpoint)
 		if err == nil && config != nil {
@@ -379,6 +379,12 @@ func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	// Strategy 3: Try .well-known endpoint directly (fallback)
+	config, wellKnownErr := discoverFromWellKnown(endpoint)
+	if wellKnownErr == nil && config != nil {
+		return config, nil
 	}
 
 	// All strategies failed - return most informative error
