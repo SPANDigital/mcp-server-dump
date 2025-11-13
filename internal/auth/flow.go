@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -162,7 +163,8 @@ func startCallbackServer(port int) (string, <-chan callbackResult, <-chan error,
 			errChan <- fmt.Errorf("%s", msg)
 
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, "<html><body><h1>Authorization Failed</h1><p>%s</p><p>You can close this window.</p></body></html>", msg)
+			// Escape HTML to prevent XSS from malicious error parameters
+			_, _ = fmt.Fprintf(w, "<html><body><h1>Authorization Failed</h1><p>%s</p><p>You can close this window.</p></body></html>", html.EscapeString(msg))
 			return
 		}
 
