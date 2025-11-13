@@ -9,6 +9,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -102,11 +103,18 @@ func Authorize(ctx context.Context, cfg *Config) (*oauth2.Token, error) {
 	}
 
 	// Exchange authorization code for token
+	// Create context with custom HTTP client that adds resource parameter to token request body
+	ctx = context.WithValue(ctx, oauth2.HTTPClient, &http.Client{
+		Transport: &resourceParamTransport{
+			base:     http.DefaultTransport,
+			resource: cfg.ResourceURI,
+		},
+	})
+
 	token, err := oauth2Config.Exchange(
 		ctx,
 		code,
 		oauth2.VerifierOption(verifier),
-		oauth2.SetAuthURLParam("resource", cfg.ResourceURI),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange failed: %w", err)
@@ -216,18 +224,18 @@ func generateState() (string, error) {
 }
 
 // openBrowser opens the specified URL in the user's default browser.
-func openBrowser(url string) error {
+func openBrowser(urlStr string) error {
 	var cmd *exec.Cmd
 
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url)
+		cmd = exec.Command("open", urlStr)
 	case "linux":
 		// Try xdg-open first (standard), fallback to other common browsers
 		for _, browser := range []string{"xdg-open", "x-www-browser", "www-browser", "firefox", "chrome", "chromium"} {
 			if _, err := exec.LookPath(browser); err == nil {
 				// #nosec G204 - browser name is from a hardcoded allowlist
-				cmd = exec.Command(browser, url)
+				cmd = exec.Command(browser, urlStr)
 				break
 			}
 		}
@@ -235,8 +243,10 @@ func openBrowser(url string) error {
 			return fmt.Errorf("no suitable browser found")
 		}
 	case "windows":
-		// Use 'start' command through cmd.exe
-		cmd = exec.Command("cmd", "/c", "start", url)
+		// Use 'start' command through cmd.exe with quoted URL
+		// Empty string after "start" prevents issues with URLs starting with quotes
+		// #nosec G204 - URL comes from OAuth server metadata
+		cmd = exec.Command("cmd", "/c", "start", "", urlStr)
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
@@ -291,19 +301,37 @@ type resourceParamTransport struct {
 func (t *resourceParamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// Only modify token endpoint requests
 	if strings.Contains(req.URL.Path, "token") && req.Method == http.MethodPost {
-		// Parse existing form data
-		if err := req.ParseForm(); err == nil {
-			// Add resource parameter
-			if t.resource != "" {
-				values := req.Form
-				values.Set("resource", t.resource)
+		// Clone request to avoid modifying original (RoundTripper contract requirement)
+		clonedReq := req.Clone(req.Context())
 
-				// Re-encode form data
-				body := values.Encode()
-				req.Body = io.NopCloser(strings.NewReader(body))
-				req.ContentLength = int64(len(body))
+		// Read original body into memory
+		var bodyBytes []byte
+		if req.Body != nil {
+			var readErr error
+			bodyBytes, readErr = io.ReadAll(req.Body)
+			if readErr != nil {
+				return nil, fmt.Errorf("failed to read request body: %w", readErr)
 			}
+			_ = req.Body.Close()
 		}
+
+		// Parse form data from body bytes
+		values, parseErr := url.ParseQuery(string(bodyBytes))
+		if parseErr == nil && t.resource != "" {
+			// Add resource parameter
+			values.Set("resource", t.resource)
+
+			// Re-encode form data
+			body := values.Encode()
+			clonedReq.Body = io.NopCloser(strings.NewReader(body))
+			clonedReq.ContentLength = int64(len(body))
+
+			return t.base.RoundTrip(clonedReq)
+		}
+
+		// If parsing failed, restore original body
+		clonedReq.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
+		return t.base.RoundTrip(clonedReq)
 	}
 
 	return t.base.RoundTrip(req)

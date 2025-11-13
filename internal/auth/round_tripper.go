@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"time"
 
 	"golang.org/x/oauth2"
 )
@@ -18,6 +17,7 @@ type OAuthRoundTripper struct {
 	config *Config
 
 	mu           sync.RWMutex
+	initCond     *sync.Cond
 	token        *oauth2.Token
 	tokenSource  oauth2.TokenSource
 	initializing bool
@@ -39,6 +39,7 @@ func NewOAuthRoundTripper(base http.RoundTripper, config *Config) (*OAuthRoundTr
 		base:   base,
 		config: config,
 	}
+	rt.initCond = sync.NewCond(&rt.mu)
 
 	// Try to load cached token if caching is enabled
 	if config.UseCache {
@@ -110,8 +111,8 @@ func (rt *OAuthRoundTripper) getValidToken(ctx context.Context) (*oauth2.Token, 
 	if tokenSource != nil {
 		newToken, err := tokenSource.Token()
 		if err == nil {
-			// Update stored token if it changed
-			if newToken.AccessToken != token.AccessToken {
+			// Update stored token if it changed (check both access token and expiry)
+			if token == nil || newToken.AccessToken != token.AccessToken || newToken.Expiry != token.Expiry {
 				rt.mu.Lock()
 				rt.token = newToken
 				rt.mu.Unlock()
@@ -142,22 +143,17 @@ func (rt *OAuthRoundTripper) performOAuthFlow(ctx context.Context) (*oauth2.Toke
 	rt.mu.Lock()
 	// Check if another goroutine is already performing OAuth flow
 	if rt.initializing {
-		rt.mu.Unlock()
-		// Wait for initialization to complete
-		for {
-			time.Sleep(100 * time.Millisecond)
-			rt.mu.RLock()
-			if !rt.initializing {
-				initErr := rt.initErr
-				token := rt.token
-				rt.mu.RUnlock()
-				if initErr != nil {
-					return nil, initErr
-				}
-				return token, nil
-			}
-			rt.mu.RUnlock()
+		// Wait for initialization to complete using condition variable
+		for rt.initializing {
+			rt.initCond.Wait()
 		}
+		initErr := rt.initErr
+		token := rt.token
+		rt.mu.Unlock()
+		if initErr != nil {
+			return nil, initErr
+		}
+		return token, nil
 	}
 	rt.initializing = true
 	rt.mu.Unlock()
@@ -170,6 +166,9 @@ func (rt *OAuthRoundTripper) performOAuthFlow(ctx context.Context) (*oauth2.Toke
 
 	rt.initializing = false
 	rt.initErr = err
+
+	// Broadcast to all waiting goroutines
+	rt.initCond.Broadcast()
 
 	if err != nil {
 		return nil, err
@@ -193,6 +192,11 @@ func (rt *OAuthRoundTripper) performOAuthFlow(ctx context.Context) (*oauth2.Toke
 }
 
 // createTokenSource creates an oauth2.TokenSource for automatic token refresh.
+// Note: Uses context.Background() because the TokenSource is long-lived and outlives
+// individual requests. The oauth2.TokenSource interface doesn't support per-call contexts,
+// and the context is only used for HTTP client configuration (not request cancellation).
+// Token refresh operations won't be cancelled by request context cancellation, which is
+// acceptable for this use case as tokens are cached and reused across requests.
 func (rt *OAuthRoundTripper) createTokenSource(token *oauth2.Token) oauth2.TokenSource {
 	oauth2Config := &oauth2.Config{
 		ClientID:     rt.config.ClientID,
@@ -203,6 +207,7 @@ func (rt *OAuthRoundTripper) createTokenSource(token *oauth2.Token) oauth2.Token
 	}
 
 	// Create context with custom HTTP client that adds resource parameter
+	// Uses Background() because TokenSource is long-lived and context is only for client config
 	ctx := context.WithValue(context.Background(), oauth2.HTTPClient, &http.Client{
 		Transport: &resourceParamTransport{
 			base:     http.DefaultTransport,

@@ -73,6 +73,12 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 	// Create OAuth config if client ID is provided or if endpoint requires OAuth
 	var oauthConfig *auth.Config
 	if cli.OAuthClientID != "" {
+		// Validate that both auth and token URLs are provided if either is specified
+		if (cli.OAuthAuthURL != "" || cli.OAuthTokenURL != "") &&
+			(cli.OAuthAuthURL == "" || cli.OAuthTokenURL == "") {
+			return nil, fmt.Errorf("both --oauth-auth-url and --oauth-token-url must be provided together")
+		}
+
 		// Explicit OAuth configuration
 		oauthConfig = &auth.Config{
 			ClientID:     cli.OAuthClientID,

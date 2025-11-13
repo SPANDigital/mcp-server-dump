@@ -141,7 +141,9 @@ func fetchProtectedResourceMetadata(metadataURL string) (*ProtectedResourceMetad
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		// Limit error body reads to 1KB to prevent memory exhaustion
+		limitedReader := io.LimitReader(resp.Body, 1024)
+		body, _ := io.ReadAll(limitedReader)
 		return nil, fmt.Errorf("failed to fetch metadata (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
@@ -176,7 +178,9 @@ func fetchAuthServerMetadata(issuerURL string) (*AuthServerMetadata, error) {
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		// Limit error body reads to 1KB to prevent memory exhaustion
+		limitedReader := io.LimitReader(resp.Body, 1024)
+		body, _ := io.ReadAll(limitedReader)
 		return nil, fmt.Errorf("failed to fetch metadata (HTTP %d): %s", resp.StatusCode, string(body))
 	}
 
