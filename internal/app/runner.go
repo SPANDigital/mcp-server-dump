@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
@@ -125,24 +124,18 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 		// For HTTP transports without explicit OAuth config, try discovery + DCR
 		discoveredConfig, err := auth.DiscoverAndConfigure(ctx, cli.Endpoint)
 		if err == nil && discoveredConfig != nil {
-			// Check if we have enough information to proceed with OAuth
-			if discoveredConfig.AuthURL == "" && discoveredConfig.DeviceAuthURL == "" {
-				// Discovery succeeded but didn't find OAuth endpoints
-				// This happens with servers like GitHub that don't provide .well-known metadata
-				fmt.Printf("OAuth required by server (resource: %s)\n", discoveredConfig.ResourceURI)
-				fmt.Printf("⚠️  OAuth endpoints not discoverable via .well-known\n")
-				fmt.Printf("Please provide OAuth configuration manually:\n")
-				fmt.Printf("  --oauth-client-id=<your-client-id>\n")
-				fmt.Printf("  --oauth-auth-url=<authorization-endpoint>\n")
-				fmt.Printf("  --oauth-token-url=<token-endpoint>\n")
-				if len(discoveredConfig.Scopes) > 0 {
-					fmt.Printf("\nRequired scopes: %s\n", strings.Join(discoveredConfig.Scopes, ", "))
-				}
-				return nil, fmt.Errorf("OAuth required but endpoints not discoverable - please provide OAuth configuration")
-			}
-
 			// OAuth required by server
 			fmt.Printf("OAuth required by server\n")
+
+			// If endpoints not fully discovered, we'll try DCR or cached tokens
+			// Don't block here - let OAuth layer handle it
+			if discoveredConfig.AuthURL == "" && discoveredConfig.DeviceAuthURL == "" {
+				fmt.Printf("⚠️  Authorization endpoints not in .well-known metadata\n")
+				if discoveredConfig.UseDCR && discoveredConfig.RegistrationEndpoint != "" {
+					fmt.Printf("Will attempt Dynamic Client Registration...\n")
+				}
+			}
+
 			fmt.Printf("Discovered endpoints:\n")
 			if discoveredConfig.AuthURL != "" {
 				fmt.Printf("  Authorization URL: %s\n", discoveredConfig.AuthURL)

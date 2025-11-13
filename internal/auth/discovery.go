@@ -51,14 +51,23 @@ func DiscoverFromResponse(resp *http.Response) (*Config, error) {
 	// This may fail for servers like GitHub that don't provide RFC 8414 metadata
 	asMetadata, err := fetchAuthServerMetadata(asURL)
 	if err != nil {
-		// If .well-known metadata is not available, return partial config
-		// User will need to provide OAuth URLs manually or use a client that knows the endpoints
+		// If .well-known metadata is not available, return partial config with guessed endpoints
+		// Many servers follow standard patterns, so we can make educated guesses
+		parsedAS, parseErr := url.Parse(asURL)
+		var registrationEndpoint string
+		if parseErr == nil {
+			// Try common DCR endpoint pattern: /register or /registration
+			registrationEndpoint = fmt.Sprintf("%s://%s/register", parsedAS.Scheme, parsedAS.Host)
+		}
+
 		return &Config{
-			AuthURL:     "", // Unknown - user must provide via --oauth-auth-url
-			TokenURL:    "", // Unknown - user must provide via --oauth-token-url
-			ResourceURI: prMetadata.Resource,
-			Scopes:      prMetadata.ScopesSupported,
-			UseCache:    true,
+			AuthURL:              "", // Unknown - OAuth layer will need to handle this
+			TokenURL:             "", // Unknown - OAuth layer will need to handle this
+			ResourceURI:          prMetadata.Resource,
+			Scopes:               prMetadata.ScopesSupported,
+			UseCache:             true,
+			RegistrationEndpoint: registrationEndpoint, // Guessed DCR endpoint
+			UseDCR:               registrationEndpoint != "", // Try DCR if we have an endpoint
 		}, nil
 	}
 
