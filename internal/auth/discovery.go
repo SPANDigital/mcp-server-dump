@@ -55,16 +55,20 @@ func DiscoverFromResponse(resp *http.Response) (*Config, error) {
 
 	// Build OAuth config from discovered metadata
 	config := &Config{
-		AuthURL:     asMetadata.AuthorizationEndpoint,
-		TokenURL:    asMetadata.TokenEndpoint,
-		ResourceURI: prMetadata.Resource,
-		Scopes:      prMetadata.ScopesSupported,
-		UseCache:    true, // Enable caching by default
+		AuthURL:              asMetadata.AuthorizationEndpoint,
+		TokenURL:             asMetadata.TokenEndpoint,
+		RegistrationEndpoint: asMetadata.RegistrationEndpoint,
+		ResourceURI:          prMetadata.Resource,
+		Scopes:               prMetadata.ScopesSupported,
+		UseCache:             true, // Enable caching by default
+		UseDCR:               asMetadata.RegistrationEndpoint != "",
 	}
 
-	// Validate PKCE support
-	if !contains(asMetadata.CodeChallengeMethodsSupported, "S256") {
-		return nil, fmt.Errorf("authorization server does not support S256 PKCE (required by OAuth 2.1)")
+	// Validate PKCE support if using authorization code flow
+	if asMetadata.AuthorizationEndpoint != "" {
+		if !contains(asMetadata.CodeChallengeMethodsSupported, "S256") {
+			return nil, fmt.Errorf("authorization server does not support S256 PKCE (required by OAuth 2.1)")
+		}
 	}
 
 	return config, nil
@@ -196,32 +200,30 @@ func fetchAuthServerMetadata(issuerURL string) (*AuthServerMetadata, error) {
 // the .well-known/oauth-authorization-server endpoint (RFC 8414).
 // This is a fallback when WWW-Authenticate header is not present.
 func discoverFromWellKnown(endpoint string) (*Config, error) {
-	// Parse endpoint URL
+	// Parse endpoint URL to get base (scheme + host)
 	endpointURL, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("invalid endpoint URL: %w", err)
 	}
 
-	// Build .well-known URL
-	wellKnownURL := &url.URL{
-		Scheme: endpointURL.Scheme,
-		Host:   endpointURL.Host,
-		Path:   "/.well-known/oauth-authorization-server",
-	}
+	// Build base URL (fetchAuthServerMetadata will append .well-known path)
+	baseURL := fmt.Sprintf("%s://%s", endpointURL.Scheme, endpointURL.Host)
 
 	// Fetch authorization server metadata directly
-	asMetadata, err := fetchAuthServerMetadata(wellKnownURL.String())
+	asMetadata, err := fetchAuthServerMetadata(baseURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch .well-known metadata: %w", err)
 	}
 
 	// Build OAuth config from discovered metadata
 	config := &Config{
-		AuthURL:     asMetadata.AuthorizationEndpoint,
-		TokenURL:    asMetadata.TokenEndpoint,
-		ResourceURI: endpoint,
-		Scopes:      asMetadata.ScopesSupported,
-		UseCache:    true,
+		AuthURL:              asMetadata.AuthorizationEndpoint,
+		TokenURL:             asMetadata.TokenEndpoint,
+		RegistrationEndpoint: asMetadata.RegistrationEndpoint,
+		ResourceURI:          endpoint,
+		Scopes:               asMetadata.ScopesSupported,
+		UseCache:             true,
+		UseDCR:               asMetadata.RegistrationEndpoint != "",
 	}
 
 	// Validate PKCE support if using authorization code flow
@@ -281,6 +283,44 @@ func parseDeviceFlowFromBody(body []byte) (deviceAuthURL, tokenURL string, err e
 	return deviceAuthURL, tokenURL, nil
 }
 
+// discoverFromResponseBody parses a non-standard JSON response body for device flow endpoints
+// and enhances it with .well-known metadata if available.
+func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
+	deviceAuthURL, tokenURL, parseErr := parseDeviceFlowFromBody(body)
+	if parseErr != nil {
+		return nil, fmt.Errorf("discovery failed: body parse error: %w", parseErr)
+	}
+	if deviceAuthURL == "" {
+		return nil, nil // No device flow endpoints found
+	}
+
+	// Successfully parsed device flow endpoints from body
+	// Try to enhance with .well-known metadata for additional info (e.g., registration endpoint)
+	enhancedConfig := &Config{
+		AuthURL:     deviceAuthURL, // Store device auth URL in AuthURL for now
+		TokenURL:    tokenURL,
+		ResourceURI: endpoint,
+		Scopes:      DefaultScopes(),
+		UseCache:    true,
+	}
+
+	// Try to get additional metadata from .well-known (optional enhancement)
+	wellKnownConfig, wkErr := discoverFromWellKnown(endpoint)
+	if wkErr == nil && wellKnownConfig != nil {
+		// Merge .well-known data into config (prefer body-parsed endpoints, add missing fields)
+		if wellKnownConfig.RegistrationEndpoint != "" {
+			enhancedConfig.RegistrationEndpoint = wellKnownConfig.RegistrationEndpoint
+			enhancedConfig.UseDCR = true
+		}
+		// Merge scopes if .well-known provides more
+		if len(wellKnownConfig.Scopes) > 0 {
+			enhancedConfig.Scopes = wellKnownConfig.Scopes
+		}
+	}
+
+	return enhancedConfig, nil
+}
+
 // DiscoverAndConfigure attempts to discover OAuth configuration by making a probe request
 // to the MCP server endpoint. Returns discovered config or nil if server doesn't require OAuth.
 // Uses a layered discovery approach: WWW-Authenticate → .well-known → JSON body parsing.
@@ -332,20 +372,12 @@ func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error)
 
 	// Strategy 3: Parse response body for non-standard device flow advertisement
 	if readErr == nil && len(body) > 0 {
-		deviceAuthURL, tokenURL, parseErr := parseDeviceFlowFromBody(body)
-		if parseErr == nil && deviceAuthURL != "" {
-			// Successfully parsed device flow endpoints
-			return &Config{
-				AuthURL:     deviceAuthURL, // Store device auth URL in AuthURL for now
-				TokenURL:    tokenURL,
-				ResourceURI: endpoint,
-				Scopes:      DefaultScopes(),
-				UseCache:    true,
-			}, nil
+		config, err := discoverFromResponseBody(body, endpoint)
+		if err == nil && config != nil {
+			return config, nil
 		}
-		// If parsing failed, include error in final message
-		if parseErr != nil {
-			return nil, fmt.Errorf("discovery failed: body parse error: %w", parseErr)
+		if err != nil {
+			return nil, err
 		}
 	}
 

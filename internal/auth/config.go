@@ -50,10 +50,13 @@ type Config struct {
 	// TokenURL is the token endpoint (normally discovered via metadata)
 	TokenURL string
 
+	// RegistrationEndpoint is the dynamic client registration endpoint (RFC 7591)
+	RegistrationEndpoint string
+
 	// FlowType specifies which OAuth flow to use
 	FlowType FlowType
 
-	// UseDCR enables Dynamic Client Registration (RFC 7591) - future feature
+	// UseDCR enables Dynamic Client Registration (RFC 7591)
 	UseDCR bool
 }
 
@@ -147,6 +150,63 @@ type AuthServerMetadata struct { //nolint:revive // AuthServerMetadata is intent
 
 	// TokenEndpointAuthMethodsSupported are the client authentication methods
 	TokenEndpointAuthMethodsSupported []string `json:"token_endpoint_auth_methods_supported,omitempty"`
+}
+
+// ClientRegistration represents a cached client registration for a specific MCP server.
+type ClientRegistration struct {
+	// ResourceURI is the MCP server endpoint this registration is for
+	ResourceURI string `json:"resource_uri"`
+
+	// ClientID is the registered OAuth client identifier
+	ClientID string `json:"client_id"`
+
+	// ClientSecret is the registered OAuth client secret (if provided)
+	ClientSecret string `json:"client_secret,omitempty"`
+
+	// RegistrationAccessToken is the token for managing this registration
+	RegistrationAccessToken string `json:"registration_access_token,omitempty"`
+
+	// RegisteredAt is when this registration was created
+	RegisteredAt time.Time `json:"registered_at"`
+}
+
+// ClientRegistrationRequest represents a dynamic client registration request (RFC 7591).
+type ClientRegistrationRequest struct {
+	// ClientName is a human-readable name for the client
+	ClientName string `json:"client_name"`
+
+	// RedirectURIs are the redirect URIs for authorization code flow
+	RedirectURIs []string `json:"redirect_uris,omitempty"`
+
+	// GrantTypes are the OAuth grant types the client will use
+	GrantTypes []string `json:"grant_types"`
+
+	// TokenEndpointAuthMethod is how the client authenticates to the token endpoint
+	TokenEndpointAuthMethod string `json:"token_endpoint_auth_method"`
+
+	// Scope is the space-separated list of scopes
+	Scope string `json:"scope,omitempty"`
+}
+
+// ClientRegistrationResponse represents the response from dynamic client registration.
+type ClientRegistrationResponse struct {
+	// ClientID is the registered client identifier
+	ClientID string `json:"client_id"`
+
+	// ClientSecret is the client secret (for confidential clients)
+	ClientSecret string `json:"client_secret,omitempty"`
+
+	// ClientIDIssuedAt is when the client_id was issued (Unix timestamp)
+	ClientIDIssuedAt int64 `json:"client_id_issued_at,omitempty"`
+
+	// ClientSecretExpiresAt is when the client_secret expires (Unix timestamp, 0=never)
+	ClientSecretExpiresAt int64 `json:"client_secret_expires_at,omitempty"`
+
+	// RegistrationAccessToken is the token for managing this registration
+	RegistrationAccessToken string `json:"registration_access_token,omitempty"`
+
+	// RegistrationClientURI is the URI for managing this registration
+	RegistrationClientURI string `json:"registration_client_uri,omitempty"`
 }
 
 // DefaultScopes returns the default MCP scopes to request.
