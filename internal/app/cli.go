@@ -35,13 +35,14 @@ type CLI struct {
 	ServerCommand string   `kong:"help='Server command for explicit command transport'"`
 
 	// OAuth 2.1 authentication options
-	OAuthClientID     string   `kong:"help='OAuth 2.1 client ID for authenticated MCP server access'"`
-	OAuthClientSecret string   `kong:"help='OAuth 2.1 client secret (for confidential clients, use with caution)'"`
-	OAuthScopes       []string `kong:"help='OAuth scopes to request (comma-separated, e.g., mcp:tools,mcp:resources,mcp:prompts)'"`
-	OAuthAuthURL      string   `kong:"help='OAuth authorization endpoint URL (normally discovered automatically)'"`
-	OAuthTokenURL     string   `kong:"help='OAuth token endpoint URL (normally discovered automatically)'"`
-	OAuthRedirectPort int      `kong:"default='0',help='Port for OAuth loopback redirect (0=random ephemeral port)'"`
-	OAuthNoCache      bool     `kong:"help='Disable OAuth token caching (always require fresh authentication)'"`
+	OAuthClientID     string   `kong:"name='oauth-client-id',help='OAuth 2.1 client ID for authenticated MCP server access'"`
+	OAuthClientSecret string   `kong:"name='oauth-client-secret',help='OAuth 2.1 client secret (for confidential clients, use with caution)'"`
+	OAuthScopes       []string `kong:"name='oauth-scopes',help='OAuth scopes to request (comma-separated, e.g., mcp:tools,mcp:resources,mcp:prompts)'"`
+	OAuthAuthURL      string   `kong:"name='oauth-auth-url',help='OAuth authorization endpoint URL (normally discovered automatically)'"`
+	OAuthTokenURL     string   `kong:"name='oauth-token-url',help='OAuth token endpoint URL (normally discovered automatically)'"`
+	OAuthRedirectPort int      `kong:"name='oauth-redirect-port',default='8080',help='Port for OAuth loopback redirect (default 8080 for compatibility)'"`
+	OAuthNoCache      bool     `kong:"name='oauth-no-cache',help='Disable OAuth token caching (always require fresh authentication)'"`
+	OAuthFlow         string   `kong:"name='oauth-flow',default='auto',enum='auto,authorization-code,device,client-credentials',help='OAuth flow type (auto-detects by default)'"`
 
 	// Scanning options
 	NoTools     bool `kong:"help='Skip scanning tools from the MCP server'"`

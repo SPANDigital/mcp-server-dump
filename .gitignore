@@ -17,6 +17,9 @@ test-*.html
 test-output.*
 *.pdf
 *.html
+*.md
+!README.md
+!CLAUDE.md
 
 # Test binary, built with `go test -c`
 *.test
