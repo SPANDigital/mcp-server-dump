@@ -30,14 +30,15 @@ func RegisterClient(ctx context.Context, registrationEndpoint, resourceURI strin
 	}
 
 	// Build registration request
-	// Per RFC 8252 Section 7.3, loopback redirect URIs must be registered without a port.
-	// The authorization server MUST allow any port to be specified at request time.
-	// We register both IPv4 and IPv6 loopback addresses for maximum compatibility.
+	// NOTE: RFC 8252 Section 7.3 specifies that loopback URIs should be registered without
+	// a port, and the authorization server MUST accept any port at request time. However,
+	// not all servers implement this correctly (e.g., Sentry requires exact port matching).
+	// We register a fixed port (8080) to maximize compatibility with non-compliant servers.
 	regRequest := ClientRegistrationRequest{
 		ClientName: "mcp-server-dump",
 		RedirectURIs: []string{
-			"http://127.0.0.1/callback", // IPv4 loopback (any port allowed per RFC 8252)
-			"http://[::1]/callback",     // IPv6 loopback (any port allowed per RFC 8252)
+			"http://127.0.0.1:8080/callback", // IPv4 loopback with fixed port
+			"http://[::1]:8080/callback",     // IPv6 loopback with fixed port
 		},
 		GrantTypes:              grantTypes,
 		TokenEndpointAuthMethod: "none", // Public client (no client secret required)

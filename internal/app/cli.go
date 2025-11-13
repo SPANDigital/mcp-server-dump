@@ -40,7 +40,7 @@ type CLI struct {
 	OAuthScopes       []string `kong:"name='oauth-scopes',help='OAuth scopes to request (comma-separated, e.g., mcp:tools,mcp:resources,mcp:prompts)'"`
 	OAuthAuthURL      string   `kong:"name='oauth-auth-url',help='OAuth authorization endpoint URL (normally discovered automatically)'"`
 	OAuthTokenURL     string   `kong:"name='oauth-token-url',help='OAuth token endpoint URL (normally discovered automatically)'"`
-	OAuthRedirectPort int      `kong:"name='oauth-redirect-port',default='0',help='Port for OAuth loopback redirect (0=random ephemeral port)'"`
+	OAuthRedirectPort int      `kong:"name='oauth-redirect-port',default='8080',help='Port for OAuth loopback redirect (default 8080 for compatibility)'"`
 	OAuthNoCache      bool     `kong:"name='oauth-no-cache',help='Disable OAuth token caching (always require fresh authentication)'"`
 	OAuthFlow         string   `kong:"name='oauth-flow',default='auto',enum='auto,authorization-code,device,client-credentials',help='OAuth flow type (auto-detects by default)'"`
 

@@ -34,7 +34,9 @@ type Config struct {
 	// Scopes are the OAuth scopes to request (e.g., "mcp:tools", "mcp:resources", "mcp:prompts")
 	Scopes []string
 
-	// RedirectPort is the port for the loopback redirect server (0 = random ephemeral port)
+	// RedirectPort is the port for the loopback redirect server (default 8080 for maximum compatibility)
+	// Note: Some OAuth servers (like Sentry) require exact redirect URI matching and don't
+	// support RFC 8252's "any port" behavior, so we use a fixed port by default.
 	RedirectPort int
 
 	// ResourceURI is the MCP server endpoint URI (used for RFC 8707 resource parameter)
