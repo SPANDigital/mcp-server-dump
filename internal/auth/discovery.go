@@ -47,10 +47,19 @@ func DiscoverFromResponse(resp *http.Response) (*Config, error) {
 
 	asURL := prMetadata.AuthorizationServers[0] // Use first authorization server
 
-	// Fetch authorization server metadata
+	// Try to fetch authorization server metadata (.well-known)
+	// This may fail for servers like GitHub that don't provide RFC 8414 metadata
 	asMetadata, err := fetchAuthServerMetadata(asURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch authorization server metadata: %w", err)
+		// If .well-known metadata is not available, return partial config
+		// User will need to provide OAuth URLs manually or use a client that knows the endpoints
+		return &Config{
+			AuthURL:     "", // Unknown - user must provide via --oauth-auth-url
+			TokenURL:    "", // Unknown - user must provide via --oauth-token-url
+			ResourceURI: prMetadata.Resource,
+			Scopes:      prMetadata.ScopesSupported,
+			UseCache:    true,
+		}, nil
 	}
 
 	// Build OAuth config from discovered metadata
@@ -76,6 +85,7 @@ func DiscoverFromResponse(resp *http.Response) (*Config, error) {
 
 // parseWWWAuthenticate parses the WWW-Authenticate header to extract the metadata URL.
 // RFC 9728 format: Bearer realm="https://resource.example.com"
+// Some servers (like GitHub) use resource_metadata parameter for the metadata URL.
 // Some servers may use as_uri parameter for authorization server URL.
 func parseWWWAuthenticate(header string) (string, error) {
 	// Check if it's a Bearer challenge
@@ -87,11 +97,16 @@ func parseWWWAuthenticate(header string) (string, error) {
 	params := strings.TrimPrefix(header, "Bearer ")
 	params = strings.TrimPrefix(params, "bearer ")
 
-	// Parse parameters (simplified parser for key="value" pairs)
-	// In production, should use more robust parsing
+	// Try resource_metadata first (GitHub, RFC 9470)
+	resourceMetadata := extractParam(params, "resource_metadata")
+	if resourceMetadata != "" {
+		return resourceMetadata, nil
+	}
+
+	// Fall back to realm (traditional RFC 9728)
 	realm := extractParam(params, "realm")
 	if realm == "" {
-		return "", fmt.Errorf("no realm parameter found")
+		return "", fmt.Errorf("no realm or resource_metadata parameter found")
 	}
 
 	// The realm is typically the protected resource metadata URL
@@ -323,7 +338,8 @@ func normalizeURLScheme(discoveredURL, referenceURL string) string {
 func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
 	deviceAuthURL, tokenURL, parseErr := parseDeviceFlowFromBody(body)
 	if parseErr != nil {
-		return nil, fmt.Errorf("discovery failed: body parse error: %w", parseErr)
+		// Body is not device flow JSON - this is not an error, just means this strategy didn't work
+		return nil, nil
 	}
 	if deviceAuthURL == "" {
 		return nil, nil // No device flow endpoints found
@@ -417,9 +433,7 @@ func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error)
 		if err == nil && config != nil {
 			return config, nil
 		}
-		if err != nil {
-			return nil, err
-		}
+		// If err != nil or config == nil, continue to next strategy
 	}
 
 	// Strategy 3: Try .well-known endpoint directly (fallback)
