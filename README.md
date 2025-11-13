@@ -152,6 +152,94 @@ mcp-server-dump --no-prompts node server.js   # Skip prompts
 mcp-server-dump --no-tools --no-resources node server.js  # Only prompts
 ```
 
+### OAuth 2.1 Authentication
+
+mcp-server-dump supports OAuth 2.1 authentication for connecting to protected MCP servers over HTTP transports (SSE and streamable). It implements the authorization code flow with PKCE (Proof Key for Code Exchange) as specified in the MCP authorization specification.
+
+```bash
+# Connect to OAuth-protected MCP server with client ID
+mcp-server-dump --transport=streamable \
+  --endpoint="https://mcp.example.com/stream" \
+  --oauth-client-id="your-client-id"
+
+# OAuth with explicit authorization/token endpoints (skip discovery)
+mcp-server-dump --transport=streamable \
+  --endpoint="https://mcp.example.com/stream" \
+  --oauth-client-id="your-client-id" \
+  --oauth-auth-url="https://auth.example.com/authorize" \
+  --oauth-token-url="https://auth.example.com/token"
+
+# OAuth with custom scopes
+mcp-server-dump --transport=streamable \
+  --endpoint="https://mcp.example.com/stream" \
+  --oauth-client-id="your-client-id" \
+  --oauth-scopes="mcp:tools,mcp:resources"
+
+# OAuth with confidential client (client secret)
+mcp-server-dump --transport=streamable \
+  --endpoint="https://mcp.example.com/stream" \
+  --oauth-client-id="your-client-id" \
+  --oauth-client-secret="your-client-secret"
+
+# Disable token caching (always authenticate)
+mcp-server-dump --transport=streamable \
+  --endpoint="https://mcp.example.com/stream" \
+  --oauth-client-id="your-client-id" \
+  --oauth-no-cache
+
+# Custom redirect port for OAuth callback
+mcp-server-dump --transport=streamable \
+  --endpoint="https://mcp.example.com/stream" \
+  --oauth-client-id="your-client-id" \
+  --oauth-redirect-port=8080
+```
+
+**How OAuth 2.1 Works:**
+
+1. When you run the command, mcp-server-dump starts a local loopback HTTP server
+2. Your default browser opens to the authorization server's login page
+3. After you authenticate and authorize, you're redirected back to the local server
+4. The tool exchanges the authorization code for an access token using PKCE
+5. The access token is cached in `~/.config/mcp-server-dump/tokens/` for future use
+6. Subsequent runs reuse the cached token (auto-refreshes when expired)
+
+**Key Features:**
+
+- **Automatic Discovery**: OAuth endpoints are discovered automatically via RFC 9728/8414 metadata
+- **PKCE Security**: Uses S256 code challenge for enhanced security (required by OAuth 2.1)
+- **Token Caching**: Tokens are securely cached with chmod 0600 permissions
+- **Auto-Refresh**: Access tokens are automatically refreshed using refresh tokens
+- **Loopback Flow**: Uses localhost redirect (RFC 8252) suitable for CLI tools
+- **MCP Compliance**: Implements the `resource` parameter (RFC 8707) for MCP servers
+
+**Token Management:**
+
+```bash
+# Token cache location
+~/.config/mcp-server-dump/tokens/<hash>.json
+
+# Clear cached token for a specific server
+rm ~/.config/mcp-server-dump/tokens/*.json
+
+# Disable caching for sensitive environments
+mcp-server-dump --oauth-no-cache --oauth-client-id="..." --endpoint="..."
+```
+
+**GitHub Actions / CI/CD:**
+
+For non-interactive environments like GitHub Actions, use pre-configured tokens via the `--headers` flag:
+
+```bash
+# Use pre-obtained access token in CI/CD
+mcp-server-dump --transport=streamable \
+  --endpoint="https://mcp.example.com/stream" \
+  -H "Authorization:Bearer ${ACCESS_TOKEN}"
+```
+
+**Backward Compatibility:**
+
+OAuth authentication is fully optional and backward compatible. The existing `--headers` flag continues to work for manual Bearer token injection. OAuth is only activated when `--oauth-client-id` is provided.
+
 ### Tool Calling
 
 ```bash
@@ -481,6 +569,19 @@ Flags:
       --context-file=CONTEXT-FILE,...
                              Path to context configuration files (YAML/JSON), can be used multiple times
       --server-command=STRING Server command for explicit command transport
+      --oauth-client-id=STRING
+                             OAuth 2.1 client ID for authenticated MCP server access
+      --oauth-client-secret=STRING
+                             OAuth 2.1 client secret (for confidential clients, use with caution)
+      --oauth-scopes=SCOPES,...
+                             OAuth scopes to request (comma-separated, e.g., mcp:tools,mcp:resources,mcp:prompts)
+      --oauth-auth-url=STRING
+                             OAuth authorization endpoint URL (normally discovered automatically)
+      --oauth-token-url=STRING
+                             OAuth token endpoint URL (normally discovered automatically)
+      --oauth-redirect-port=0
+                             Port for OAuth loopback redirect (0=random ephemeral port)
+      --oauth-no-cache       Disable OAuth token caching (always require fresh authentication)
       --no-tools             Skip scanning tools from the MCP server
       --no-resources         Skip scanning resources from the MCP server
       --no-prompts           Skip scanning prompts from the MCP server

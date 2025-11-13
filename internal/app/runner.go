@@ -9,6 +9,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/spandigital/mcp-server-dump/internal/auth"
 	"github.com/spandigital/mcp-server-dump/internal/formatter"
 	"github.com/spandigital/mcp-server-dump/internal/model"
 	"github.com/spandigital/mcp-server-dump/internal/transport"
@@ -69,7 +70,40 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 		Args:          cli.Args,
 	}
 
-	mcpTransport, err := transport.Create(&transportConfig)
+	// Create OAuth config if client ID is provided or if endpoint requires OAuth
+	var oauthConfig *auth.Config
+	if cli.OAuthClientID != "" {
+		// Explicit OAuth configuration
+		oauthConfig = &auth.Config{
+			ClientID:     cli.OAuthClientID,
+			ClientSecret: cli.OAuthClientSecret,
+			Scopes:       cli.OAuthScopes,
+			RedirectPort: cli.OAuthRedirectPort,
+			ResourceURI:  cli.Endpoint, // MCP server endpoint is the resource URI
+			UseCache:     !cli.OAuthNoCache,
+			AuthURL:      cli.OAuthAuthURL,
+			TokenURL:     cli.OAuthTokenURL,
+		}
+
+		// If scopes not specified, use defaults
+		if len(oauthConfig.Scopes) == 0 {
+			oauthConfig.Scopes = auth.DefaultScopes()
+		}
+	} else if cli.Transport != "command" && cli.Endpoint != "" {
+		// For HTTP transports without explicit OAuth config, try discovery
+		// This is a best-effort attempt - if it fails, we'll proceed without OAuth
+		discoveredConfig, err := auth.DiscoverAndConfigure(ctx, cli.Endpoint)
+		if err == nil && discoveredConfig != nil {
+			fmt.Printf("OAuth required by server. Please provide --oauth-client-id to authenticate.\n")
+			fmt.Printf("Discovered endpoints:\n")
+			fmt.Printf("  Authorization URL: %s\n", discoveredConfig.AuthURL)
+			fmt.Printf("  Token URL: %s\n", discoveredConfig.TokenURL)
+			return nil, fmt.Errorf("OAuth authentication required but no client ID provided (use --oauth-client-id)")
+		}
+		// If discovery fails or returns nil, proceed without OAuth
+	}
+
+	mcpTransport, err := transport.Create(&transportConfig, oauthConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create transport: %w", err)
 	}

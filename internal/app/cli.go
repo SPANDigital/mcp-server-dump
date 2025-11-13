@@ -34,6 +34,15 @@ type CLI struct {
 	ContextFile   []string `kong:"help='Path to context configuration files (YAML/JSON), can be used multiple times'"`
 	ServerCommand string   `kong:"help='Server command for explicit command transport'"`
 
+	// OAuth 2.1 authentication options
+	OAuthClientID     string   `kong:"help='OAuth 2.1 client ID for authenticated MCP server access'"`
+	OAuthClientSecret string   `kong:"help='OAuth 2.1 client secret (for confidential clients, use with caution)'"`
+	OAuthScopes       []string `kong:"help='OAuth scopes to request (comma-separated, e.g., mcp:tools,mcp:resources,mcp:prompts)'"`
+	OAuthAuthURL      string   `kong:"help='OAuth authorization endpoint URL (normally discovered automatically)'"`
+	OAuthTokenURL     string   `kong:"help='OAuth token endpoint URL (normally discovered automatically)'"`
+	OAuthRedirectPort int      `kong:"default='0',help='Port for OAuth loopback redirect (0=random ephemeral port)'"`
+	OAuthNoCache      bool     `kong:"help='Disable OAuth token caching (always require fresh authentication)'"`
+
 	// Scanning options
 	NoTools     bool `kong:"help='Skip scanning tools from the MCP server'"`
 	NoResources bool `kong:"help='Skip scanning resources from the MCP server'"`
