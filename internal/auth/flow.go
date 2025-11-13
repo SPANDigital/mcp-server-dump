@@ -22,8 +22,12 @@ import (
 // It automatically selects between authorization code flow (with PKCE) and device flow,
 // or uses the explicitly specified flow type.
 func Authorize(ctx context.Context, cfg *Config) (*oauth2.Token, error) {
-	if cfg.AuthURL == "" || cfg.TokenURL == "" {
-		return nil, fmt.Errorf("authorization and token URLs must be configured")
+	// Validate that we have at least one authorization endpoint and token endpoint
+	if cfg.AuthURL == "" && cfg.DeviceAuthURL == "" {
+		return nil, fmt.Errorf("authorization endpoint (AuthURL or DeviceAuthURL) must be configured")
+	}
+	if cfg.TokenURL == "" {
+		return nil, fmt.Errorf("token endpoint must be configured")
 	}
 
 	if cfg.ResourceURI == "" {

@@ -284,6 +284,40 @@ func parseDeviceFlowFromBody(body []byte) (deviceAuthURL, tokenURL string, err e
 	return deviceAuthURL, tokenURL, nil
 }
 
+// normalizeURLScheme ensures discoveredURL uses the same scheme (http/https) as referenceURL.
+// Some servers advertise http:// URLs but require https://. This normalizes them.
+// It also removes explicit port numbers when switching schemes to avoid http-port-on-https issues.
+func normalizeURLScheme(discoveredURL, referenceURL string) string {
+	if discoveredURL == "" || referenceURL == "" {
+		return discoveredURL
+	}
+
+	refParsed, err := url.Parse(referenceURL)
+	if err != nil {
+		return discoveredURL
+	}
+
+	discParsed, err := url.Parse(discoveredURL)
+	if err != nil {
+		return discoveredURL
+	}
+
+	// If schemes differ, use the reference scheme
+	if refParsed.Scheme != discParsed.Scheme {
+		discParsed.Scheme = refParsed.Scheme
+
+		// Remove explicit port when changing schemes to avoid port conflicts
+		// (e.g., :80 is http default, but breaks https)
+		if discParsed.Port() == "80" || discParsed.Port() == "443" {
+			discParsed.Host = discParsed.Hostname() // Remove port from host
+		}
+
+		return discParsed.String()
+	}
+
+	return discoveredURL
+}
+
 // discoverFromResponseBody parses a non-standard JSON response body for device flow endpoints
 // and enhances it with .well-known metadata if available.
 func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
@@ -296,6 +330,10 @@ func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
 	}
 
 	// Successfully parsed device flow endpoints from body
+	// Normalize URLs to match the endpoint's scheme (http vs https)
+	deviceAuthURL = normalizeURLScheme(deviceAuthURL, endpoint)
+	tokenURL = normalizeURLScheme(tokenURL, endpoint)
+
 	// Try to enhance with .well-known metadata for additional info (e.g., registration endpoint)
 	enhancedConfig := &Config{
 		DeviceAuthURL: deviceAuthURL, // Device authorization endpoint from body

@@ -245,10 +245,29 @@ func attemptTokenExchange(ctx context.Context, cfg *Config, deviceCode string) (
 		var errorResp struct {
 			Error            string `json:"error"`
 			ErrorDescription string `json:"error_description,omitempty"`
+			Description      string `json:"description,omitempty"` // Some servers use "description" instead
 		}
 		if jsonErr := json.Unmarshal(body, &errorResp); jsonErr == nil {
+			// Check for unsupported_grant_type specifically
+			if errorResp.Error == "unsupported_grant_type" {
+				desc := errorResp.ErrorDescription
+				if desc == "" {
+					desc = errorResp.Description
+				}
+				return nil, fmt.Errorf("token endpoint does not support device flow: %s\n\n"+
+					"The server advertised device flow support but the token endpoint (%s) rejected it.\n"+
+					"This usually means:\n"+
+					"  1. The MCP server's token endpoint is a proxy that doesn't forward device flow requests\n"+
+					"  2. The Keycloak client is missing the device flow grant type configuration\n\n"+
+					"Try configuring the client to use the direct Keycloak token endpoint instead.",
+					desc, cfg.TokenURL)
+			}
+
 			if errorResp.ErrorDescription != "" {
 				return nil, fmt.Errorf("%s: %s", errorResp.Error, errorResp.ErrorDescription)
+			}
+			if errorResp.Description != "" {
+				return nil, fmt.Errorf("%s: %s", errorResp.Error, errorResp.Description)
 			}
 			return nil, fmt.Errorf("%s", errorResp.Error)
 		}

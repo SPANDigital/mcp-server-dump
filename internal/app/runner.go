@@ -181,10 +181,16 @@ func createMCPSession(ctx context.Context, cli *CLI) (*mcp.ClientSession, error)
 				ResourceURI:          cli.Endpoint,
 				UseCache:             !cli.OAuthNoCache,
 				AuthURL:              discoveredConfig.AuthURL,
+				DeviceAuthURL:        discoveredConfig.DeviceAuthURL,
 				TokenURL:             discoveredConfig.TokenURL,
 				RegistrationEndpoint: discoveredConfig.RegistrationEndpoint,
-				FlowType:             auth.FlowType(cli.OAuthFlow),
+				FlowType:             discoveredConfig.FlowType, // Use discovered flow type
 				UseDCR:               discoveredConfig.UseDCR,
+			}
+
+			// Allow CLI flag to override discovered flow type if explicitly set
+			if cli.OAuthFlow != "" && cli.OAuthFlow != "auto" {
+				oauthConfig.FlowType = auth.FlowType(cli.OAuthFlow)
 			}
 
 			// If scopes not specified, use defaults
