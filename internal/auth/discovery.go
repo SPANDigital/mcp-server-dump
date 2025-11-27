@@ -66,7 +66,7 @@ func DiscoverFromResponse(resp *http.Response) (*Config, error) {
 			ResourceURI:          prMetadata.Resource,
 			Scopes:               prMetadata.ScopesSupported,
 			UseCache:             true,
-			RegistrationEndpoint: registrationEndpoint, // Guessed DCR endpoint
+			RegistrationEndpoint: registrationEndpoint,       // Guessed DCR endpoint
 			UseDCR:               registrationEndpoint != "", // Try DCR if we have an endpoint
 		}, nil
 	}
@@ -344,14 +344,15 @@ func normalizeURLScheme(discoveredURL, referenceURL string) string {
 
 // discoverFromResponseBody parses a non-standard JSON response body for device flow endpoints
 // and enhances it with .well-known metadata if available.
-func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
+// Returns nil if the body doesn't contain device flow information (not an error condition).
+func discoverFromResponseBody(body []byte, endpoint string) *Config {
 	deviceAuthURL, tokenURL, parseErr := parseDeviceFlowFromBody(body)
 	if parseErr != nil {
 		// Body is not device flow JSON - this is not an error, just means this strategy didn't work
-		return nil, nil
+		return nil
 	}
 	if deviceAuthURL == "" {
-		return nil, nil // No device flow endpoints found
+		return nil // No device flow endpoints found
 	}
 
 	// Successfully parsed device flow endpoints from body
@@ -389,7 +390,7 @@ func discoverFromResponseBody(body []byte, endpoint string) (*Config, error) {
 		}
 	}
 
-	return enhancedConfig, nil
+	return enhancedConfig
 }
 
 // DiscoverAndConfigure attempts to discover OAuth configuration by making a probe request
@@ -438,11 +439,11 @@ func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error)
 	// Strategy 2: Parse response body for non-standard device flow advertisement
 	// (Try this BEFORE .well-known to prioritize server-specific device flow info)
 	if readErr == nil && len(body) > 0 {
-		config, err := discoverFromResponseBody(body, endpoint)
-		if err == nil && config != nil {
+		config := discoverFromResponseBody(body, endpoint)
+		if config != nil {
 			return config, nil
 		}
-		// If err != nil or config == nil, continue to next strategy
+		// If config == nil, continue to next strategy
 	}
 
 	// Strategy 3: Try .well-known endpoint directly (fallback)

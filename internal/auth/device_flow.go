@@ -254,12 +254,9 @@ func attemptTokenExchange(ctx context.Context, cfg *Config, deviceCode string) (
 				if desc == "" {
 					desc = errorResp.Description
 				}
-				return nil, fmt.Errorf("token endpoint does not support device flow: %s\n\n"+
-					"The server advertised device flow support but the token endpoint (%s) rejected it.\n"+
-					"This usually means:\n"+
-					"  1. The MCP server's token endpoint is a proxy that doesn't forward device flow requests\n"+
-					"  2. The Keycloak client is missing the device flow grant type configuration\n\n"+
-					"Try configuring the client to use the direct Keycloak token endpoint instead.",
+				return nil, fmt.Errorf("token endpoint does not support device flow: %s (endpoint: %s) - "+
+					"the server advertised device flow support but rejected the grant type, "+
+					"check if the MCP server proxies to a different token endpoint or if the OAuth client is missing device flow grant configuration",
 					desc, cfg.TokenURL)
 			}
 
