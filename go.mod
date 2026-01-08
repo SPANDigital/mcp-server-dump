@@ -8,7 +8,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.2.0
 	github.com/yuin/goldmark v1.7.14
 	golang.org/x/oauth2 v0.34.0
-	golang.org/x/text v0.31.0
+	golang.org/x/text v0.32.0
 	gopkg.in/yaml.v2 v2.4.0
 )
 
