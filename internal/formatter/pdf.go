@@ -347,8 +347,8 @@ func renderJSONSchema(pdf *fpdf.Fpdf, schema any) {
 	}
 
 	// Process each line with syntax highlighting
-	lines := strings.Split(string(schemaJSON), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(schemaJSON), "\n")
+	for line := range lines {
 		// Limit line length to prevent overflow
 		if len(line) > maxJSONLineLength {
 			line = line[:maxJSONLineLength-3] + "..."

@@ -1,7 +1,7 @@
 # mcp-server-dump
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Go Version](https://img.shields.io/badge/Go-1.25.0%2B-blue)](https://go.dev)
+[![Go Version](https://img.shields.io/badge/Go-1.26.0%2B-blue)](https://go.dev)
 [![Go Report Card](https://goreportcard.com/badge/github.com/spandigital/mcp-server-dump)](https://goreportcard.com/report/github.com/spandigital/mcp-server-dump)
 [![Release](https://img.shields.io/github/v/release/spandigital/mcp-server-dump)](https://github.com/spandigital/mcp-server-dump/releases)
 
@@ -92,7 +92,7 @@ Download the latest release from the [releases page](https://github.com/spandigi
 
 ### Requirements
 
-- Go 1.25.0 or later
+- Go 1.26.0 or later
 - Access to MCP servers (Node.js, Python, etc.)
 
 ## Usage

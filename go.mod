@@ -1,6 +1,6 @@
 module github.com/spandigital/mcp-server-dump
 
-go 1.25.0
+go 1.26.0
 
 require (
 	codeberg.org/go-pdf/fpdf v0.11.1

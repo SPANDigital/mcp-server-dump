@@ -135,8 +135,8 @@ func (h *HugoBinaryTestHelper) downloadChecksums() (map[string]string, error) {
 
 	// Parse checksums (format: "checksum  filename")
 	checksums := make(map[string]string)
-	lines := strings.Split(string(content), "\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(string(content), "\n")
+	for line := range lines {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue

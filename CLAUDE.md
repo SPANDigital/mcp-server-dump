@@ -36,7 +36,7 @@ go mod download
 
 ### Linting
 ```bash
-# Install golangci-lint v2.4.0 (required for Go 1.25 support)
+# Install golangci-lint v2.4.0 (required for Go 1.26 support)
 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0
 
 # Run linter (may need to use $GOPATH/bin/golangci-lint if not in PATH)
@@ -85,7 +85,7 @@ golangci-lint run
 - `gopkg.in/yaml.v2` - YAML parsing and generation for frontmatter and context file support
 
 ### Development Tools
-- Go 1.25.0+ - Required Go version
+- Go 1.26.0+ - Required Go version
 - Standard Go toolchain (go fmt, go vet, go test)
 
 ## Usage Examples
