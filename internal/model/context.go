@@ -199,14 +199,12 @@ func (c *ContextConfig) ApplyToResource(resource *Resource) {
 // matchURIPattern matches URI patterns like "file://*" against URIs like "file:///path/file.txt"
 func matchURIPattern(pattern, uri string) bool {
 	// Handle simple prefix patterns like "file://*"
-	if before, ok := strings.CutSuffix(pattern, "*"); ok {
-		prefix := before
+	if prefix, ok := strings.CutSuffix(pattern, "*"); ok {
 		return strings.HasPrefix(uri, prefix)
 	}
 
 	// Handle suffix patterns like "*.txt"
-	if after, ok := strings.CutPrefix(pattern, "*"); ok {
-		suffix := after
+	if suffix, ok := strings.CutPrefix(pattern, "*"); ok {
 		return strings.HasSuffix(uri, suffix)
 	}
 
