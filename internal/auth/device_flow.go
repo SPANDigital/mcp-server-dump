@@ -103,7 +103,7 @@ func requestDeviceCode(ctx context.Context, cfg *Config, deviceAuthURL string) (
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: URL comes from user-configured OAuth device authorization endpoint
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +227,7 @@ func attemptTokenExchange(ctx context.Context, cfg *Config, deviceCode string) (
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: URL comes from user-configured OAuth token endpoint
 	if err != nil {
 		return nil, err
 	}

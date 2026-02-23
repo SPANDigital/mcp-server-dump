@@ -198,21 +198,21 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 	}
 
 	// Add content
-	content.WriteString(fmt.Sprintf("# %s\n\n", info.Name))
+	fmt.Fprintf(&content, "# %s\n\n", info.Name)
 	if info.Version != "" {
-		content.WriteString(fmt.Sprintf("**Version:** %s\n\n", info.Version))
+		fmt.Fprintf(&content, "**Version:** %s\n\n", info.Version)
 	}
 
 	// Add capabilities overview
 	content.WriteString("## Capabilities\n\n")
 	if info.Capabilities.Tools {
-		content.WriteString(fmt.Sprintf("- ✅ **Tools:** %d available\n", len(info.Tools)))
+		fmt.Fprintf(&content, "- ✅ **Tools:** %d available\n", len(info.Tools))
 	}
 	if info.Capabilities.Resources {
-		content.WriteString(fmt.Sprintf("- ✅ **Resources:** %d available\n", len(info.Resources)))
+		fmt.Fprintf(&content, "- ✅ **Resources:** %d available\n", len(info.Resources))
 	}
 	if info.Capabilities.Prompts {
-		content.WriteString(fmt.Sprintf("- ✅ **Prompts:** %d available\n", len(info.Prompts)))
+		fmt.Fprintf(&content, "- ✅ **Prompts:** %d available\n", len(info.Prompts))
 	}
 
 	// Add navigation
@@ -337,9 +337,9 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 	}
 
 	// Add content
-	content.WriteString(fmt.Sprintf("# %s\n\n", title))
-	content.WriteString(fmt.Sprintf("%s\n\n", description))
-	content.WriteString(fmt.Sprintf("**Total items:** %d\n\n", itemCount))
+	fmt.Fprintf(&content, "# %s\n\n", title)
+	fmt.Fprintf(&content, "%s\n\n", description)
+	fmt.Fprintf(&content, "**Total items:** %d\n\n", itemCount)
 
 	// Write to file
 	indexPath := filepath.Join(dir, "_index.md")

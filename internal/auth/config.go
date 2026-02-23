@@ -29,7 +29,7 @@ type Config struct {
 	ClientID string
 
 	// ClientSecret is the OAuth client secret (optional, for confidential clients)
-	ClientSecret string
+	ClientSecret string //nolint:gosec // G117: OAuth client secret field, naming required for protocol compatibility
 
 	// Scopes are the OAuth scopes to request (e.g., "mcp:tools", "mcp:resources", "mcp:prompts")
 	Scopes []string
@@ -70,10 +70,10 @@ type TokenCache struct {
 	ResourceURI string `json:"resource_uri"`
 
 	// AccessToken is the OAuth access token
-	AccessToken string `json:"access_token"`
+	AccessToken string `json:"access_token"` //nolint:gosec // G117: OAuth token field, naming required for JSON serialization
 
 	// RefreshToken is the OAuth refresh token (if provided)
-	RefreshToken string `json:"refresh_token,omitempty"`
+	RefreshToken string `json:"refresh_token,omitempty"` //nolint:gosec // G117: OAuth token field, naming required for JSON serialization
 
 	// TokenType is the token type (typically "Bearer")
 	TokenType string `json:"token_type"`
@@ -168,7 +168,7 @@ type ClientRegistration struct {
 	ClientID string `json:"client_id"`
 
 	// ClientSecret is the registered OAuth client secret (if provided)
-	ClientSecret string `json:"client_secret,omitempty"`
+	ClientSecret string `json:"client_secret,omitempty"` //nolint:gosec // G117: OAuth client secret field, naming required for JSON serialization
 
 	// RegistrationAccessToken is the token for managing this registration
 	RegistrationAccessToken string `json:"registration_access_token,omitempty"`
@@ -201,7 +201,7 @@ type ClientRegistrationResponse struct {
 	ClientID string `json:"client_id"`
 
 	// ClientSecret is the client secret (for confidential clients)
-	ClientSecret string `json:"client_secret,omitempty"`
+	ClientSecret string `json:"client_secret,omitempty"` //nolint:gosec // G117: OAuth client secret field, naming required for JSON serialization
 
 	// ClientIDIssuedAt is when the client_id was issued (Unix timestamp)
 	ClientIDIssuedAt int64 `json:"client_id_issued_at,omitempty"`

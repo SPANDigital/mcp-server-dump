@@ -159,8 +159,7 @@ func fetchProtectedResourceMetadata(metadataURL string) (*ProtectedResourceMetad
 		metadataURL = u.String()
 	}
 
-	// #nosec G107 - URL is constructed from server-provided metadata or user input
-	resp, err := http.Get(metadataURL)
+	resp, err := http.Get(metadataURL) //nolint:gosec // G107,G704: URL is constructed from server-provided metadata or user input
 	if err != nil {
 		return nil, err
 	}
@@ -196,8 +195,7 @@ func fetchAuthServerMetadata(issuerURL string) (*AuthServerMetadata, error) {
 	u.Path = strings.TrimSuffix(u.Path, "/") + "/.well-known/oauth-authorization-server"
 	metadataURL := u.String()
 
-	// #nosec G107 - URL is constructed from server-provided metadata or user input
-	resp, err := http.Get(metadataURL)
+	resp, err := http.Get(metadataURL) //nolint:gosec // G107,G704: URL is constructed from server-provided metadata
 	if err != nil {
 		return nil, err
 	}
@@ -412,7 +410,7 @@ func DiscoverAndConfigure(ctx context.Context, endpoint string) (*Config, error)
 		},
 	}
 
-	resp, err := client.Do(req)
+	resp, err := client.Do(req) //nolint:gosec // G704: URL comes from user-provided MCP server endpoint
 	if err != nil {
 		return nil, err
 	}

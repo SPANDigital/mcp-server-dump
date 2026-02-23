@@ -220,7 +220,7 @@ func startCallbackServer(port int) (string, <-chan callbackResult, <-chan error,
 
 			w.WriteHeader(http.StatusBadRequest)
 			// Escape HTML to prevent XSS from malicious error parameters
-			_, _ = fmt.Fprintf(w, "<html><body><h1>Authorization Failed</h1><p>%s</p><p>You can close this window.</p></body></html>", html.EscapeString(msg))
+			_, _ = fmt.Fprintf(w, "<html><body><h1>Authorization Failed</h1><p>%s</p><p>You can close this window.</p></body></html>", html.EscapeString(msg)) //nolint:gosec // G705: output is sanitized via html.EscapeString
 			return
 		}
 
@@ -277,13 +277,12 @@ func openBrowser(urlStr string) error {
 
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", urlStr)
+		cmd = exec.Command("open", urlStr) //nolint:gosec // G204: URL comes from OAuth server metadata, passed as argument to open command
 	case "linux":
 		// Try xdg-open first (standard), fallback to other common browsers
 		for _, browser := range []string{"xdg-open", "x-www-browser", "www-browser", "firefox", "chrome", "chromium"} {
 			if _, err := exec.LookPath(browser); err == nil {
-				// #nosec G204 - browser name is from a hardcoded allowlist
-				cmd = exec.Command(browser, urlStr)
+				cmd = exec.Command(browser, urlStr) //nolint:gosec // G702: browser name is from a hardcoded allowlist, URL from OAuth metadata
 				break
 			}
 		}
@@ -293,8 +292,7 @@ func openBrowser(urlStr string) error {
 	case "windows":
 		// Use 'start' command through cmd.exe with quoted URL
 		// Empty string after "start" prevents issues with URLs starting with quotes
-		// #nosec G204 - URL comes from OAuth server metadata
-		cmd = exec.Command("cmd", "/c", "start", "", urlStr)
+		cmd = exec.Command("cmd", "/c", "start", "", urlStr) //nolint:gosec // G702: URL comes from OAuth server metadata
 	default:
 		return fmt.Errorf("unsupported platform: %s", runtime.GOOS)
 	}
