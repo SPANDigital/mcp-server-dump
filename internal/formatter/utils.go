@@ -2,6 +2,7 @@ package formatter
 
 import (
 	"encoding/json"
+	"maps"
 	"regexp"
 	"strconv"
 	"strings"
@@ -238,9 +239,7 @@ var (
 func buildInitialismsMap(customInitialisms []string) map[string]bool {
 	// Start with built-in initialisms
 	merged := make(map[string]bool, len(commonInitialisms)+len(customInitialisms))
-	for initialism, value := range commonInitialisms {
-		merged[initialism] = value
-	}
+	maps.Copy(merged, commonInitialisms)
 
 	// Add custom initialisms (convert to uppercase for consistency)
 	for _, custom := range customInitialisms {

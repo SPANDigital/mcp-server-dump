@@ -3,6 +3,7 @@ package formatter
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -55,9 +56,7 @@ func GenerateFrontmatter(info *model.ServerInfo, format string, customFields map
 	}
 
 	// Add custom fields (these can override auto-generated ones)
-	for key, value := range customFields {
-		frontmatter[key] = value
-	}
+	maps.Copy(frontmatter, customFields)
 
 	// Format based on requested format
 	switch format {

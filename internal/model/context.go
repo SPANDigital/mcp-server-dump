@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -138,9 +139,7 @@ func (c *ContextConfig) mergeTools(tools map[string]map[string]string) {
 		if c.Contexts.Tools[toolName] == nil {
 			c.Contexts.Tools[toolName] = make(map[string]string)
 		}
-		for key, value := range contexts {
-			c.Contexts.Tools[toolName][key] = value
-		}
+		maps.Copy(c.Contexts.Tools[toolName], contexts)
 	}
 }
 
@@ -150,9 +149,7 @@ func (c *ContextConfig) mergeResources(resources map[string]map[string]string) {
 		if c.Contexts.Resources[resourcePattern] == nil {
 			c.Contexts.Resources[resourcePattern] = make(map[string]string)
 		}
-		for key, value := range contexts {
-			c.Contexts.Resources[resourcePattern][key] = value
-		}
+		maps.Copy(c.Contexts.Resources[resourcePattern], contexts)
 	}
 }
 
@@ -162,9 +159,7 @@ func (c *ContextConfig) mergePrompts(prompts map[string]map[string]string) {
 		if c.Contexts.Prompts[promptName] == nil {
 			c.Contexts.Prompts[promptName] = make(map[string]string)
 		}
-		for key, value := range contexts {
-			c.Contexts.Prompts[promptName][key] = value
-		}
+		maps.Copy(c.Contexts.Prompts[promptName], contexts)
 	}
 }
 
@@ -174,9 +169,7 @@ func (c *ContextConfig) ApplyToTool(tool *Tool) {
 		if tool.Context == nil {
 			tool.Context = make(map[string]string)
 		}
-		for key, value := range contexts {
-			tool.Context[key] = value
-		}
+		maps.Copy(tool.Context, contexts)
 	}
 }
 
@@ -197,9 +190,7 @@ func (c *ContextConfig) ApplyToResource(resource *Resource) {
 			if resource.Context == nil {
 				resource.Context = make(map[string]string)
 			}
-			for key, value := range contexts {
-				resource.Context[key] = value
-			}
+			maps.Copy(resource.Context, contexts)
 			break // Apply first matching pattern only
 		}
 	}
@@ -208,14 +199,14 @@ func (c *ContextConfig) ApplyToResource(resource *Resource) {
 // matchURIPattern matches URI patterns like "file://*" against URIs like "file:///path/file.txt"
 func matchURIPattern(pattern, uri string) bool {
 	// Handle simple prefix patterns like "file://*"
-	if strings.HasSuffix(pattern, "*") {
-		prefix := strings.TrimSuffix(pattern, "*")
+	if before, ok := strings.CutSuffix(pattern, "*"); ok {
+		prefix := before
 		return strings.HasPrefix(uri, prefix)
 	}
 
 	// Handle suffix patterns like "*.txt"
-	if strings.HasPrefix(pattern, "*") {
-		suffix := strings.TrimPrefix(pattern, "*")
+	if after, ok := strings.CutPrefix(pattern, "*"); ok {
+		suffix := after
 		return strings.HasSuffix(uri, suffix)
 	}
 
@@ -229,8 +220,6 @@ func (c *ContextConfig) ApplyToPrompt(prompt *Prompt) {
 		if prompt.Context == nil {
 			prompt.Context = make(map[string]string)
 		}
-		for key, value := range contexts {
-			prompt.Context[key] = value
-		}
+		maps.Copy(prompt.Context, contexts)
 	}
 }

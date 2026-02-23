@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -184,9 +185,7 @@ func generateRootIndex(info *model.ServerInfo, contentDir string, includeFrontma
 	fields["weight"] = 1
 
 	// Add custom fields
-	for k, v := range customFields {
-		fields[k] = v
-	}
+	maps.Copy(fields, customFields)
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
@@ -323,9 +322,7 @@ func generateSectionIndex(dir, title, description string, itemCount int, include
 	fields["menu"] = menu
 
 	// Add custom fields
-	for k, v := range customFields {
-		fields[k] = v
-	}
+	maps.Copy(fields, customFields)
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
@@ -371,9 +368,7 @@ func generateContentFile(dir string, data any, name, itemType string, weight int
 	fields["type"] = itemType
 
 	// Add custom fields
-	for k, v := range customFields {
-		fields[k] = v
-	}
+	maps.Copy(fields, customFields)
 
 	// Add frontmatter if requested
 	if includeFrontmatter {
