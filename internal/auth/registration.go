@@ -59,7 +59,7 @@ func RegisterClient(ctx context.Context, registrationEndpoint, resourceURI strin
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // G704: URL comes from discovered OAuth registration endpoint
 	if err != nil {
 		return nil, fmt.Errorf("registration request failed: %w", err)
 	}

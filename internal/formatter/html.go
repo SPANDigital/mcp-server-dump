@@ -104,7 +104,7 @@ func highlightJSONHTML(jsonStr string) string {
 			result.WriteByte(char)
 			i++
 		case isPunctuation(char):
-			result.WriteString(fmt.Sprintf(`<span class="json-punctuation">%c</span>`, char))
+			fmt.Fprintf(&result, `<span class="json-punctuation">%c</span>`, char)
 			i++
 		case char == '"':
 			i = processQuotedString(jsonStr, i, &result)

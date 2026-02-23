@@ -106,7 +106,7 @@ func SaveToken(token *oauth2.Token, resourceURI string, scopes []string) error {
 	}
 
 	// Write to file with restricted permissions (owner read/write only)
-	if err := os.WriteFile(cachePath, data, 0o600); err != nil {
+	if err := os.WriteFile(cachePath, data, 0o600); err != nil { //nolint:gosec // G703: path is constructed from SHA256 hash of resource URI, not directly from user input
 		return fmt.Errorf("failed to write token cache: %w", err)
 	}
 
