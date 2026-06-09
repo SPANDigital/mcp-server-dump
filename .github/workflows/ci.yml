@@ -20,7 +20,9 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v9
       with:
-        version: latest
+        # Pinned to avoid lint breakage when `latest` advances to a newer
+        # gosec whose findings no longer match our //nolint:gosec directives.
+        version: v2.10.1
 
   test:
     runs-on: ubuntu-latest
