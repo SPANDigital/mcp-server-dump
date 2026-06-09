@@ -36,8 +36,8 @@ go mod download
 
 ### Linting
 ```bash
-# Install golangci-lint v2.4.0 (required for Go 1.26 support)
-go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.4.0
+# Install golangci-lint v2.10.1 (pinned in CI; matches our //nolint:gosec directives)
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1
 
 # Run linter (may need to use $GOPATH/bin/golangci-lint if not in PATH)
 golangci-lint run
