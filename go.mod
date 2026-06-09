@@ -7,7 +7,7 @@ require (
 	github.com/alecthomas/kong v1.15.0
 	github.com/modelcontextprotocol/go-sdk v1.3.1
 	github.com/yuin/goldmark v1.8.2
-	golang.org/x/oauth2 v0.35.0
+	golang.org/x/oauth2 v0.36.0
 	golang.org/x/text v0.35.0
 	gopkg.in/yaml.v2 v2.4.0
 )
