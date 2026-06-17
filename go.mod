@@ -3,7 +3,7 @@ module github.com/spandigital/mcp-server-dump
 go 1.26.0
 
 require (
-	codeberg.org/go-pdf/fpdf v0.11.1
+	codeberg.org/go-pdf/fpdf v0.12.0
 	github.com/alecthomas/kong v1.15.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
 	github.com/yuin/goldmark v1.8.2
