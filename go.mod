@@ -6,7 +6,7 @@ require (
 	codeberg.org/go-pdf/fpdf v0.12.0
 	github.com/alecthomas/kong v1.15.0
 	github.com/modelcontextprotocol/go-sdk v1.6.1
-	github.com/yuin/goldmark v1.8.2
+	github.com/yuin/goldmark v1.8.4
 	golang.org/x/oauth2 v0.36.0
 	golang.org/x/text v0.38.0
 	gopkg.in/yaml.v2 v2.4.0
